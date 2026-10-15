@@ -65,6 +65,23 @@ npm test                         # 13 tests; el CI los corre en Linux y Windows
 bash demo.sh                     # demo completa sobre examples/tienda-demo
 ```
 
+#### Sacar una versión
+
+Las versiones se publican solas desde GitHub Actions ([`release.yml`](.github/workflows/release.yml)) con [trusted publishing](https://docs.npmjs.com/trusted-publishers): npm confía en este repo y en ese workflow, sin tokens ni 2FA a mano. Desde `main` actualizado:
+
+```bash
+npm version 0.1.2 --no-git-tag-version            # cambia package.json y package-lock.json
+git commit -am "Parche 0.1.2"
+git tag -a v0.1.2 -m "Parche 0.1.2: qué cambió"   # el mensaje del tag es el texto del GitHub Release
+git push origin main v0.1.2
+```
+
+Con el tag, el workflow corre los tests, controla que la versión de `package.json` coincida con el tag y que el commit esté en `main`, publica `parche-cli` en npm (con provenance), mueve `v0` a esta versión (es la que usan los workflows con `Pepo08/parche@v0`) y crea el GitHub Release. Para notas largas, `git tag -a v0.1.2 -F notas.md`.
+
+- Solo dispara con versiones estables (`vX.Y.Z`); un tag como `v0.2.0-beta.1` no hace nada.
+- Si falla un paso después de publicar, "Re-run failed jobs" retoma: lo que ya está hecho se saltea.
+- Requiere, una sola vez, el Trusted Publisher en npmjs.com: `parche-cli` → Settings → Trusted publishing → GitHub Actions, con `Pepo08` / `parche` / `release.yml` y permiso para `npm publish`.
+
 ## Estados de cada hallazgo
 
 | Estado | Qué significa |
