@@ -1,0 +1,27 @@
+# Copiá este archivo a .github/workflows/parche.yml en tu repo.
+# Cada lunes Parche revisa tu código contra la base de cambios de APIs
+# y abre un PR por cada cambio que te afecta (en borrador si hay algo para revisar).
+name: Parche
+
+on:
+  schedule:
+    - cron: "17 11 * * 1" # lunes 8:17 (hora de Argentina)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  parche:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Instalar dependencias del proyecto (para correr sus tests antes de cada PR)
+        run: npm ci
+      - uses: Pepo08/parche@v0

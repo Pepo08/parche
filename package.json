@@ -1,0 +1,45 @@
+{
+  "name": "parche",
+  "version": "0.1.0",
+  "description": "Dependabot para APIs: detecta cambios de APIs de terceros en tu código y abre el PR con el arreglo.",
+  "keywords": [
+    "api",
+    "migration",
+    "codemod",
+    "dependabot",
+    "arca",
+    "afip",
+    "wsfe",
+    "mercadopago",
+    "github-action"
+  ],
+  "homepage": "https://github.com/Pepo08/parche#readme",
+  "bugs": "https://github.com/Pepo08/parche/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pepo08/parche.git"
+  },
+  "author": "Joaquín González",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "parche": "bin/parche.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "packs",
+    "templates"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "demo": "bash demo.sh"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@babel/parser": "^7.28.0",
+    "jscodeshift": "^17.3.0"
+  }
+}

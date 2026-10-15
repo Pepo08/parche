@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests · ${{ matrix.os }} · Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows es obligatorio: recast usa os.EOL y ahí aparecieron bugs que en Linux no se ven.
+        os: [ubuntu-latest, windows-latest]
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Demo de punta a punta
+        shell: bash
+        run: bash demo.sh
+
+  action:
+    name: Action · ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Repo de prueba (copia de examples/tienda-demo)
+        shell: bash
+        run: |
+          cp -r examples/tienda-demo "$RUNNER_TEMP/tienda-demo"
+          cd "$RUNNER_TEMP/tienda-demo"
+          git init -q -b main
+          git -c user.name=ci -c user.email=ci@example.com add -A
+          git -c user.name=ci -c user.email=ci@example.com commit -q -m "Tienda Demo"
+      - name: Parche (la Action de este repo, en modo prueba)
+        uses: ./
+        with:
+          path: ${{ runner.temp }}/tienda-demo
+          dry-run: 'true'
+      - name: Quedaron armadas las ramas de ARCA y Mercado Pago
+        shell: bash
+        working-directory: ${{ runner.temp }}/tienda-demo
+        run: |
+          git branch --list 'parche/*'
+          test "$(git branch --list 'parche/*' | wc -l)" -eq 2
+          git diff --stat main..parche/arca.wsfe.condicion-iva-receptor | grep -q 'src/facturacion.js | 4 ++++'
+
+  package:
+    name: Paquete npm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Contenido del paquete
+        run: npm pack --dry-run

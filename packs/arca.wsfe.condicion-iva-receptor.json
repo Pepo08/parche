@@ -1,0 +1,49 @@
+{
+  "id": "arca.wsfe.condicion-iva-receptor",
+  "version": "2026.10.15",
+  "provider": "ARCA (ex AFIP)",
+  "title": "Condición frente al IVA del receptor obligatoria en WSFEv1",
+  "kind": "breaking",
+  "severity": "critical",
+  "deadline": "2026-12-01",
+  "last_verified": "2026-10-15",
+  "summary_es": "Desde el 1/12/2026 ARCA rechaza automáticamente las solicitudes de CAE que no informen CondicionIVAReceptorId.",
+  "why_es": "La RG 5616/2024 hizo obligatorio informar la condición frente al IVA del receptor en cada comprobante electrónico. El manual del desarrollador de WSFEv1 (v4.8) fija el 1 de diciembre de 2026 como fecha desde la cual el campo es obligatorio: si viaja vacío, nulo o no viaja, el pedido de CAE se rechaza y no se puede facturar.",
+  "sources": [
+    { "title": "VATupdate: Argentina makes recipient VAT status mandatory (WSFEv1 v4.8)", "url": "https://www.vatupdate.com/2026/09/09/argentina-makes-recipient-vat-status-mandatory-in-electronic-invoices/" },
+    { "title": "iProfesional: ARCA rechazará facturas sin la condición del cliente frente al IVA", "url": "https://www.iprofesional.com/impuestos/464104-nuevo-requisito-arca-puede-trabar-emision-facturas" },
+    { "title": "Tabla de códigos de FEParamGetCondicionIvaReceptor", "url": "https://app.spomsolutions.com/blog/condicion-iva-receptor-rg-5616" }
+  ],
+  "detect": {
+    "packages": ["@afipsdk/afip.js", "afip.js"],
+    "calls": ["ElectronicBilling.createVoucher", "ElectronicBilling.createNextVoucher"],
+    "raw_markers": ["FECAESolicitar", "FECAEDetRequest"],
+    "field": "CondicionIVAReceptorId"
+  },
+  "codes": {
+    "1": "IVA Responsable Inscripto",
+    "4": "IVA Sujeto Exento",
+    "5": "Consumidor Final",
+    "6": "Responsable Monotributo",
+    "7": "Sujeto No Categorizado",
+    "8": "Proveedor del Exterior",
+    "9": "Cliente del Exterior",
+    "10": "IVA Liberado – Ley N° 19.640",
+    "13": "Monotributista Social",
+    "15": "IVA No Alcanzado",
+    "16": "Monotributo Trabajador Independiente Promovido"
+  },
+  "codes_by_class": {
+    "A": [1, 6, 13, 16],
+    "B": [4, 5, 7, 8, 9, 10, 15],
+    "C": [1, 4, 5, 6, 7, 8, 9, 10, 13, 15, 16]
+  },
+  "codes_note_es": "Validá los códigos contra FEParamGetCondicionIvaReceptor en homologación antes de pasar a producción.",
+  "codemod": "arca-wsfe-condicion-iva",
+  "review_checklist_es": [
+    "Probar la emisión en homologación (wsfehomo) con cada tipo de comprobante que emitís.",
+    "Confirmar que cada cliente con CUIT tiene guardada su condición frente al IVA y que se envía en cada CAE.",
+    "Pedir la condición frente al IVA en el alta de clientes nuevos.",
+    "Validar los códigos con FEParamGetCondicionIvaReceptor (la tabla puede cambiar)."
+  ]
+}

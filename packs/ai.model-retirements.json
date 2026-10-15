@@ -1,0 +1,44 @@
+{
+  "id": "ai.model-retirements",
+  "version": "2026.10.15",
+  "provider": "Modelos de IA",
+  "title": "Modelos y endpoints de IA retirados o por retirarse",
+  "kind": "retirement",
+  "severity": "high",
+  "deadline": null,
+  "last_verified": "2026-10-15",
+  "summary_es": "Tu código usa modelos o APIs de IA que ya no responden o tienen fecha de retiro.",
+  "why_es": "Los proveedores de modelos retiran IDs de modelo y endpoints con algunas semanas o meses de aviso. Después de la fecha, las llamadas fallan. Parche no reemplaza el modelo automáticamente porque cambiar de modelo cambia el comportamiento: te avisa y te dice a qué migrar.",
+  "sources": [
+    { "title": "Anthropic: Model deprecations", "url": "https://platform.claude.com/docs/en/about-claude/model-deprecations" },
+    { "title": "OpenAI Assistants API: cierre el 26/08/2026", "url": "https://dev.to/mr_manushukla/openai-assistants-api-shuts-down-26-august-2026-a-3-week-migration-sprint-plan-596b" }
+  ],
+  "detect": {
+    "packages": ["@anthropic-ai/sdk", "openai"],
+    "retired_models": {
+      "claude-3-opus-20240229": "2026-01-05",
+      "claude-3-7-sonnet-20250219": "2026-02-19",
+      "claude-3-5-haiku-20241022": "2026-02-19",
+      "claude-3-haiku-20240307": "2026-04-20",
+      "claude-sonnet-4-20250514": "2026-06-15",
+      "claude-opus-4-20250514": "2026-06-15",
+      "claude-opus-4-1-20250805": "2026-08-05"
+    },
+    "retirement_floors": {
+      "claude-sonnet-4-5-20250929": "2026-09-29",
+      "claude-haiku-4-5-20251001": "2026-10-15",
+      "claude-opus-4-5-20251101": "2026-11-24"
+    },
+    "retired_endpoints": [
+      { "pattern": ".beta.assistants", "retired": "2026-08-26", "replacement_es": "Responses API + Conversations API" },
+      { "pattern": ".beta.threads", "retired": "2026-08-26", "replacement_es": "Responses API + Conversations API" },
+      { "pattern": "/v1/assistants", "retired": "2026-08-26", "replacement_es": "Responses API + Conversations API" }
+    ]
+  },
+  "codemod": null,
+  "review_checklist_es": [
+    "Elegir el modelo de reemplazo según la página de deprecaciones del proveedor.",
+    "Correr tus evals o pruebas de regresión de prompts antes de cambiar de modelo.",
+    "Revisar parámetros que cambian entre generaciones de modelos."
+  ]
+}

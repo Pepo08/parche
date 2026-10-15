@@ -1,0 +1,3 @@
+# Todo en LF, también en Windows: los fixtures de examples/ tienen que ser idénticos en todas las
+# plataformas (los tests de CRLF los generan a propósito). Sin esto, el runner de Windows los baja con CRLF.
+* text=auto eol=lf

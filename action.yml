@@ -1,0 +1,44 @@
+name: Parche — Dependabot para APIs
+description: Detecta cambios de APIs de terceros (ARCA, Mercado Pago, modelos de IA) que afectan tu código y abre un PR con el arreglo.
+author: Joaquín González
+branding:
+  icon: tool
+  color: blue
+
+inputs:
+  path:
+    description: Carpeta del repo a revisar.
+    default: .
+  pack:
+    description: ID de un solo pack (vacío = todos). Ver `parche packs`.
+    default: ''
+  verify:
+    description: Correr el `npm test` del repo antes de abrir cada PR ('true' o 'false').
+    default: 'true'
+  dry-run:
+    description: Armar las ramas y los cuerpos de los PRs sin abrirlos ('true' o 'false').
+    default: 'false'
+  token:
+    description: Token con permiso para pushear ramas y abrir PRs.
+    default: ${{ github.token }}
+
+runs:
+  using: composite
+  steps:
+    - name: Instalar Parche
+      shell: bash
+      run: npm ci --omit=dev --no-audit --no-fund --prefix "$GITHUB_ACTION_PATH"
+    - name: Parche
+      shell: bash
+      working-directory: ${{ inputs.path }}
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        PARCHE_PACK: ${{ inputs.pack }}
+        PARCHE_VERIFY: ${{ inputs.verify }}
+        PARCHE_DRY_RUN: ${{ inputs.dry-run }}
+      run: |
+        args=(pr .)
+        if [ -n "$PARCHE_PACK" ]; then args+=(--pack "$PARCHE_PACK"); fi
+        if [ "$PARCHE_VERIFY" = "true" ]; then args+=(--verify); fi
+        if [ "$PARCHE_DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+        node "$GITHUB_ACTION_PATH/bin/parche.js" "${args[@]}"
