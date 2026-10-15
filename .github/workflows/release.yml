@@ -1,0 +1,86 @@
+name: Release
+
+# Al pushear un tag vX.Y.Z: tests, publicar parche-cli en npm con trusted publishing (OIDC: sin
+# tokens ni 2FA a mano), mover v0 a esa versión y crear el GitHub Release.
+# Solo versiones estables: una prerelease (v0.2.0-beta.1) no puede pasar a "latest" ni mover v0.
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # para comparar contra main
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: La versión de package.json coincide con el tag
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::El tag es $GITHUB_REF_NAME pero package.json dice $version."
+            exit 1
+          fi
+      - name: El tag apunta a un commit de main
+        run: |
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::$GITHUB_REF_NAME no está en main: solo se publica lo que ya pasó por main."
+            exit 1
+          fi
+      - run: npm ci
+      - run: npm test
+
+  publish:
+    name: npm, v0 y GitHub Release
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # mover v0 y crear el release
+      id-token: write # trusted publishing: npm comprueba por OIDC que el paquete sale de este workflow
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24 # trae npm 11.5.1 o más nuevo, lo mínimo para trusted publishing
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      # Sin npm ci: publicar no necesita node_modules, y así ningún script de una dependencia corre
+      # en el job que puede pedir el token OIDC.
+      - name: Publicar en npm
+        run: |
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          if curl -sfo /dev/null "https://registry.npmjs.org/$name/$version"; then
+            echo "$name@$version ya está en npm (re-ejecución): sigo con el resto."
+          else
+            npm publish --access public
+          fi
+      - name: Mover v0 a esta versión
+        run: |
+          major="${GITHUB_REF_NAME%%.*}" # v0.1.2 -> v0
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            tag -fa "$major" -m "Parche $major (apunta a la última ${major#v}.x)" HEAD
+          git push --force origin "refs/tags/$major"
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            echo "El release $GITHUB_REF_NAME ya existe."
+            exit 0
+          fi
+          # Las notas son el mensaje del tag anotado; checkout lo baja como tag liviano, sin mensaje.
+          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          gh release create "$GITHUB_REF_NAME" --verify-tag --notes-from-tag --title "Parche ${GITHUB_REF_NAME#v}"
