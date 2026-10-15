@@ -1,6 +1,6 @@
 {
-  "name": "parche",
-  "version": "0.1.0",
+  "name": "parche-cli",
+  "version": "0.1.1",
   "description": "Dependabot para APIs: detecta cambios de APIs de terceros en tu código y abre el PR con el arreglo.",
   "keywords": [
     "api",

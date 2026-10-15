@@ -31,14 +31,14 @@ Ya hay varios prototipos que le piden a un modelo que lea un changelog y escriba
 
 ## Uso
 
-Requiere Node 22 o más nuevo.
+Requiere Node 22 o más nuevo. El paquete de npm se llama `parche-cli`; si lo instalás (`npm i -g parche-cli`), el comando es `parche`.
 
 ```bash
-npx parche packs                 # cambios que Parche conoce
-npx parche scan .                # inventario + qué te afecta (.parche/report.md)
-npx parche fix .                 # aplica los arreglos en tu working copy
-npx parche pr . --verify         # una rama + commit + PR por cambio
-npx parche feedback . --pack <id> --outcome merged|edited|rejected
+npx parche-cli packs                 # cambios que Parche conoce
+npx parche-cli scan .                # inventario + qué te afecta (.parche/report.md)
+npx parche-cli fix .                 # aplica los arreglos en tu working copy
+npx parche-cli pr . --verify         # una rama + commit + PR por cambio
+npx parche-cli feedback . --pack <id> --outcome merged|edited|rejected
 ```
 
 `parche pr` abre el PR por la API de GitHub si hay `GITHUB_TOKEN` y un remote `origin` en github.com; si no (o con `--dry-run`), deja la rama, el commit y el cuerpo del PR en `.parche/pr-<pack>.md`. Si hay ítems para revisar, el PR se abre como borrador.
@@ -92,5 +92,5 @@ Antes de commitear, `--verify` parsea cada archivo modificado (JS/TS) y corre el
 - Solo Node.js (JS/TS, ESM y CommonJS). Siguen PHP (la mayoría de los sistemas de facturación locales), Python y Java.
 - ARCA: cubre `@afipsdk/afip.js`. Las integraciones SOAP propias se detectan pero no se reescriben.
 - Mercado Pago: migra la creación de pagos con el SDK v2. Las consultas, capturas y reembolsos de pagos existentes se dejan a propósito en Payments API, como indica la guía oficial.
-- Se distribuye como CLI (`npx parche`) + GitHub Action (`Pepo08/parche@v0`). La GitHub App (instalación en un click, PRs automáticos al publicarse un pack nuevo) es el próximo paso.
+- Se distribuye como CLI (`npx parche-cli`) + GitHub Action (`Pepo08/parche@v0`). La GitHub App (instalación en un click, PRs automáticos al publicarse un pack nuevo) es el próximo paso.
 - La capa de LLM (redactar packs desde changelogs y resolver casos "falta un dato" leyendo el modelo de datos del cliente) todavía no está incluida; cuando entre, va a pasar por la misma verificación.
