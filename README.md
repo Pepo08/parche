@@ -61,8 +61,9 @@ El workflow necesita `permissions: contents: write` y `pull-requests: write`.
 
 ```bash
 npm install
-npm test                         # 13 tests; el CI los corre en Linux y Windows
-bash demo.sh                     # demo completa sobre examples/tienda-demo
+npm test                         # el CI los corre en Linux y Windows
+bash demo.sh                     # demo completa sobre examples/tienda-demo (JS)
+node bin/parche.js scan examples/tienda-php   # ejemplo PHP con afip.php
 ```
 
 #### Sacar una versión
@@ -96,18 +97,32 @@ Con el tag, el workflow corre los tests, controla que la versión de `package.js
 
 | Pack | Proveedor | Tipo | Fecha límite | Arreglo |
 |---|---|---|---|---|
-| `arca.wsfe.condicion-iva-receptor` | ARCA | rompe | 2026-12-01 | sí (consumidor final y DNI B/C) |
+| `arca.wsfe.condicion-iva-receptor` | ARCA | rompe | 2026-12-01 | sí, en JS (`afip.js`) y PHP (`afipsdk/afip.php` y forks): consumidor final y DNI B/C |
 | `mercadopago.payments-to-orders` | Mercado Pago | migración | — | sí (creación de pagos en SDK Node v2) |
 | `ai.model-retirements` | Anthropic, OpenAI | retiro | varias | solo detección |
 
 ## Verificación
 
-Antes de commitear, `--verify` parsea cada archivo modificado (JS/TS) y corre el `npm test` del repo. Si algo falla, no hay PR. El commit lleva la versión del pack que lo generó, para poder rastrear qué regla produjo cada cambio.
+Antes de commitear, `--verify` parsea cada archivo modificado (JS/TS o PHP) y corre los tests del repo que correspondan a lo que cambió: `npm test` para JS/TS; para PHP, `composer test` o `vendor/bin/phpunit`. Si no hay tests, queda el chequeo de sintaxis y el PR lo dice. Si algo falla, no hay PR. El commit lleva la versión del pack que lo generó, para poder rastrear qué regla produjo cada cambio.
+
+## ARCA en PHP
+
+Para `afipsdk/afip.php` y sus forks (`fertandil87/afip.php`, `ivanalemunioz/afip.php`, `eesnaola/afip.php`), Parche busca `$afip->ElectronicBilling->CreateVoucher($data)` y `CreateNextVoucher($data)` (también en minúsculas: PHP no distingue) y agrega una línea por factura:
+
+```php
+            'DocNro'     => 0,
+            // parche: 5 = Consumidor Final (DocTipo 99, sin identificar)
+            'CondicionIVAReceptorId' => 5,
+```
+
+- Lee el array cuando está en la llamada (`array(...)` o `[...]`) o en una variable definida una sola vez, antes de la llamada y en la misma función. Si los datos llegan de otro lado, se reasignan o se completan en varios pasos (`$data['DocTipo'] = ...`), lo reporta como "falta un dato" y no toca nada.
+- Copia el estilo del array: comillas de las claves, indentación (espacios o tabs), alineación de los `=>`, coma final y fin de línea (LF o CRLF).
+- Saltea `vendor/`.
 
 ## Límites del MVP
 
-- Solo Node.js (JS/TS, ESM y CommonJS). Siguen PHP (la mayoría de los sistemas de facturación locales), Python y Java.
-- ARCA: cubre `@afipsdk/afip.js`. Las integraciones SOAP propias se detectan pero no se reescriben.
+- JS/TS (ESM y CommonJS) y, para ARCA, PHP. Siguen Python y Java.
+- ARCA: cubre `@afipsdk/afip.js` y `afipsdk/afip.php` (con sus forks). Las integraciones SOAP propias (en cualquier lenguaje) se detectan pero no se reescriben.
 - Mercado Pago: migra la creación de pagos con el SDK v2. Las consultas, capturas y reembolsos de pagos existentes se dejan a propósito en Payments API, como indica la guía oficial.
 - Se distribuye como CLI (`npx parche-cli`) + GitHub Action (`Pepo08/parche@v0`). La GitHub App (instalación en un click, PRs automáticos al publicarse un pack nuevo) es el próximo paso.
 - La capa de LLM (redactar packs desde changelogs y resolver casos "falta un dato" leyendo el modelo de datos del cliente) todavía no está incluida; cuando entre, va a pasar por la misma verificación.

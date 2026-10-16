@@ -1,22 +1,12 @@
-// Pack arca.wsfe.condicion-iva-receptor
+// Pack arca.wsfe.condicion-iva-receptor (JavaScript/TypeScript, afip.js)
 // Agrega CondicionIVAReceptorId a cada pedido de CAE hecho con afip.js cuando se puede inferir
 // sin datos del negocio, y marca el resto para que una persona complete el dato.
 import {
-  jFor, detectQuote, eolOf, offsetAt, getProp, hasSpread, isQuotedKey, isPlainProp, literalValue, resolveBinding, finding,
+  jFor, detectQuote, eolOf, offsetAt, applyEdits, getProp, hasSpread, isQuotedKey, isPlainProp, literalValue, resolveBinding, finding,
 } from '../ast.js';
+import { PACK, decideCondition, validCodesText, missingMessage, appliedMessage, soapDetection } from './arca-rules.js';
 
-const PACK = 'arca.wsfe.condicion-iva-receptor';
 const VOUCHER_METHODS = new Set(['createVoucher', 'createNextVoucher']);
-const CLASS = {
-  A: new Set([1, 2, 3, 201, 202, 203]),
-  B: new Set([6, 7, 8, 206, 207, 208]),
-  C: new Set([11, 12, 13, 211, 212, 213]),
-};
-
-function classOf(cbteTipo) {
-  for (const [k, set] of Object.entries(CLASS)) if (set.has(cbteTipo)) return k;
-  return null;
-}
 
 function isVoucherCall(callee) {
   return (
@@ -31,17 +21,10 @@ function isVoucherCall(callee) {
 }
 
 export function decide(obj, pack) {
-  const docTipo = literalValue(getProp(obj, 'DocTipo')?.value);
-  const cbteTipo = literalValue(getProp(obj, 'CbteTipo')?.value);
-  const clase = typeof cbteTipo === 'number' ? classOf(cbteTipo) : null;
-  if (docTipo === 99) {
-    return { status: 'auto', code: 5, comment: ' parche: 5 = Consumidor Final (DocTipo 99, sin identificar)' };
-  }
-  if (docTipo === 96 && (clase === 'B' || clase === 'C')) {
-    return { status: 'needs-review', code: 5, comment: ' parche: inferido Consumidor Final (DNI + comprobante ' + clase + ') — REVISAR' };
-  }
-  const valid = clase ? pack.codes_by_class[clase] : null;
-  return { status: 'needs-input', clase, valid };
+  return decideCondition({
+    docTipo: literalValue(getProp(obj, 'DocTipo')?.value),
+    cbteTipo: literalValue(getProp(obj, 'CbteTipo')?.value),
+  }, pack);
 }
 
 export default function transform({ source, file, pack }) {
@@ -76,11 +59,8 @@ export default function transform({ source, file, pack }) {
 
     const d = decide(obj, pack);
     if (d.status === 'needs-input') {
-      const lista = (d.valid || Object.keys(pack.codes).map(Number))
-        .map((c) => `${c} (${pack.codes[String(c)]})`).join(', ');
-      findings.push(finding(PACK, file, call, 'needs-input',
-        `Falta CondicionIVAReceptorId y no se puede inferir sin saber la condición frente al IVA del cliente${d.clase ? ` (comprobante clase ${d.clase})` : ''}.`,
-        { suggestion: `'CondicionIVAReceptorId': <condición del cliente>,  // valores válidos: ${lista}` }));
+      findings.push(finding(PACK, file, call, 'needs-input', missingMessage(d),
+        { suggestion: `'CondicionIVAReceptorId': <condición del cliente>,  // valores válidos: ${validCodesText(d, pack)}` }));
       return;
     }
 
@@ -89,28 +69,22 @@ export default function transform({ source, file, pack }) {
     const q = detectQuote(source) === 'double' ? '"' : "'";
     const keyText = quoted ? `${q}CondicionIVAReceptorId${q}` : 'CondicionIVAReceptorId';
     const anchor = getProp(obj, 'DocNro') || props[props.length - 1];
-    edits.push(...insertAfterProp(source, anchor, `${keyText}: ${d.code}`, d.comment));
+    const isLast = anchor === obj.properties[obj.properties.length - 1];
+    edits.push(...insertAfterProp(source, anchor, `${keyText}: ${d.code}`, d.comment, { isLast }));
     changed = true;
-    findings.push(finding(PACK, file, call, d.status,
-      d.status === 'auto'
-        ? 'Agregado CondicionIVAReceptorId: 5 (Consumidor Final): el comprobante va a un consumidor sin identificar.'
-        : 'Agregado CondicionIVAReceptorId: 5 por inferencia (DNI + comprobante B/C). Confirmá que el cliente no sea exento ni no alcanzado.'));
+    findings.push(finding(PACK, file, call, d.status, appliedMessage(d.status)));
   });
 
-  // Integraciones SOAP propias: solo detección.
-  if (/FECAESolicitar|FECAEDetRequest/.test(source) && !/CondicionIVAReceptorId/.test(source)) {
-    const line = source.split('\n').findIndex((l) => /FECAESolicitar|FECAEDetRequest/.test(l)) + 1;
-    findings.push({ pack: PACK, file, line, status: 'needs-input',
-      message: 'Integración SOAP propia con WSFEv1 sin CondicionIVAReceptorId en el FECAEDetRequest. Hay que agregarlo al XML.' });
-    usages.push({ provider: 'arca', op: 'WSFEv1 SOAP', line });
-  }
+  const soap = soapDetection(source, file);
+  if (soap) { findings.push(soap.finding); usages.push(soap.usage); }
 
   return { output: changed ? applyEdits(source, edits) : null, findings, usages };
 }
 
 // Inserta una propiedad nueva después de `prop` tocando solo el texto necesario,
 // para que el diff del PR sea de una línea y respete el formato del cliente.
-export function insertAfterProp(source, prop, text, comment) {
+// Si `prop` es la última y no tenía coma final, la nueva tampoco la lleva.
+export function insertAfterProp(source, prop, text, comment, { isLast = false } = {}) {
   const eol = eolOf(source);
   const end = offsetAt(source, prop.loc.end);
   let k = end;
@@ -121,18 +95,11 @@ export function insertAfterProp(source, prop, text, comment) {
   if (nl !== -1 && rest.trim() === '') {
     const lineStart = offsetAt(source, { line: prop.loc.start.line, column: 0 });
     const indent = source.slice(lineStart).match(/^[ \t]*/)[0];
-    const out = [{ offset: nl + 1, text: `${indent}//${comment}${eol}${indent}${text},${eol}` }];
+    const trailing = hasComma || !isLast ? ',' : '';
+    const out = [{ offset: nl + 1, text: `${indent}//${comment}${eol}${indent}${text}${trailing}${eol}` }];
     if (!hasComma) out.push({ offset: end, text: ',' });
     return out;
   }
   // Objeto en una sola línea.
   return [{ offset: hasComma ? k + 1 : end, text: `${hasComma ? '' : ','} ${text} /*${comment} */${hasComma ? ',' : ''}` }];
-}
-
-function applyEdits(source, edits) {
-  let out = source;
-  for (const e of [...edits].sort((a, b) => b.offset - a.offset)) {
-    out = out.slice(0, e.offset) + e.text + out.slice(e.offset);
-  }
-  return out;
 }

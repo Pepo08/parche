@@ -78,7 +78,12 @@ export function prBody({ pack, findings, changed, verification }, today = new Da
   out.push('', '### Verificación', '');
   if (verification) {
     out.push(`- Sintaxis de los archivos modificados: ${verification.parse.ok ? '✅ OK' : '❌ ' + verification.parse.errors.join('; ')}`);
-    if (verification.tests) out.push(`- Tests del repo (\`npm test\`): ${verification.tests.ok ? '✅ pasan' : verification.tests.skipped ? '— no hay script de test' : '❌ fallan'}`);
+    const t = verification.tests;
+    if (t) {
+      out.push(t.skipped
+        ? '- Tests del repo: — no hay tests para correr; se validó la sintaxis de los archivos modificados.'
+        : `- Tests del repo (${t.commands.map((c) => `\`${c}\``).join(' y ')}): ${t.ok ? '✅ pasan' : '❌ fallan'}`);
+    }
   } else {
     out.push('- Sin verificar (corré `parche pr --verify`).');
   }

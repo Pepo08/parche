@@ -3,8 +3,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { loadPacks, transformFor } from './packs.js';
 
-const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', '.next', '.parche']);
-const EXT = /\.(m?js|cjs|jsx|ts|tsx)$/;
+// vendor/ es donde composer instala las dependencias de PHP (incluida la propia librería de ARCA).
+const SKIP_DIRS = new Set(['node_modules', 'vendor', '.git', 'dist', 'build', 'coverage', '.next', '.parche']);
+const EXT = /\.(m?js|cjs|jsx|ts|tsx|php)$/;
 
 export function listFiles(dir) {
   const out = [];
@@ -25,11 +26,23 @@ export function listFiles(dir) {
 // Rutas siempre con "/": van al reporte, al cuerpo del PR y al inventario.
 const toPosix = (p) => p.split(path.sep).join('/');
 
+// Dependencias declaradas en package.json (npm) y composer.json (PHP).
 function readDeps(dir) {
-  const pkgPath = path.join(dir, 'package.json');
-  if (!fs.existsSync(pkgPath)) return {};
-  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-  return { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
+  const read = (name) => {
+    const p = path.join(dir, name);
+    if (!fs.existsSync(p)) return {};
+    try {
+      return JSON.parse(fs.readFileSync(p, 'utf8'));
+    } catch {
+      return {};
+    }
+  };
+  const pkg = read('package.json');
+  const composer = read('composer.json');
+  return {
+    ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}),
+    ...(composer.require || {}), ...(composer['require-dev'] || {}),
+  };
 }
 
 export function run(dir, { write = false, packIds = null, today } = {}) {
@@ -45,7 +58,7 @@ export function run(dir, { write = false, packIds = null, today } = {}) {
     const rel = toPosix(path.relative(root, abs));
     let source = fs.readFileSync(abs, 'utf8');
     for (const pack of packs) {
-      const t = transformFor(pack.id);
+      const t = transformFor(pack.id, rel);
       if (!t) continue;
       let res;
       try {
