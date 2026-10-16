@@ -14,7 +14,10 @@ parche scan|fix|pr <repo>
         ▼
 bin/parche.js ──► engine.run(repo)
                     │  listFiles: todos los .js/.ts/.php, salteando node_modules, vendor, .git…
-                    │  readDeps: package.json + composer.json
+                    │  readManifests: package.json + composer.json + requirements.txt
+                    │
+                    ├─ por cada archivo JS/TS: scanJs(original) → SDKs y operaciones, HTTP, modelos de IA
+                    │     (inventario de CUALQUIER API, nivel 1; se hace antes de que un pack lo modifique)
                     │
                     ├─ por cada archivo, por cada pack:
                     │     transformFor(pack, archivo)  ← elige la versión JS o PHP del pack
@@ -23,7 +26,7 @@ bin/parche.js ──► engine.run(repo)
                     │        findings: hallazgos con estado (auto, needs-review, needs-input, blocked, detect-only)
                     │        usages:   qué API se usa y dónde (el inventario)
                     │
-                    └─► { inventory, findings, changed }
+                    └─► buildInventory(...) → { inventory, findings, changed }
         │
         ├─ scan: escribe .parche/inventory.json y .parche/report.md
         ├─ fix:  escribe los archivos arreglados
@@ -54,8 +57,21 @@ bin/parche.js ──► engine.run(repo)
 
 ### `src/engine.js`: el motor
 - `listFiles()`: recorre el repo. Saltea `node_modules`, `vendor`, `.git`, `dist`, `build`, `coverage`, `.next` y `.parche`. *Por qué:* las dependencias instaladas no son código del cliente (en `vendor/` está la propia librería de ARCA). Ordena por la ruta con `/` para que el orden sea el mismo en Windows y Linux.
-- `readDeps()`: dependencias de `package.json` y `composer.json`, para el inventario.
-- `run()`: corre los packs archivo por archivo. **Encadena** las salidas: si dos packs tocan el mismo archivo, el segundo recibe lo que dejó el primero. Si un pack revienta en un archivo, eso se convierte en un hallazgo `needs-input` y el scan sigue. Las rutas siempre van con `/`.
+- Las dependencias se leen con `readManifests()` (de `src/inventory/index.js`): `package.json`, `composer.json` y `requirements.txt`.
+- `run()`: arma el inventario de cada archivo JS/TS (sobre el original) y corre los packs archivo por archivo. **Encadena** las salidas: si dos packs tocan el mismo archivo, el segundo recibe lo que dejó el primero. Si un pack revienta en un archivo, eso se convierte en un hallazgo `needs-input` y el scan sigue. Las rutas siempre van con `/`.
+
+### `src/inventory/`: inventario de cualquier API (nivel 1)
+El esquema del resultado y sus límites están en [`docs/inventario.md`](inventario.md).
+- `known.js`: `classifyPackage(ecosistema, nombre)` dice si un paquete es el SDK de una API (con proveedor, rubro y confianza), un cliente HTTP o ninguna de las dos cosas, según `data/known-sdks.json` y una heurística sobre el nombre (`api`, `sdk`, `client`). También tiene `packageOf()` (`'openai/resources'` → `openai`), `providerForHost()` (por sufijo) e `isInternalHost()`.
+- `js-scan.js`: `scanJs(source, archivo)` lee un archivo JS/TS con `@babel/parser` y devuelve:
+  - `sdk`: operaciones de SDKs. Sigue imports, `require`, `require('x')(...)`, instancias (`new Stripe(key)`, `twilio(sid, token)`, `new Payment(client)`) y arma la cadena de miembros (`stripe.paymentIntents.create`);
+  - `http`: método, host y ruta de `fetch`, `axios` (incluido `axios.create({ baseURL })`), `got`, `undici` y `node-fetch`, resolviendo literales, plantillas y constantes del archivo;
+  - `unresolved`: llamadas HTTP cuya URL llega de afuera;
+  - `models`: IDs de modelos de IA en strings.
+- `index.js`: `readManifests()` (npm, composer, pypi), `parseRequirements()`, `buildInventory()` (junta todo, agrupa operaciones con conteo y ubicaciones, ajusta la confianza) y `apiLabel()`.
+
+### `data/known-sdks.json`: la lista curada
+Paquete → proveedor y rubro (npm, composer, pypi), prefijos de familias (`@aws-sdk/client-`), clientes HTTP, lo que no es una API (tooling y frameworks) y hosts conocidos. Es **dato, no código**: sumar una entrada sube una detección a confianza alta sin tocar nada más.
 
 ### `src/packs.js`: registro de packs
 - `TRANSFORMS`: para cada pack, su versión por lenguaje (`{ js, php }`). Si un pack no tiene versión para un lenguaje, no corre sobre esos archivos (Mercado Pago, por ejemplo, solo existe para JS).
@@ -129,6 +145,12 @@ Campos obligatorios: `id`, `version` (fecha), `provider`, `title`, `kind`, `seve
 | D18 | `.gitattributes` fuerza LF. | El runner de Windows baja los archivos con CRLF y alteraba los fixtures. Los tests generan las variantes CRLF a propósito. |
 | D19 | El pack de IA solo detecta. | Cambiar de modelo cambia el comportamiento del producto del cliente; eso lo decide una persona. |
 | D20 | Mercado Pago migra solo la creación. | Según la guía oficial, los pagos existentes se siguen consultando, capturando y reembolsando por la API con la que se crearon. |
+| D21 | El inventario lista **cualquier API**, tenga pack o no. | Es el nivel 1 del producto y la base del alcance "todo el ecosistema": para avisar que una API cambió, primero hay que saber que el repo la usa y dónde. |
+| D22 | Qué es un SDK lo decide una **lista curada como datos** (`data/known-sdks.json`) más una heurística con confianza explícita. | Igual que los packs: ampliar la cobertura es sumar datos, no tocar código. La heurística (api/sdk/client en el nombre) encuentra lo que la lista no tiene, pero queda marcada como confianza baja o media para no presentar como seguro algo que es una corazonada. |
+| D23 | El inventario lee con `@babel/parser` directo, no con jscodeshift. | Solo lee, así que no hay offsets que cuidar (D3) ni nada que reimprimir; es más rápido y más simple. |
+| D24 | El inventario sigue variables por nombre en todo el archivo, sin scopes. | Alcanza para avisar (nivel 1) y mantiene el código chico. Los codemods que **editan** no se apoyan en esto: ellos sí exigen certeza (D8). |
+| D25 | Las URLs dinámicas van aparte (`unresolved`) y no se adivina el host. | Cero inventos: se dice qué no se pudo resolver, en lugar de omitirlo o suponer. Lo relativo y lo local se descarta, porque es el propio backend. |
+| D26 | `inventory.json` tiene `schemaVersion` y mantiene los campos anteriores. | Otros (la Action, una futura GitHub App, el cliente) van a leer ese archivo; el número de versión permite cambiar el formato sin romperlos. |
 
 ## 5. Cómo extender
 
@@ -148,8 +170,8 @@ Campos obligatorios: `id`, `version` (fecha), `provider`, `title`, `kind`, `seve
 - **ARCA en JS:** lo mismo con alias y objetos armados en varios pasos.
 - **Integraciones SOAP propias** (JS o PHP): se detectan pero no se reescriben.
 - **Python y Java:** no están cubiertos.
-- **Inventario:** hoy solo lista las APIs que tienen pack. El hito B lo abre a cualquier API.
-- **Cambios de SDKs entre versiones:** no se detectan todavía (hito C).
+- **Inventario** (detalle en [`docs/inventario.md`](inventario.md)): sigue variables por nombre sin scopes y no sigue instancias entre archivos; las URLs armadas en otro archivo o con funciones quedan como dinámicas; PHP y Python se listan solo desde el manifiesto.
+- **Cambios de SDKs entre versiones:** no se detectan todavía (hito C, que va a cruzar el diff de los `.d.ts` con las operaciones del inventario).
 - **Códigos por clase de comprobante:** salen de una tabla publicada y falta validarlos contra `FEParamGetCondicionIvaReceptor` en homologación.
 
 ## 7. Qué cubre cada archivo de tests
@@ -157,4 +179,5 @@ Campos obligatorios: `id`, `version` (fecha), `provider`, `title`, `kind`, `seve
 | Archivo | Cubre |
 |---|---|
 | `test/parche.test.js` | Validación de packs; ARCA en JS (tres casos, una línea, coma final, CRLF y tabs); Mercado Pago (JS, TS, CommonJS, marketplace bloqueado, webhooks, fin de línea, lugar del import); IA; motor (idempotencia); CLI `pr --dry-run`, incluida la ausencia de atribución en commits y PRs. |
+| `test/inventory.test.js` | Inventario: clasificación de paquetes, SDKs con sus operaciones (imports, require, instancias), HTTP con los cinco clientes, URLs dinámicas, locales y relativas, modelos de IA, manifiestos de PHP y Python, motor sobre `saas-demo` y `tienda-demo`, y la CLI con `inventory.json` y el reporte. |
 | `test/arca-php.test.js` | ARCA en PHP: tres casos más datos de afuera, una línea y minúsculas, CRLF y tabs, reglas de scope, estilo (comillas, alineación, coma final, comentario), lo que no se puede leer, motor con `composer.json` y `vendor/`, y selección de tests en `verify`. |

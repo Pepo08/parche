@@ -2,6 +2,19 @@
 
 Todas las versiones de `parche-cli` (npm) y de la Action `Pepo08/parche@v0`.
 
+## 0.3.0 — 2026-10-16
+
+### Nuevo
+- **Inventario de cualquier API** (nivel 1): `parche scan` lista todas las APIs de terceros del repo, tengan pack o no.
+  - **SDKs** de `package.json`, `composer.json` y `requirements.txt`, clasificados con una lista curada (`data/known-sdks.json`: pagos, facturación, IA, mensajería, email, nube, datos y más) y una heurística por nombre, con nivel de confianza.
+  - En JS/TS, **qué operaciones** se usan de cada SDK (`stripe.paymentIntents.create`, `client.messages.create`…), siguiendo imports, `require` e instancias.
+  - **Llamadas HTTP directas** con `fetch`, `axios` (incluido `axios.create({ baseURL })`), `got`, `undici` y `node-fetch`: método, host y ruta. Las URLs dinámicas se reportan aparte; lo local y lo relativo se descarta.
+  - **Modelos de IA** nombrados en el código (OpenAI, Anthropic, Gemini, Mistral, Cohere).
+- `.parche/inventory.json` con `schemaVersion: 1`, documentado en `docs/inventario.md` (los campos anteriores se mantienen).
+- La salida de `scan` y `.parche/report.md` muestran el inventario completo.
+- Ejemplo nuevo: `examples/saas-demo` (Stripe, Twilio, OpenAI, GitHub, Mercado Libre y HTTP directo).
+- `docs/arquitectura.md`: qué hace cada parte del código y por qué.
+
 ## 0.2.0 — 2026-10-16
 
 ### Nuevo

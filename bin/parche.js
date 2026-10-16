@@ -9,6 +9,7 @@ import { verify } from '../src/verify.js';
 import * as git from '../src/git.js';
 import { parseGithubRemote, openPullRequest } from '../src/github.js';
 import { record } from '../src/ledger.js';
+import { apiLabel } from '../src/inventory/index.js';
 
 const HELP = `parche — Dependabot para APIs
 
@@ -49,6 +50,22 @@ function ensureLocalDir(root) {
   }
 }
 
+// Inventario de cualquier API (nivel 1): todo lo que el repo usa, tenga pack o no.
+function printInventory(inventory) {
+  const KIND = { sdk: 'SDK ', http: 'HTTP', 'ai-model': 'IA  ' };
+  console.log(`APIs del repo (${inventory.apis.length}):`);
+  if (!inventory.apis.length) console.log('  (no se encontraron APIs de terceros)');
+  for (const api of inventory.apis) {
+    const ops = api.operations.map((o) => (o.count > 1 ? `${o.op} ×${o.count}` : o.op));
+    const shown = ops.length > 4 ? [...ops.slice(0, 4), `+${ops.length - 4} más`] : ops;
+    const packs = api.packs.length ? '  · con pack' : '';
+    console.log(`  ${KIND[api.kind]}  ${apiLabel(api).padEnd(38)} ${api.confidence.padEnd(5)}  ${shown.join(', ') || '(declarada, sin usos encontrados)'}${packs}`);
+  }
+  if (inventory.unresolved.length) {
+    console.log(`  + ${inventory.unresolved.length} llamada(s) HTTP con URL dinámica (no se sabe a qué host van; detalle en el reporte)`);
+  }
+}
+
 function printFindings(result) {
   for (const pack of result.packs) {
     const fs2 = result.findings.filter((f) => f.pack === pack.id);
@@ -83,12 +100,10 @@ async function main() {
     record(root, { type: 'scan', findings: counts(result.findings) });
     if (args.json) { console.log(JSON.stringify({ inventory: result.inventory, findings: result.findings }, null, 2)); return 0; }
     console.log(`Parche · scan de ${path.basename(root)}\n`);
-    console.log('APIs encontradas:');
-    for (const [prov, p] of Object.entries(result.inventory.providers)) {
-      console.log(`  ${prov.padEnd(12)} ${String(p.callSites).padStart(2)} usos en ${p.files.length} archivo(s)  [${Object.keys(p.ops).join(', ')}]`);
-    }
+    printInventory(result.inventory);
     printFindings(result);
-    console.log(`\n${summary(result.findings)}`);
+    const s = summary(result.findings);
+    console.log(s ? `\n${s}` : '\nNinguno de los packs verificados tiene cambios que te afecten hoy.');
     console.log(`Reporte: ${path.join(root, '.parche', 'report.md')}`);
     return 0;
   }
