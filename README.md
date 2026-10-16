@@ -59,6 +59,8 @@ El workflow necesita `permissions: contents: write` y `pull-requests: write`.
 
 ### Desarrollo
 
+Cómo está hecho y por qué (módulos, flujo, decisiones técnicas y límites conocidos): [`docs/arquitectura.md`](docs/arquitectura.md).
+
 ```bash
 npm install
 npm test                         # el CI los corre en Linux y Windows
