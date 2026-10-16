@@ -1,0 +1,9 @@
+{
+  "name": "legacy-ia",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Repo de ejemplo que sigue con el SDK de OpenAI v3, para la demo de `parche scan --upgrades`.",
+  "dependencies": {
+    "openai": "^3.3.0"
+  }
+}

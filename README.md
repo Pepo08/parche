@@ -43,12 +43,32 @@ Requiere Node 22 o más nuevo. El paquete de npm se llama `parche-cli`; si lo in
 ```bash
 npx parche-cli packs                 # cambios que Parche conoce
 npx parche-cli scan .                # inventario + qué te afecta (.parche/report.md)
+npx parche-cli scan . --upgrades     # + qué cambia en las versiones nuevas de tus SDKs
+npx parche-cli diff <paquete> --from <v> --to <v>   # qué cambia en la API de un paquete
 npx parche-cli fix .                 # aplica los arreglos en tu working copy
 npx parche-cli pr . --verify         # una rama + commit + PR por cambio
 npx parche-cli feedback . --pack <id> --outcome merged|edited|rejected
 ```
 
 `parche pr` abre el PR por la API de GitHub si hay `GITHUB_TOKEN` y un remote `origin` en github.com; si no (o con `--dry-run`), deja la rama, el commit y el cuerpo del PR en `.parche/pr-<pack>.md`. Si hay ítems para revisar, el PR se abre como borrador.
+
+### Qué cambia en las versiones nuevas de tus SDKs
+
+`--upgrades` compara, para cada SDK de npm que usás, la versión instalada con la última publicada. Lee los tipos (`.d.ts`) de las dos versiones y te dice qué operaciones **de tu código** desaparecen, piden parámetros nuevos, cambian de tipo o pasan a deprecadas. Solo avisa: no toca código.
+
+```
+$ npx parche-cli scan . --upgrades
+…
+Versiones nuevas de tus SDKs de npm:
+  openai                 3.3.0 → 7.34.0       ⚠ 2 de tus operaciones cambian o desaparecen
+      OpenAIApi.createChatCompletion  (src/asistente.js:8)
+        `OpenAIApi` ya no existe.
+      OpenAIApi.createEmbedding  (src/asistente.js:16)
+        `OpenAIApi` ya no existe.
+  stripe                 17.0.0 → 23.0.0      ✓ lo que usás no cambia (22 cambios en el SDK)
+```
+
+Y para un paquete cualquiera, sin repo: `npx parche-cli diff stripe --from 17 --to latest` (acepta versiones parciales y `latest`; `--all` para ver todo, `--json` para procesarlo). Los tarballs quedan en `~/.parche/cache` (cambiable con `PARCHE_CACHE`); con `PARCHE_OFFLINE=1` usa solo el caché.
 
 ### En GitHub Actions
 
@@ -74,6 +94,7 @@ npm test                         # el CI los corre en Linux y Windows
 bash demo.sh                     # demo completa sobre examples/tienda-demo (JS)
 node bin/parche.js scan examples/tienda-php   # ejemplo PHP con afip.php
 node bin/parche.js scan examples/saas-demo    # SaaS con Stripe, Twilio, OpenAI y HTTP directo
+node bin/parche.js scan examples/legacy-ia --upgrades   # OpenAI v3: qué se rompe al actualizar (usa la red)
 ```
 
 #### Sacar una versión
