@@ -41,6 +41,12 @@ PHP y Python, por ahora, solo se **listan** desde su manifiesto: el análisis de
     { "file": "src/integraciones.js", "line": 32, "kind": "http", "client": "fetch", "reason": "URL dinámica: ..." }
   ],
   "dependencies": { "npm": {}, "composer": {}, "pypi": {} },   // todo lo declarado, sea API o no
+  "upgrades": [                       // solo con `scan --upgrades`: versión instalada vs última, por SDK de npm
+    { "package": "openai", "installed": "3.3.0", "latest": "7.34.0", "status": "afectado",   // afectado | sin-impacto | al-dia | sin-verificar | sin-tipos | no-publicado | sin-version | error
+      "totalChanges": 9, "unverified": [],
+      "affected": [{ "op": "OpenAIApi.createChatCompletion", "locations": [{ "file": "src/asistente.js", "line": 8 }],
+                     "changes": [{ "ns": "exports", "path": "OpenAIApi", "type": "removed", "message": "`OpenAIApi` ya no existe." }] }] }
+  ],
 
   // Campos anteriores a schemaVersion (lo que reportan los packs). Se mantienen por compatibilidad:
   "generated_at": "...", "packages": {}, "providers": {}, "usages": []

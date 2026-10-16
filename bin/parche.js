@@ -15,7 +15,11 @@ const HELP = `parche — Dependabot para APIs
 
 Uso:
   parche packs                         Lista los cambios de API que Parche conoce
-  parche scan <dir> [--json]           Inventario de APIs + qué te afecta
+  parche scan <dir> [--json] [--upgrades]
+                                       Inventario de APIs + qué te afecta; con --upgrades,
+                                       qué cambia en las versiones nuevas de tus SDKs de npm
+  parche diff <paquete> --from <v> --to <v> [--json] [--all]
+                                       Qué cambia en la API de un paquete de npm entre dos versiones
   parche fix <dir> [--pack <id>]       Aplica los arreglos en el código
   parche pr <dir> [--pack <id>] [--dry-run] [--verify]
                                        Rama + commit + PR por cada cambio
@@ -66,6 +70,49 @@ function printInventory(inventory) {
   }
 }
 
+// Versiones nuevas de los SDKs de npm (scan --upgrades): qué operaciones del repo cambian o desaparecen.
+function printUpgrades(results) {
+  console.log('\nVersiones nuevas de tus SDKs de npm:');
+  if (!results.length) console.log('  (no hay SDKs de npm con operaciones para comparar)');
+  for (const r of results) {
+    const head = `  ${r.package.padEnd(22)} ${r.installed ? `${r.installed} → ${r.latest}`.padEnd(20) : ''.padEnd(20)}`;
+    if (r.status === 'afectado') {
+      console.log(`${head} ⚠ ${r.affected.length} de tus operaciones cambian o desaparecen`);
+      for (const a of r.affected) {
+        const where = a.locations.map((l) => `${l.file}:${l.line}`).join(', ');
+        console.log(`      ${a.op}  (${where})`);
+        for (const c of a.changes) console.log(`        ${c.message}`);
+      }
+    } else if (r.status === 'sin-impacto') {
+      console.log(`${head} ✓ lo que usás no cambia (${r.totalChanges} cambios en el SDK)${r.unverified.length ? ` · ${r.unverified.length} operación(es) sin verificar` : ''}`);
+    } else if (r.status === 'al-dia') {
+      console.log(`${head} ✓ al día`);
+    } else if (r.status === 'sin-verificar') {
+      console.log(`${head} ? tus operaciones no aparecen en los tipos de la versión instalada: no se puede verificar`);
+    } else {
+      console.log(`${head} — ${r.error || 'no se pudo determinar la versión instalada'}`);
+    }
+  }
+}
+
+// Salida de `parche diff`.
+function printDiff(d, { all = false } = {}) {
+  const groups = [
+    ['Desaparecen', d.changes.filter((c) => c.type === 'removed')],
+    ['Cambian los parámetros', d.changes.filter((c) => ['new-required', 'param-removed', 'type-changed'].includes(c.type))],
+    ['Pasan a deprecados', d.changes.filter((c) => c.type === 'deprecated')],
+  ];
+  console.log(`${d.pkg} ${d.from} → ${d.to}  (tipos: ${d.typesFrom} → ${d.typesTo})`);
+  if (!d.changes.length) console.log('  No hay cambios incompatibles en la superficie pública.');
+  for (const [title, list] of groups) {
+    if (!list.length) continue;
+    console.log(`\n${title} (${list.length}):`);
+    const shown = all ? list : list.slice(0, 25);
+    for (const c of shown) console.log(`  - ${c.message}`);
+    if (shown.length < list.length) console.log(`  … y ${list.length - shown.length} más (--all para verlos todos)`);
+  }
+}
+
 function printFindings(result) {
   for (const pack of result.packs) {
     const fs2 = result.findings.filter((f) => f.pack === pack.id);
@@ -88,19 +135,41 @@ async function main() {
     return 0;
   }
 
+  if (cmd === 'diff') {
+    const pkg = dirArg;
+    if (!pkg || !args.from || !args.to) throw new Error('Uso: parche diff <paquete> --from <versión> --to <versión>');
+    // TypeScript se carga recién acá: el scan común no lo necesita.
+    const { createRegistry } = await import('../src/sdk-diff/registry.js');
+    const { diffVersions } = await import('../src/sdk-diff/upgrades.js');
+    const d = await diffVersions(createRegistry(), pkg, String(args.from), String(args.to));
+    if (d.error) throw new Error(d.error);
+    if (args.json) { console.log(JSON.stringify({ pkg, from: d.from, to: d.to, changes: d.changes }, null, 2)); return 0; }
+    printDiff(d, { all: !!args.all });
+    return 0;
+  }
+
   const root = path.resolve(dirArg || '.');
   if (!fs.existsSync(root)) throw new Error(`No existe ${root}`);
   const packIds = args.pack ? [args.pack] : null;
 
   if (cmd === 'scan') {
     const result = run(root, { write: false, packIds });
+    let upgrades = null;
+    if (args.upgrades) {
+      if (!args.json) console.error('Buscando versiones nuevas de tus SDKs en npm...');
+      const { createRegistry } = await import('../src/sdk-diff/registry.js');
+      const { checkUpgrades } = await import('../src/sdk-diff/upgrades.js');
+      upgrades = await checkUpgrades(result.inventory, root, createRegistry());
+      result.inventory.upgrades = upgrades;
+    }
     ensureLocalDir(root);
     fs.writeFileSync(path.join(root, '.parche', 'inventory.json'), JSON.stringify(result.inventory, null, 2));
-    fs.writeFileSync(path.join(root, '.parche', 'report.md'), scanReport({ ...result, changed: [] }));
+    fs.writeFileSync(path.join(root, '.parche', 'report.md'), scanReport({ ...result, changed: [], upgrades }));
     record(root, { type: 'scan', findings: counts(result.findings) });
     if (args.json) { console.log(JSON.stringify({ inventory: result.inventory, findings: result.findings }, null, 2)); return 0; }
     console.log(`Parche · scan de ${path.basename(root)}\n`);
     printInventory(result.inventory);
+    if (upgrades) printUpgrades(upgrades);
     printFindings(result);
     const s = summary(result.findings);
     console.log(s ? `\n${s}` : '\nNinguno de los packs verificados tiene cambios que te afecten hoy.');

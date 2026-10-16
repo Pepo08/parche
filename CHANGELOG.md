@@ -2,6 +2,15 @@
 
 Todas las versiones de `parche-cli` (npm) y de la Action `Pepo08/parche@v0`.
 
+## 0.4.0 — 2026-10-16
+
+### Nuevo
+- **Qué cambia en las versiones nuevas de tus SDKs** (`parche scan --upgrades`): para cada SDK de npm que el repo usa, compara la versión instalada con la última publicada leyendo sus tipos (`.d.ts`) y dice qué operaciones **del repo** desaparecen, piden parámetros obligatorios nuevos, pierden parámetros, cambian de tipo o pasan a deprecadas, con archivo y línea. Solo avisa (detect-only).
+- **`parche diff <paquete> --from <v> --to <v>`**: el mismo análisis para cualquier paquete, sin repo (acepta `latest` y versiones parciales; `--all`, `--json`).
+- Tarballs bajados del registry con verificación de integridad y cacheados en `~/.parche/cache` (`PARCHE_CACHE`, `PARCHE_OFFLINE=1`). Si el paquete no trae tipos, usa `@types/<paquete>`.
+- Ejemplo nuevo: `examples/legacy-ia` (SDK de OpenAI v3: `OpenAIApi` desaparece en las versiones nuevas, como dice la guía oficial de migración).
+- Dependencia nueva: `typescript ~6.0.3` (la última con el compiler API de JavaScript), cargada solo para el diff.
+
 ## 0.3.0 — 2026-10-16
 
 ### Nuevo

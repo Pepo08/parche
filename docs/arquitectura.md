@@ -29,9 +29,20 @@ bin/parche.js ──► engine.run(repo)
                     └─► buildInventory(...) → { inventory, findings, changed }
         │
         ├─ scan: escribe .parche/inventory.json y .parche/report.md
+        │        con --upgrades: checkUpgrades (abajo) y suma la sección al reporte
         ├─ fix:  escribe los archivos arreglados
         └─ pr:   por cada pack con arreglo: rama parche/<pack> → escribe → verify → commit
                  → cuerpo del PR (report.prBody) → push + PR en GitHub (si hay token) → ledger
+
+parche diff <paquete> --from <v> --to <v>      y      parche scan --upgrades
+        │
+        ▼
+registry: metadata y tarball de cada versión (integridad sha512, caché en ~/.parche/cache)
+        → tar.extractTypes: solo los .d.ts y el package.json
+        → surface.extractSurface (TypeScript): rutas públicas con sus firmas y @deprecated
+        → compare.diffSurfaces: qué desaparece, qué pide más parámetros, qué cambia de tipo, qué se depreca
+        → (scan --upgrades) compare.affectedOperations: cruza con las operaciones del inventario
+          → "openai 3.3.0 → 7.34.0: OpenAIApi.createChatCompletion (src/asistente.js:8): `OpenAIApi` ya no existe."
 ```
 
 ## 2. Conceptos
@@ -69,6 +80,13 @@ El esquema del resultado y sus límites están en [`docs/inventario.md`](inventa
   - `unresolved`: llamadas HTTP cuya URL llega de afuera;
   - `models`: IDs de modelos de IA en strings.
 - `index.js`: `readManifests()` (npm, composer, pypi), `parseRequirements()`, `buildInventory()` (junta todo, agrupa operaciones con conteo y ubicaciones, ajusta la confianza) y `apiLabel()`.
+
+### `src/sdk-diff/`: qué cambia entre versiones de un SDK de npm (hito C)
+- `tar.js`: `extractTypes(tgz)` descomprime el tarball (con `zlib`) y lee el formato tar (ustar, pax, GNU) quedándose solo con `package.json` y los `.d.ts`.
+- `registry.js`: `createRegistry({ cacheDir, fetch, offline })` → `metadata(pkg)`, `tarball(pkg, versión)` (verifica la integridad sha512 contra lo que publica npm) y `types(pkg, versión)`, que devuelve los archivos de tipos y su entrada; si el paquete no trae tipos, usa `@types/<pkg>` de la misma versión mayor. `typesEntry()` y `typesInExports()` encuentran la entrada en `types`, `typings` o `exports`, aunque esté anidada en condiciones como en Stripe 23. También están `compareVersions()` y el caché (`PARCHE_CACHE`, `PARCHE_OFFLINE=1`).
+- `surface.js`: `extractSurface({ files, entry, pkgName })` arma un programa de TypeScript sobre un sistema de archivos virtual y recorre lo exportado. Devuelve dos mapas de ruta → `{ kind, deprecated, signatures }`: `default` (miembros de la instancia del export por defecto: `chat.completions.create`) y `exports` (exports con nombre: `OpenAIApi.createChatCompletion`). Baja por recursos (objetos con métodos, también invocables), por la instancia de las clases y por lo que devuelven las fábricas (`twilio(sid, token)`). Saltea lo privado y los tipos de la librería estándar.
+- `compare.js`: `diffSurfaces(viejo, nuevo)` → cambios `removed`, `new-required`, `param-removed`, `type-changed` y `deprecated`. `affectedOperations()` y `unverifiedOperations()` cruzan con las operaciones del repo. `dedupeChanges()` saca los repetidos para mostrar.
+- `upgrades.js`: `installedVersion()` (de `node_modules`, del lock o de la base del rango declarado), `resolveSpec()` (`latest`, `4`, `4.1`), `diffVersions()`, `checkUpgrades(inventario, repo, registry)` y `upgradeFindings()` (hallazgos `detect-only`).
 
 ### `data/known-sdks.json`: la lista curada
 Paquete → proveedor y rubro (npm, composer, pypi), prefijos de familias (`@aws-sdk/client-`), clientes HTTP, lo que no es una API (tooling y frameworks) y hosts conocidos. Es **dato, no código**: sumar una entrada sube una detección a confianza alta sin tocar nada más.
@@ -138,7 +156,7 @@ Campos obligatorios: `id`, `version` (fecha), `provider`, `title`, `kind`, `seve
 | D11 | `verify` elige los tests según el lenguaje de lo que cambió y dice la verdad si no hubo tests. | Un cambio en PHP no se valida con `npm test`, y "✅ pasan" sin tests es mentir. |
 | D12 | Rutas con `/` y orden estable en todos los sistemas operativos. | El reporte y el PR tienen que ser idénticos en Windows y Linux. |
 | D13 | Lo que Parche escribe en el repo de un cliente no lleva atribuciones de herramientas; los commits firman como el bot de Parche. | Un `Co-Authored-By` de otra herramienta en el historial de un cliente es falso y confunde. Lo controla un test. |
-| D14 | Dependencias mínimas: `jscodeshift`, `@babel/parser` y `php-parser`. | Menos superficie de ataque y menos peso para algo que corre en el CI de otros. `php-parser` no tiene dependencias propias. |
+| D14 | Dependencias mínimas: `jscodeshift`, `@babel/parser`, `php-parser` y `typescript`. | Menos superficie de ataque y menos peso para algo que corre en el CI de otros. `php-parser` y `typescript` no tienen dependencias propias; `typescript` se carga solo para el diff (D27). |
 | D15 | Tests con fixtures, sin red, y con variantes CRLF y tabs para cada codemod. | Los bugs de Windows no aparecían en Linux; con variantes generadas, la suite los atrapa en cualquier sistema. |
 | D16 | La Action instala Parche desde el repo y pasa los inputs por variables de entorno. | Funciona aunque npm esté caído o la versión no esté publicada, y un input no puede inyectar código en el script. |
 | D17 | Releases con *trusted publishing* desde `release.yml`; el tag se pushea solo con OK. | Sin tokens guardados ni 2FA a mano; cada versión en npm sale de un commit de `main` con la CI verde. |
@@ -151,6 +169,17 @@ Campos obligatorios: `id`, `version` (fecha), `provider`, `title`, `kind`, `seve
 | D24 | El inventario sigue variables por nombre en todo el archivo, sin scopes. | Alcanza para avisar (nivel 1) y mantiene el código chico. Los codemods que **editan** no se apoyan en esto: ellos sí exigen certeza (D8). |
 | D25 | Las URLs dinámicas van aparte (`unresolved`) y no se adivina el host. | Cero inventos: se dice qué no se pudo resolver, en lugar de omitirlo o suponer. Lo relativo y lo local se descarta, porque es el propio backend. |
 | D26 | `inventory.json` tiene `schemaVersion` y mantiene los campos anteriores. | Otros (la Action, una futura GitHub App, el cliente) van a leer ese archivo; el número de versión permite cambiar el formato sin romperlos. |
+| D27 | TypeScript **6.0** (`~6.0.3`), cargado recién cuando se usa `diff` o `--upgrades`. | TypeScript 7 es el compilador nativo en Go y no trae el compiler API de JavaScript; la 6.0 es la última con la API clásica (`createProgram`, `TypeChecker`). Pesa 24 MB: con la carga diferida, `parche scan` común no paga ese costo. |
+| D28 | El diff compara los **`.d.ts` publicados**, no el código JavaScript. | Los tipos son el contrato público del SDK y se leen sin ejecutar nada del paquete: no se corre código de terceros. |
+| D29 | Lector de tar propio, sin dependencias, que extrae solo `.d.ts` y `package.json`. | Es una función chica; sumar una librería de tar agrega superficie de ataque para algo que procesa archivos bajados de internet. |
+| D30 | Integridad sha512 verificada y caché inmutable de tarballs; metadata cacheada una hora; modo sin red. | Una versión publicada no cambia, así que se baja una vez. La integridad evita usar un tarball alterado. El modo sin red permite tests con fixtures y uso en CI sin acceso al registry. |
+| D31 | La superficie usa **la misma forma de rutas que el inventario** (instancia del export por defecto sin prefijo; exports con nombre con prefijo) e incluye instancias de clases y lo que devuelven las fábricas. | Así el cruce con lo que usa el repo es una comparación de strings, sin traducir. Las fábricas (`twilio(sid, token)`) son una forma común de crear clientes. |
+| D32 | No se baja por tipos de la librería estándar; sí por recursos invocables. | Una función que devuelve `Promise` no tiene que sumar `then`/`catch` al SDK. Y `client.messages(sid)` también tiene `messages.create`: si no se baja por los invocables, se pierden métodos reales (le pasaba a Twilio). |
+| D33 | Se reporta: lo que desaparece (solo el padre), parámetros obligatorios nuevos, parámetros que se van, cambios de tipo (solo con una firma de cada lado) y deprecaciones. Un parámetro opcional nuevo no se reporta. | Son los cambios que rompen o van a romper el código existente. Con sobrecargas, comparar tipos por posición genera más ruido que señal. |
+| D34 | Si la versión nueva no expone nada en un lado de la superficie, ese lado no se compara. | Pasa cuando cambia la forma del módulo (Stripe 23 dejó de tener exports con nombre leíbles): sin esto aparecerían decenas de "ya no existe" falsos. |
+| D35 | Las operaciones del repo que no aparecen en los tipos de la versión instalada se informan como "sin verificar". | Cero inventos: decir "lo que usás no cambia" sobre algo que no se pudo verificar sería una falsa tranquilidad. |
+| D36 | Para mostrar se deduplican los cambios; para cruzar con el repo se usa la lista completa. | El mismo método se alcanza por la instancia, la clase y la fábrica: mostrarlo tres veces es ruido, pero el repo puede usar cualquiera de los tres caminos. |
+| D37 | Versión instalada: `node_modules` → `package-lock.json` → base del rango declarado (o la más alta de la misma mayor). | Lo instalado es lo que de verdad corre; si no hay instalación (CI sin `npm ci`, un clon), el lock; y si tampoco, lo declarado. |
 
 ## 5. Cómo extender
 
@@ -171,7 +200,13 @@ Campos obligatorios: `id`, `version` (fecha), `provider`, `title`, `kind`, `seve
 - **Integraciones SOAP propias** (JS o PHP): se detectan pero no se reescriben.
 - **Python y Java:** no están cubiertos.
 - **Inventario** (detalle en [`docs/inventario.md`](inventario.md)): sigue variables por nombre sin scopes y no sigue instancias entre archivos; las URLs armadas en otro archivo o con funciones quedan como dinámicas; PHP y Python se listan solo desde el manifiesto.
-- **Cambios de SDKs entre versiones:** no se detectan todavía (hito C, que va a cruzar el diff de los `.d.ts` con las operaciones del inventario).
+- **Diff de SDKs (hito C):**
+  - Un **renombre o una mudanza** (por ejemplo `createChatCompletion` → `chat.completions.create`) se ve como "ya no existe": decir a dónde se movió es trabajo de un pack (nivel 3) o del arreglo con IA (nivel 2).
+  - Los **cambios de tipo** con nombres de tipos nuevos pueden ser ruido aunque la forma sea compatible.
+  - Solo npm: los SDKs de PHP y Python todavía no se comparan.
+  - Un paquete sin `.d.ts` ni `@types` no se puede comparar (queda "sin tipos").
+  - Las **deprecaciones** se leen solo de la etiqueta `@deprecated` del JSDoc.
+  - Hereda los límites del inventario: si el cliente se crea en otro archivo, las operaciones de ese archivo no se cruzan.
 - **Códigos por clase de comprobante:** salen de una tabla publicada y falta validarlos contra `FEParamGetCondicionIvaReceptor` en homologación.
 
 ## 7. Qué cubre cada archivo de tests
@@ -180,4 +215,5 @@ Campos obligatorios: `id`, `version` (fecha), `provider`, `title`, `kind`, `seve
 |---|---|
 | `test/parche.test.js` | Validación de packs; ARCA en JS (tres casos, una línea, coma final, CRLF y tabs); Mercado Pago (JS, TS, CommonJS, marketplace bloqueado, webhooks, fin de línea, lugar del import); IA; motor (idempotencia); CLI `pr --dry-run`, incluida la ausencia de atribución en commits y PRs. |
 | `test/inventory.test.js` | Inventario: clasificación de paquetes, SDKs con sus operaciones (imports, require, instancias), HTTP con los cinco clientes, URLs dinámicas, locales y relativas, modelos de IA, manifiestos de PHP y Python, motor sobre `saas-demo` y `tienda-demo`, y la CLI con `inventory.json` y el reporte. |
+| `test/sdk-diff.test.js` | Diff de SDKs: lector de tar (con nombres largos), dónde están los tipos (incluido el caso Stripe 23), versiones, registry con integridad y caché sin red, superficie de un SDK de ejemplo (`test/fixtures/sdk-diff/demo-sdk`, versiones 1 y 2 con cambios a propósito), comparación, versión instalada, `scan --upgrades` y la CLI sin red. |
 | `test/arca-php.test.js` | ARCA en PHP: tres casos más datos de afuera, una línea y minúsculas, CRLF y tabs, reglas de scope, estilo (comillas, alineación, coma final, comentario), lo que no se puede leer, motor con `composer.json` y `vendor/`, y selección de tests en `verify`. |

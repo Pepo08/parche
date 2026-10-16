@@ -28,7 +28,32 @@ export function counts(findings) {
   return c;
 }
 
-export function scanReport({ inventory, findings, packs, changed }, today = new Date()) {
+function upgradesSection(upgrades) {
+  const out = ['## Versiones nuevas de tus SDKs de npm', '',
+    'Comparación de la API pública (tipos `.d.ts`) entre la versión instalada y la última publicada, cruzada con lo que usa este repo. Solo avisa: no cambia código.', '',
+    '| SDK | Instalada → última | Resultado |', '|---|---|---|'];
+  const STATUS = {
+    afectado: (r) => `⚠ ${r.affected.length} operación(es) del repo cambian o desaparecen`,
+    'sin-impacto': (r) => `✓ lo que usás no cambia (${r.totalChanges} cambios en el SDK)`,
+    'al-dia': () => '✓ al día',
+    'sin-verificar': () => '? tus operaciones no aparecen en los tipos instalados',
+  };
+  for (const r of upgrades) {
+    const res = STATUS[r.status] ? STATUS[r.status](r) : `— ${r.error || 'sin versión instalada'}`;
+    out.push(`| \`${r.package}\` | ${r.installed ? `${r.installed} → ${r.latest}` : '—'} | ${res} |`);
+  }
+  out.push('');
+  for (const r of upgrades.filter((x) => x.status === 'afectado')) {
+    out.push(`### \`${r.package}\` ${r.installed} → ${r.latest}`, '');
+    for (const a of r.affected) {
+      out.push(`- \`${a.op}\` (${a.locations.map((l) => `\`${l.file}:${l.line}\``).join(', ')}): ${a.changes.map((c) => c.message).join(' ')}`);
+    }
+    out.push('');
+  }
+  return out;
+}
+
+export function scanReport({ inventory, findings, packs, changed, upgrades = null }, today = new Date()) {
   const out = [];
   out.push(`# Parche — reporte de \`${inventory.repo}\``, '');
   out.push('## APIs que usa este repo', '');
@@ -48,6 +73,7 @@ export function scanReport({ inventory, findings, packs, changed }, today = new 
     out.push('**Llamadas HTTP con URL dinámica** (no se puede saber a qué host van):', '',
       ...inventory.unresolved.map((u) => `- \`${u.file}:${u.line}\` (${u.client})`), '');
   }
+  if (upgrades) out.push(...upgradesSection(upgrades));
   for (const pack of packs) {
     const fs = findings.filter((f) => f.pack === pack.id);
     if (!fs.length) continue;
