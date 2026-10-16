@@ -133,9 +133,10 @@ test('PHP: lo que no se puede leer se reporta y no se toca', () => {
   const roto = php("<?php\n$afip->ElectronicBilling->CreateVoucher(array('DocTipo' => 99\n");
   assert.equal(roto.output, null);
   assert.match(roto.findings[0].message, /No pude analizar este archivo PHP/);
-  // Integración SOAP propia: solo detección.
-  const soap = php("<?php\n$client->__soapCall('FECAESolicitar', $params);\n");
+  // Integración SOAP propia: solo detección, y solo si el archivo arma el comprobante (si solo nombra el método, es ruido).
+  const soap = php("<?php\n$det = array('DocTipo' => 80, 'DocNro' => $cuit);\n$client->__soapCall('FECAESolicitar', $params);\n");
   assert.match(soap.findings[0].message, /Integración SOAP propia/);
+  assert.equal(php("<?php\nconst METODO = 'FECAESolicitar';\n").findings.length, 0);
   assert.throws(() => parseCheck('<?php function (', 'x.php'));
 });
 

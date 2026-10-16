@@ -5,7 +5,10 @@
 // Edita con inserciones de texto mínimas sobre los offsets exactos de php-parser (ver src/php.js).
 import { eolOf, applyEdits, finding } from '../ast.js';
 import { parsePhp, walkPhp, phpLiteral, phpKey } from '../php.js';
-import { PACK, decideCondition, validCodesText, missingMessage, appliedMessage, soapDetection } from './arca-rules.js';
+import {
+  PACK, decideCondition, validCodesText, missingMessage, appliedMessage, soapDetection, ARCA_HINT, libraryCaveat, alreadyMigratedPrefix,
+} from './arca-rules.js';
+import { emptyContext } from '../context.js';
 
 // En PHP los nombres de método no distinguen mayúsculas: createVoucher también es válido.
 // El inventario usa el nombre oficial, así un mismo método no aparece dos veces.
@@ -83,9 +86,12 @@ function resolveData(arg, scope, call, scopes) {
   return { arr: def.right };
 }
 
-export default function transform({ source, file, pack }) {
+export default function transform({ source, file, pack, context = emptyContext() }) {
   const findings = [];
   const usages = [];
+  if (!ARCA_HINT.test(source)) return { output: null, findings, usages }; // prefiltro (ver el codemod de JS)
+  const caveat = libraryCaveat(context, 'composer');
+  const migrated = alreadyMigratedPrefix(context);
   let ast;
   try {
     ast = parsePhp(source, file);
@@ -106,8 +112,8 @@ export default function transform({ source, file, pack }) {
     if (data.migrated) continue;
     const entries = data.arr ? data.arr.items.filter((it) => it && it.kind === 'entry') : null;
     if (!entries || entries.some((e) => e.unpack || e.byRef)) {
-      findings.push(finding(PACK, file, call, 'needs-input', data.hint
-        || `No pude leer los datos del comprobante (${data.reason || 'el array usa ...$otro o referencias'}). Agregá ${FIELD} a mano, ${HINT_TAIL}`));
+      const msg = data.hint || `No pude leer los datos del comprobante (${data.reason || 'el array usa ...$otro o referencias'}). Agregá ${FIELD} a mano, ${HINT_TAIL}`;
+      findings.push(finding(PACK, file, call, migrated ? 'needs-review' : 'needs-input', (migrated || '') + msg));
       continue;
     }
     const byKey = (k) => entries.find((e) => phpKey(e) === k);
@@ -115,17 +121,19 @@ export default function transform({ source, file, pack }) {
 
     const d = decideCondition({ docTipo: phpLiteral(byKey('DocTipo')?.value), cbteTipo: phpLiteral(byKey('CbteTipo')?.value) }, pack);
     if (d.status === 'needs-input') {
-      findings.push(finding(PACK, file, call, 'needs-input', missingMessage(d),
+      findings.push(finding(PACK, file, call, 'needs-input', missingMessage(d) + (caveat ? ` ${caveat}` : ''),
         { suggestion: `'${FIELD}' => <condición del cliente>,  // valores válidos: ${validCodesText(d, pack)}` }));
       continue;
     }
     const anchor = byKey('DocNro') || entries[entries.length - 1];
     edits.push(...insertAfterEntry(source, entries, anchor, { value: d.code, comment: d.comment }));
     edited.add(data.arr);
-    findings.push(finding(PACK, file, call, d.status, appliedMessage(d.status)));
+    // Con afip.php 0.x (WSDL de 2021 sin el campo) el arreglo no alcanza solo: deja de ser "automático".
+    const status = caveat && d.status === 'auto' ? 'needs-review' : d.status;
+    findings.push(finding(PACK, file, call, status, appliedMessage(d.status) + (caveat ? ` ${caveat}` : '')));
   }
 
-  const soap = soapDetection(source, file);
+  const soap = soapDetection(source, file, context);
   if (soap) { findings.push(soap.finding); usages.push(soap.usage); }
 
   return { output: edits.length ? applyEdits(source, edits) : null, findings, usages };

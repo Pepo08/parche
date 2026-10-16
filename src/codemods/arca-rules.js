@@ -1,7 +1,13 @@
 // Reglas del pack arca.wsfe.condicion-iva-receptor, compartidas por los codemods de JS y de PHP:
 // qué se puede inferir sin datos del negocio y con qué mensajes se reporta.
 
+import { isTestFile } from '../paths.js';
+
 export const PACK = 'arca.wsfe.condicion-iva-receptor';
+
+// Prefiltro de los codemods: sin estas palabras no hay nada de ARCA en el archivo y no se parsea
+// (en repos con bundles grandes, parsear todo tardaba minutos y 1,5 GB de RAM).
+export const ARCA_HINT = /electronicbilling|fecaesolicitar|fecaedetrequest/i;
 
 const CLASS = {
   A: new Set([1, 2, 3, 201, 202, 203]),
@@ -42,13 +48,62 @@ export function appliedMessage(status) {
     : 'Agregado CondicionIVAReceptorId: 5 por inferencia (DNI + comprobante B/C). Confirmá que el cliente no sea exento ni no alcanzado.';
 }
 
+// "El repo ya usa CondicionIVAReceptorId en otro lado": prefijo para bajar a "revisar" lo que no se pudo leer
+// (en repos ya migrados, el objeto suele salir de un builder que sí pone el campo).
+export function alreadyMigratedPrefix(context) {
+  const f = context?.fieldFiles?.[0];
+  return f ? `El repo ya usa CondicionIVAReceptorId (en \`${f}\`): verificá que este comprobante también lo lleve. ` : null;
+}
+
+// Si el campo puede no llegar a ARCA aunque esté en el código: librería 0.x (WSDL de 2021) o un WSDL viejo
+// en el repo. Verificado en el código de afip.js/afip.php el 16/10/2026 (ver src/context.js).
+export function libraryCaveat(context, ecosystem) {
+  const lib = (context?.arcaLibs || []).find((l) => l.ecosystem === ecosystem && l.travels !== 'si');
+  if (lib) {
+    return `Ojo: con ${lib.name} ${lib.version} el pedido se arma con un WSDL de 2021 que no tiene este campo`
+      + `${lib.travels === 'no' ? '' : ' (en JS falta confirmarlo)'}: para que llegue a ARCA hay que actualizar la librería a 1.x.`;
+  }
+  const wsdl = context?.staleWsdl?.[0];
+  if (wsdl) return `Ojo: el repo tiene un WSDL de WSFEv1 sin este campo (\`${wsdl}\`): si el cliente SOAP lo usa, el campo no viaja hasta actualizarlo.`;
+  return null;
+}
+
 // Integraciones SOAP propias (cualquier lenguaje): solo detección.
-export function soapDetection(source, file) {
+// Con menos ruido que la primera versión (frente B, 16/10): no marca tests, mocks, tipos, copias de la librería
+// ni archivos que solo nombran el método (constantes, reexports); solo los que arman el detalle del comprobante.
+export function soapDetection(source, file, context) {
   if (!/FECAESolicitar|FECAEDetRequest/.test(source) || /CondicionIVAReceptorId/.test(source)) return null;
+  if (isTestFile(file) || /\.d\.[cm]?ts$/.test(file)) return null;
+  if (/class\s+ElectronicBilling\b/.test(source)) return null; // copia de afip.php/afip.js: la cubren la versión y el WSDL
+  const generated = /(^|\/)Reference\.cs$|Stub\.java$/i.test(file) || /class\s+FECAEDetRequest\b/.test(source);
+  if (!generated && !/\b(DocTipo|CbteDesde|ImpTotal)\b/.test(source)) return null;
   const line = source.split('\n').findIndex((l) => /FECAESolicitar|FECAEDetRequest/.test(l)) + 1;
+  const base = generated
+    ? 'Cliente SOAP de WSFEv1 generado sin CondicionIVAReceptorId: hay que regenerarlo con el WSDL vigente (y después completar el campo).'
+    : 'Integración SOAP propia con WSFEv1 sin CondicionIVAReceptorId en el FECAEDetRequest. Hay que agregarlo al XML, con la condición frente al IVA del cliente.';
+  const prefix = alreadyMigratedPrefix(context);
   return {
-    finding: { pack: PACK, file, line, status: 'needs-input',
-      message: 'Integración SOAP propia con WSFEv1 sin CondicionIVAReceptorId en el FECAEDetRequest. Hay que agregarlo al XML.' },
-    usage: { provider: 'arca', op: 'WSFEv1 SOAP', line },
+    finding: { pack: PACK, file, line, status: prefix ? 'needs-review' : 'needs-input', message: (prefix || '') + base },
+    usage: { provider: 'arca', op: generated ? 'WSFEv1 SOAP (cliente generado)' : 'WSFEv1 SOAP', line },
   };
+}
+
+// Archivos .wsdl de WSFEv1 sin el campo: si el cliente SOAP arma el pedido con ese esquema
+// (SoapClient en modo WSDL, la librería soap de Node), el campo no viaja aunque esté en el código.
+export function wsdlDetection({ source, file }) {
+  const findings = [];
+  const usages = [];
+  if (/FECAESolicitar|FECAEDetRequest/.test(source) && !source.includes('CondicionIVAReceptorId')) {
+    const line = source.split('\n').findIndex((l) => /FECAEDetRequest/.test(l)) + 1 || 1;
+    findings.push({ pack: PACK, file, line, status: 'needs-input',
+      message: 'WSDL de WSFEv1 sin CondicionIVAReceptorId: si tu cliente SOAP arma el pedido con este archivo, el campo no viaja aunque lo agregues al código. Reemplazalo por el WSDL vigente de WSFEv1.' });
+    usages.push({ provider: 'arca', op: 'WSFEv1 WSDL', line });
+  }
+  return { output: null, findings, usages };
+}
+
+// Lenguajes sin codemod (Python, C#, Java, Go, VB.NET): solo la detección de SOAP propio o cliente generado.
+export function soapOnly({ source, file, context }) {
+  const soap = soapDetection(source, file, context);
+  return { output: null, findings: soap ? [soap.finding] : [], usages: soap ? [soap.usage] : [] };
 }

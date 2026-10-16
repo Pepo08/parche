@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { classifyPackage, providerForHost } from './known.js';
-import { SKIP_DIRS, toPosix } from '../paths.js';
+import { findFiles } from '../paths.js';
 
 export const SCHEMA_VERSION = 1;
 const KIND_ORDER = { sdk: 0, http: 1, 'ai-model': 2 };
@@ -34,21 +34,7 @@ const MANIFEST_NAMES = new Set(['package.json', 'composer.json', 'requirements.t
 // Todos los manifiestos del repo, no solo los de la raíz: los monorepos (packages/backend/package.json,
 // ms-billing/package.json) declaran ahí sus SDKs. Primero la raíz, después por profundidad.
 export function findManifests(root) {
-  const out = [];
-  const walk = (dir) => {
-    let entries;
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of entries) {
-      if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name)) walk(path.join(dir, e.name)); }
-      else if (MANIFEST_NAMES.has(e.name)) out.push(toPosix(path.relative(root, path.join(dir, e.name))));
-    }
-  };
-  walk(root);
-  return out.sort((a, b) => a.split('/').length - b.split('/').length || a.localeCompare(b));
+  return findFiles(root, (name) => MANIFEST_NAMES.has(name));
 }
 
 // Dependencias declaradas por ecosistema (si un paquete aparece en varios manifiestos, gana el más cercano a la raíz).

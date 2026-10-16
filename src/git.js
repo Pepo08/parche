@@ -36,14 +36,27 @@ export function checkout(cwd, branch) {
   git(cwd, 'checkout', '-q', branch);
 }
 
-export function originUrl(cwd) {
+export function remoteUrl(cwd, remote = 'origin') {
   try {
-    return git(cwd, 'remote', 'get-url', 'origin');
+    return git(cwd, 'remote', 'get-url', remote);
   } catch {
     return null;
   }
 }
 
-export function push(cwd, branch) {
-  git(cwd, 'push', '-u', '--force', 'origin', branch);
+export const originUrl = (cwd) => remoteUrl(cwd, 'origin');
+
+export function push(cwd, branch, remote = 'origin') {
+  git(cwd, 'push', '-u', '--force', remote, branch);
+}
+
+// Descarta lo que Parche escribió en su rama (el árbol estaba limpio antes de empezar; .parche/ está excluido).
+export function discardChanges(cwd) {
+  git(cwd, 'reset', '--hard', '-q');
+}
+
+export function deleteBranch(cwd, name) {
+  try {
+    git(cwd, 'branch', '-D', name);
+  } catch { /* ya no existía */ }
 }
