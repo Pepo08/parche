@@ -1,2 +1,6 @@
 node_modules/
 .parche/
+
+# Documentación interna (arquitectura, decisiones): vive fuera de este repo.
+docs/arquitectura.md
+docs/internal/

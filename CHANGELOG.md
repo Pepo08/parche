@@ -23,6 +23,9 @@ Lo que encontró el frente de tracción al correr Parche sobre 175 repos públic
 - El texto para un issue (sin cambios de código) ya no habla de "este PR".
 - `detect.packages` de ARCA: fuera `afip.js` (no existe en npm); suma `@arcasdk/core`, `afip.ts`, `ts-afip-ws` y `facturajs`.
 
+### Cambiado
+- `docs/arquitectura.md` sale del repo: era documentación interna del equipo. El formato del inventario sigue en `docs/inventario.md`.
+
 ## 0.4.1 — 2026-10-16
 
 Arreglos encontrados al correr Parche sobre los primeros repos públicos reales con ARCA y Mercado Pago.
