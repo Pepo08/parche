@@ -1,6 +1,7 @@
 // Utilidades de AST compartidas por todos los codemods.
 import jscodeshift from 'jscodeshift';
 import { parse as babelParse } from '@babel/parser';
+import { parsePhp, isPhp } from './php.js';
 
 export function jFor(file) {
   const parser = /\.ts$/.test(file) ? 'ts' : 'tsx';
@@ -20,6 +21,15 @@ export function eolOf(source) {
   const crlf = (source.match(/\r\n/g) || []).length;
   const lf = (source.match(/\n/g) || []).length - crlf;
   return crlf > lf ? '\r\n' : '\n';
+}
+
+// Aplica inserciones de texto { offset, text } de atrás para adelante, así no se corren los offsets.
+export function applyEdits(source, edits) {
+  let out = source;
+  for (const e of [...edits].sort((a, b) => b.offset - a.offset)) {
+    out = out.slice(0, e.offset) + e.text + out.slice(e.offset);
+  }
+  return out;
 }
 
 // Offset en el texto original de una posición { line, column } de recast.
@@ -146,6 +156,10 @@ export function resolveBinding(path, name) {
 
 // Chequeo de sintaxis del resultado, usado por verify y por los tests.
 export function parseCheck(source, file) {
+  if (isPhp(file)) {
+    parsePhp(source, file);
+    return true;
+  }
   const plugins = ['jsx'];
   if (/\.(ts|tsx)$/.test(file)) plugins.push('typescript');
   if (/\.ts$/.test(file)) plugins.splice(plugins.indexOf('jsx'), 1);
@@ -175,6 +189,10 @@ export function tidy(original, output) {
   let i = 0;
   let k = 0;
   while (k < m) {
+    // Una línea en blanco que también puede emparejarse más adelante se toma como nueva: así lo
+    // insertado con insertAfter queda pegado a la línea anterior (el import nuevo junto a los otros
+    // imports) y la línea en blanco original queda después.
+    if (i < n && a[i] === b[k] && b[k].trim() === '' && dp[i][k + 1] === dp[i][k]) { k++; continue; }
     if (i < n && a[i] === b[k]) { keep.push(b[k]); i++; k++; continue; }
     if (i < n && dp[i + 1][k] >= dp[i][k + 1]) { i++; continue; }
     if (b[k].trim() !== '') keep.push(b[k]); // línea nueva con contenido: se queda

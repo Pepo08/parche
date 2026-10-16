@@ -1,0 +1,14 @@
+{
+    "name": "tienda/facturacion",
+    "description": "Tienda de ejemplo que factura con afipsdk/afip.php",
+    "type": "project",
+    "require": {
+        "php": ">=7.4",
+        "afipsdk/afip.php": "^1.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Tienda\\": "src/"
+        }
+    }
+}

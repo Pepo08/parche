@@ -48,6 +48,14 @@ test('ARCA: objeto en una sola línea y sin comillas', () => {
   assert.match(r.output, /DocNro: 0, CondicionIVAReceptorId: 5 \/\*/);
 });
 
+test('ARCA: respeta la coma final (si el último no la tenía, la propiedad nueva tampoco)', () => {
+  const run = (body) => arca({ source: `afip.ElectronicBilling.createVoucher({\n${body}\n});\n`, file: 'x.js', pack: packs['arca.wsfe.condicion-iva-receptor'] }).output;
+  const sin = run('  DocTipo: 99,\n  DocNro: 0');
+  parseCheck(sin, 'x.js');
+  assert.match(sin, /DocNro: 0,\n {2}\/\/ parche: .*\n {2}CondicionIVAReceptorId: 5\n\}\);/);
+  assert.match(run('  DocTipo: 99,\n  DocNro: 0,'), /CondicionIVAReceptorId: 5,\n\}\);/);
+});
+
 test('ARCA: indentación con tabs y CRLF (recast parsea otra copia del texto)', () => {
   const tabs = src('facturacion.js').replace(/\r\n/g, '\n').replace(/^(?: {2})+/gm, (s) => '\t'.repeat(s.length / 2));
   for (const source of [tabs, tabs.replace(/\n/g, '\r\n')]) {
@@ -121,6 +129,12 @@ test('MP: require (CommonJS) y create inline', () => {
   assert.match(r.output, /type: 'debit_card'/);
   assert.match(r.output, /r\.status === 'processed'/);
   assert.match(r.output, /\{ MercadoPagoConfig, Order \}/);
+});
+
+test('MP: el import de randomUUID va junto a los otros imports', () => {
+  const lines = runMp('checkout.js').output.split('\n');
+  assert.equal(lines[lines.indexOf("import { guardarPedido } from './db.js';") + 1], "import { randomUUID } from 'node:crypto';");
+  assert.equal(lines[lines.indexOf("import { randomUUID } from 'node:crypto';") + 1], '', 'la línea en blanco original queda después');
 });
 
 test('MP: respeta el fin de línea del archivo y sus líneas en blanco', () => {

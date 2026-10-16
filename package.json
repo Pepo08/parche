@@ -1,6 +1,6 @@
 {
   "name": "parche-cli",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Dependabot para APIs: detecta cambios de APIs de terceros en tu código y abre el PR con el arreglo.",
   "keywords": [
     "api",
@@ -29,7 +29,8 @@
     "bin",
     "src",
     "packs",
-    "templates"
+    "templates",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "test": "node --test test/*.test.js",
@@ -40,6 +41,7 @@
   },
   "dependencies": {
     "@babel/parser": "^7.28.0",
-    "jscodeshift": "^17.3.0"
+    "jscodeshift": "^17.3.0",
+    "php-parser": "^3.7.0"
   }
 }
