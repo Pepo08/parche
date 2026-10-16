@@ -1,5 +1,7 @@
 // Reporte del scan y cuerpo del PR, en castellano.
-const LABEL = {
+import { apiLabel } from './inventory/index.js';
+
+const LABEL ={
   auto: '✅ automático',
   'needs-review': '👀 revisar',
   'needs-input': '✋ falta un dato',
@@ -30,12 +32,22 @@ export function scanReport({ inventory, findings, packs, changed }, today = new 
   const out = [];
   out.push(`# Parche — reporte de \`${inventory.repo}\``, '');
   out.push('## APIs que usa este repo', '');
-  const pk = Object.entries(inventory.packages);
-  if (pk.length) out.push(...pk.map(([n, v]) => `- \`${n}\` ${v}`), '');
-  for (const [prov, p] of Object.entries(inventory.providers)) {
-    out.push(`- **${prov}**: ${p.callSites} usos en ${p.files.length} archivo(s) — ${Object.entries(p.ops).map(([o, n]) => `${o} ×${n}`).join(', ')}`);
+  out.push('Todas las APIs de terceros que se encontraron en el código, tengan pack de Parche o no.', '');
+  if (inventory.apis.length) {
+    const KIND = { sdk: 'SDK', http: 'HTTP directo', 'ai-model': 'Modelos de IA' };
+    out.push('| Tipo | API | Rubro | Confianza | Operaciones (usos) | Pack |', '|---|---|---|---|---|---|');
+    for (const api of inventory.apis) {
+      const ops = api.operations.map((o) => `\`${o.op}\` ×${o.count}`).join(', ') || 'declarada, sin usos encontrados';
+      out.push(`| ${KIND[api.kind]} | ${apiLabel(api)} | ${api.category || '—'} | ${api.confidence} | ${ops} | ${api.packs.length ? 'sí' : '—'} |`);
+    }
+    out.push('');
+  } else {
+    out.push('No se encontraron APIs de terceros.', '');
   }
-  out.push('');
+  if (inventory.unresolved.length) {
+    out.push('**Llamadas HTTP con URL dinámica** (no se puede saber a qué host van):', '',
+      ...inventory.unresolved.map((u) => `- \`${u.file}:${u.line}\` (${u.client})`), '');
+  }
   for (const pack of packs) {
     const fs = findings.filter((f) => f.pack === pack.id);
     if (!fs.length) continue;

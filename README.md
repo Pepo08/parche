@@ -2,23 +2,30 @@
 
 [![CI](https://github.com/Pepo08/parche/actions/workflows/ci.yml/badge.svg)](https://github.com/Pepo08/parche/actions/workflows/ci.yml)
 
-Parche lee tu código, arma un inventario de qué APIs de terceros usás (Mercado Pago, ARCA, modelos de IA…) y lo cruza contra una base de **cambios de API verificados**. Cuando un proveedor cambia algo que te afecta, Parche abre un PR con el arreglo, explica qué cambió y por qué, y marca lo que necesita una persona. Ningún PR sale sin pasar la verificación.
+Parche lee tu código y arma el inventario de **todas** las APIs de terceros que usás: SDKs (Stripe, Twilio, OpenAI, AWS, Mercado Pago, ARCA…), llamadas HTTP directas y modelos de IA. Lo cruza contra una base de **cambios de API verificados** y, cuando un proveedor cambia algo que te afecta, te avisa o abre un PR con el arreglo, explica qué cambió y por qué, y marca lo que necesita una persona. Ningún PR sale sin pasar la verificación. Las APIs de pagos y facturación de Latinoamérica son el fuerte, pero el inventario cubre cualquier API.
 
 ```
 $ parche scan .
-APIs encontradas:
-  mercadopago   4 usos en 4 archivo(s)  [Payment.create, Payment.get]
-  arca          3 usos en 1 archivo(s)  [ElectronicBilling.createNextVoucher]
-  ia            2 usos en 1 archivo(s)  [modelo claude-3-5-haiku-20241022, OpenAI Assistants API]
+APIs del repo (6):
+  SDK   Anthropic · @anthropic-ai/sdk          alta   messages.create  · con pack
+  SDK   ARCA (ex AFIP) · @afipsdk/afip.js      alta   ElectronicBilling.createNextVoucher ×3  · con pack
+  SDK   Mercado Pago · mercadopago             alta   Payment.create ×3, Payment.get  · con pack
+  SDK   OpenAI · openai                        alta   beta.assistants.create  · con pack
+  IA    Anthropic · modelos                    alta   claude-3-5-haiku-20241022  · con pack
+  IA    OpenAI · modelos                       alta   gpt-4o  · con pack
 
 ■ Condición frente al IVA del receptor obligatoria en WSFEv1
-  ARCA (ex AFIP) · severidad critical · vence 2026-12-01 (47 días)
+  ARCA (ex AFIP) · severidad critical · vence 2026-12-01 (46 días)
   ✅ automático     src/facturacion.js:14  Agregado CondicionIVAReceptorId: 5 (Consumidor Final)…
   👀 revisar       src/facturacion.js:56  Agregado CondicionIVAReceptorId: 5 por inferencia (DNI + comprobante B/C)…
   ✋ falta un dato  src/facturacion.js:62  Falta CondicionIVAReceptorId y no se puede inferir… (comprobante clase A).
+
+■ Modelos y endpoints de IA retirados o por retirarse
+  🔎 detectado     src/ia.js:9  El modelo `claude-3-5-haiku-20241022` fue retirado el 2026-02-19: las llamadas ya fallan…
 …
-✅ automático: 5   👀 revisar: 8   ✋ falta un dato: 1   ⛔ bloqueado: 1   🔎 detectado: 2
 ```
+
+El inventario completo (con operaciones, ubicaciones y nivel de confianza) queda en `.parche/inventory.json`; el formato está en [`docs/inventario.md`](docs/inventario.md). Para ver un repo con APIs de todo tipo, desde este repo: `node bin/parche.js scan examples/saas-demo`.
 
 ## Por qué packs y no "un LLM que arregla todo"
 
@@ -66,6 +73,7 @@ npm install
 npm test                         # el CI los corre en Linux y Windows
 bash demo.sh                     # demo completa sobre examples/tienda-demo (JS)
 node bin/parche.js scan examples/tienda-php   # ejemplo PHP con afip.php
+node bin/parche.js scan examples/saas-demo    # SaaS con Stripe, Twilio, OpenAI y HTTP directo
 ```
 
 #### Sacar una versión

@@ -2,6 +2,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadPacks, transformFor } from './packs.js';
+import { isPhp } from './php.js';
+import { scanJs } from './inventory/js-scan.js';
+import { readManifests, buildInventory } from './inventory/index.js';
 
 // vendor/ es donde composer instala las dependencias de PHP (incluida la propia librería de ARCA).
 const SKIP_DIRS = new Set(['node_modules', 'vendor', '.git', 'dist', 'build', 'coverage', '.next', '.parche']);
@@ -26,37 +29,22 @@ export function listFiles(dir) {
 // Rutas siempre con "/": van al reporte, al cuerpo del PR y al inventario.
 const toPosix = (p) => p.split(path.sep).join('/');
 
-// Dependencias declaradas en package.json (npm) y composer.json (PHP).
-function readDeps(dir) {
-  const read = (name) => {
-    const p = path.join(dir, name);
-    if (!fs.existsSync(p)) return {};
-    try {
-      return JSON.parse(fs.readFileSync(p, 'utf8'));
-    } catch {
-      return {};
-    }
-  };
-  const pkg = read('package.json');
-  const composer = read('composer.json');
-  return {
-    ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}),
-    ...(composer.require || {}), ...(composer['require-dev'] || {}),
-  };
-}
-
 export function run(dir, { write = false, packIds = null, today } = {}) {
   const root = path.resolve(dir);
   const packs = loadPacks().filter((p) => !packIds || packIds.includes(p.id));
-  const deps = readDeps(root);
+  const manifests = readManifests(root);
+  const deps = { ...manifests.npm, ...manifests.composer };
   const files = listFiles(root);
   const findings = [];
   const usages = [];
+  const fileScans = []; // inventario de cualquier API (nivel 1), por archivo
   const changed = new Map(); // archivo relativo → [packs]
 
   for (const abs of files) {
     const rel = toPosix(path.relative(root, abs));
     let source = fs.readFileSync(abs, 'utf8');
+    // El inventario se arma sobre el archivo original, antes de que un pack lo modifique.
+    if (!isPhp(rel)) fileScans.push({ file: rel, scan: scanJs(source, rel) });
     for (const pack of packs) {
       const t = transformFor(pack.id, rel);
       if (!t) continue;
@@ -84,9 +72,12 @@ export function run(dir, { write = false, packIds = null, today } = {}) {
     p.ops[u.op] = (p.ops[u.op] || 0) + 1;
     p.files.add(u.file);
   }
+  const generatedAt = new Date().toISOString();
   const inventory = {
-    generated_at: new Date().toISOString(),
-    repo: path.basename(root),
+    ...buildInventory({ repo: path.basename(root), manifests, fileScans, packs }),
+    generatedAt,
+    // Campos anteriores a schemaVersion: lo que reportan los packs. Se mantienen por compatibilidad.
+    generated_at: generatedAt,
     packages: Object.fromEntries(Object.entries(deps).filter(([name]) =>
       packs.some((p) => (p.detect.packages || []).includes(name)))),
     providers: Object.fromEntries(Object.entries(providers).map(([k, v]) => [k, { ...v, files: [...v.files] }])),
