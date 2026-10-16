@@ -1,13 +1,14 @@
 // Motor: recorre el repo, arma el inventario de APIs y corre los packs.
 import fs from 'node:fs';
 import path from 'node:path';
-import { loadPacks, transformFor } from './packs.js';
-import { isPhp } from './php.js';
+import { loadPacks, transformFor, languageOf } from './packs.js';
 import { SKIP_DIRS, toPosix } from './paths.js';
 import { scanJs } from './inventory/js-scan.js';
 import { readManifests, buildInventory } from './inventory/index.js';
+import { buildContext } from './context.js';
 
-const EXT = /\.(m?js|cjs|jsx|ts|tsx|php)$/;
+// JS/TS y PHP (codemods), WSDL (detección de esquemas viejos) y Python, C#, Java, Go, VB.NET (solo detección).
+const EXT = /\.(m?js|cjs|jsx|ts|tsx|php|wsdl|py|cs|java|go|vb)$/i;
 
 export function listFiles(dir) {
   const out = [];
@@ -25,29 +26,31 @@ export function listFiles(dir) {
   return out.sort((a, b) => (toPosix(a) < toPosix(b) ? -1 : 1));
 }
 
-
 export function run(dir, { write = false, packIds = null, today } = {}) {
   const root = path.resolve(dir);
   const packs = loadPacks().filter((p) => !packIds || packIds.includes(p.id));
   const manifests = readManifests(root);
   const deps = { ...manifests.npm, ...manifests.composer };
   const files = listFiles(root);
+  const rels = files.map((abs) => toPosix(path.relative(root, abs)));
+  // Lo que un archivo solo no sabe (versiones instaladas, si el repo ya usa el campo, WSDL viejos).
+  const context = buildContext(root, rels, manifests);
   const findings = [];
   const usages = [];
   const fileScans = []; // inventario de cualquier API (nivel 1), por archivo
   const changed = new Map(); // archivo relativo → [packs]
 
-  for (const abs of files) {
-    const rel = toPosix(path.relative(root, abs));
+  files.forEach((abs, i) => {
+    const rel = rels[i];
     let source = fs.readFileSync(abs, 'utf8');
     // El inventario se arma sobre el archivo original, antes de que un pack lo modifique.
-    if (!isPhp(rel)) fileScans.push({ file: rel, scan: scanJs(source, rel) });
+    if (languageOf(rel) === 'js') fileScans.push({ file: rel, scan: scanJs(source, rel) });
     for (const pack of packs) {
       const t = transformFor(pack.id, rel);
       if (!t) continue;
       let res;
       try {
-        res = t({ source, file: rel, pack, today });
+        res = t({ source, file: rel, pack, today, context });
       } catch (err) {
         findings.push({ pack: pack.id, file: rel, line: null, status: 'needs-input', message: `Parche no pudo procesar este archivo: ${err.message}` });
         continue;
@@ -60,7 +63,7 @@ export function run(dir, { write = false, packIds = null, today } = {}) {
         if (write) fs.writeFileSync(abs, source);
       }
     }
-  }
+  });
 
   const providers = {};
   for (const u of usages) {
@@ -80,7 +83,7 @@ export function run(dir, { write = false, packIds = null, today } = {}) {
     providers: Object.fromEntries(Object.entries(providers).map(([k, v]) => [k, { ...v, files: [...v.files] }])),
     usages,
   };
-  return { root, packs, inventory, findings, changed: [...changed.entries()].map(([file, packIds]) => ({ file, packs: packIds })) };
+  return { root, packs, context, inventory, findings, changed: [...changed.entries()].map(([file, packIds]) => ({ file, packs: packIds })) };
 }
 
 export const STATUS_ORDER = ['blocked', 'needs-input', 'needs-review', 'auto', 'detect-only'];

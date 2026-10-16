@@ -99,15 +99,17 @@ export function prBody({ pack, findings, changed, verification }, today = new Da
   out.push(`## ${pack.title}`, '');
   out.push(`> **${pack.provider}** · severidad ${SEVERITY[pack.severity]} · fecha límite: ${deadlineText(pack, today)}`, '');
   out.push('### Qué cambió', '', pack.why_es, '');
-  out.push('### Qué hace este PR', '');
+  // Sin cambios de código el texto se usa como issue: los títulos no pueden hablar de "este PR".
+  const asIssue = !changed.length;
+  out.push(asIssue ? '### Qué encontró Parche' : '### Qué hace este PR', '');
   const applied = fs.filter((f) => f.status === 'auto' || f.status === 'needs-review');
   out.push(changed.length
     ? `Modifica ${changed.length} archivo(s): ${changed.map((x) => `\`${x.file}\``).join(', ')}.`
-    : 'No modifica archivos: solo reporta lo que hay que resolver a mano.', '');
+    : 'No hay un arreglo automático seguro: esto es lo que hay que resolver a mano.', '');
   for (const f of applied) out.push(`- ${LABEL[f.status]} \`${f.file}:${f.line}\` — ${f.message}`);
   const pending = fs.filter((f) => f.status === 'needs-input' || f.status === 'blocked');
   if (pending.length) {
-    out.push('', '### Lo que este PR NO resuelve (necesita una persona)', '');
+    out.push('', asIssue ? '### Lo que hay que resolver (necesita una persona)' : '### Lo que este PR NO resuelve (necesita una persona)', '');
     for (const f of pending) {
       out.push(`- ${LABEL[f.status]} \`${f.file}:${f.line}\` — ${f.message}`);
       if (f.suggestion) out.push(`  - Agregá: \`${f.suggestion}\``);
@@ -125,7 +127,7 @@ export function prBody({ pack, findings, changed, verification }, today = new Da
   } else {
     out.push('- Sin verificar (corré `parche pr --verify`).');
   }
-  out.push('', '### Checklist antes de mergear', '', ...pack.review_checklist_es.map((x) => `- [ ] ${x}`), '');
+  out.push('', asIssue ? '### Checklist' : '### Checklist antes de mergear', '', ...pack.review_checklist_es.map((x) => `- [ ] ${x}`), '');
   out.push('### Fuentes', '', ...pack.sources.map((s) => `- [${s.title}](${s.url})`), '');
   out.push(`<sub>Pack \`${pack.id}\` v${pack.version}, verificado el ${pack.last_verified}. Resumen: ${Object.entries(c).map(([k, v]) => `${LABEL[k]} ${v}`).join(' · ')}. ¿Este PR te sirvió? Mergealo, editalo o cerralo: Parche aprende de cada resultado.</sub>`, '');
   return out.join('\n');

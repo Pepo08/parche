@@ -17,7 +17,7 @@
     { "title": "afipsdk/afip.php en Packagist", "url": "https://packagist.org/packages/afipsdk/afip.php" }
   ],
   "detect": {
-    "packages": ["@afipsdk/afip.js", "afip.js", "afipsdk/afip.php", "fertandil87/afip.php", "ivanalemunioz/afip.php", "eesnaola/afip.php"],
+    "packages": ["@afipsdk/afip.js", "@arcasdk/core", "afip.ts", "ts-afip-ws", "facturajs", "afipsdk/afip.php", "fertandil87/afip.php", "ivanalemunioz/afip.php", "eesnaola/afip.php"],
     "calls": ["ElectronicBilling.createVoucher", "ElectronicBilling.createNextVoucher", "ElectronicBilling->CreateVoucher", "ElectronicBilling->CreateNextVoucher"],
     "raw_markers": ["FECAESolicitar", "FECAEDetRequest"],
     "field": "CondicionIVAReceptorId"

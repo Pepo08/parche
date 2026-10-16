@@ -13,8 +13,10 @@ parche scan|fix|pr <repo>
         │
         ▼
 bin/parche.js ──► engine.run(repo)
-                    │  listFiles: todos los .js/.ts/.php, salteando node_modules, vendor, .git…
-                    │  readManifests: package.json + composer.json + requirements.txt
+                    │  listFiles: .js/.ts/.php, .wsdl y .py/.cs/.java/.go/.vb, salteando node_modules, vendor, .git…
+                    │  readManifests: todos los package.json, composer.json y requirements.txt del repo
+                    │  buildContext: versiones instaladas, archivos que ya usan el campo, WSDL viejos
+                    │     (lo que un archivo solo no puede saber; cada transform lo recibe como `context`)
                     │
                     ├─ por cada archivo JS/TS: scanJs(original) → SDKs y operaciones, HTTP, modelos de IA
                     │     (inventario de CUALQUIER API, nivel 1; se hace antes de que un pack lo modifique)
@@ -91,8 +93,15 @@ El esquema del resultado y sus límites están en [`docs/inventario.md`](inventa
 ### `data/known-sdks.json`: la lista curada
 Paquete → proveedor y rubro (npm, composer, pypi), prefijos de familias (`@aws-sdk/client-`), clientes HTTP, lo que no es una API (tooling y frameworks) y hosts conocidos. Es **dato, no código**: sumar una entrada sube una detección a confianza alta sin tocar nada más.
 
+### `src/context.js`: lo que un archivo solo no sabe
+- `buildContext(root, archivos, manifiestos)` → `{ versions, fieldFiles, staleWsdl, arcaLibs }`: versiones instaladas de cada dependencia (`readVersions()`: lockfiles en cualquier carpeta → `node_modules` → rango declarado), archivos que ya usan `CondicionIVAReceptorId`, WSDL de WSFEv1 sin el campo, y las librerías de ARCA con lo que se sabe de si el campo llega a viajar (`arcaLibraries()`).
+- La tabla de qué versión de qué librería manda el campo está en `ARCA_LIBS`, verificada en el código de cada librería (ver D44).
+
+### `src/paths.js`
+`SKIP_DIRS`, `toPosix()`, `findFiles()` (recorre el repo salteando las dependencias) e `isTestFile()` (tests, mocks, fixtures, ejemplos).
+
 ### `src/packs.js`: registro de packs
-- `TRANSFORMS`: para cada pack, su versión por lenguaje (`{ js, php }`). Si un pack no tiene versión para un lenguaje, no corre sobre esos archivos (Mercado Pago, por ejemplo, solo existe para JS).
+- `TRANSFORMS`: para cada pack, su versión por lenguaje (`{ js, php, wsdl, text }`; `text` es Python, C#, Java, Go y VB.NET, solo detección). Si un pack no tiene versión para un lenguaje, no corre sobre esos archivos (Mercado Pago, por ejemplo, solo existe para JS).
 - `languageOf()`, `transformFor(pack, archivo)`, `loadPacks()` (ordenados por fecha límite) y `validatePack()` (los campos obligatorios de `REQUIRED_FIELDS`).
 
 ### `src/ast.js`: utilidades de JavaScript/TypeScript
@@ -185,6 +194,15 @@ Campos obligatorios: `id`, `version` (fecha), `provider`, `title`, `kind`, `seve
 | D40 | El inventario lee **todos** los manifiestos del repo (salteando `node_modules`, `vendor`, etc.) y sigue clientes guardados en clases (`private x = new X()`, `this.x = new X()`). | Los repos reales son monorepos (`packages/backend/package.json`, `ms-billing/package.json`) y los servicios guardan el cliente en la clase. Sin esto, repos con ARCA, Mercado Pago y AWS daban "0 APIs". |
 | D41 | Cuando no se puede leer el comprobante, el hallazgo dice **dónde** agregar el dato: la función que lo arma (y de qué módulo viene) o que llega como parámetro. | "Falta un dato" sin decir dónde es poco accionable; con la ubicación, el mantenedor lo resuelve en un minuto. Se sigue sin adivinar el valor: depende del cliente. |
 | D42 | La lista de "no son APIs" se compara por familia (`pg` y `pg-*`, no cualquier cosa que empiece con "pg") y va antes que los prefijos de proveedores. | Con nombres cortos (`ws`, `pg`) un prefijo suelto se llevaba puesto un SDK real (`wsfe-sdk`). Y `@aws-sdk/types` es de la familia de AWS pero son solo tipos. |
+| D43 | El motor arma un **contexto del repo** una vez y se lo pasa a cada transform. | Hay decisiones que un archivo solo no puede tomar: qué versión de la librería está instalada, si el repo ya empezó a migrar, si hay un WSDL viejo. Mantiene a los transforms como funciones puras (reciben más datos, no leen el disco). |
+| D44 | Con **afip.js/afip.php 0.x** (o `eesnaola/afip.php`) el arreglo de ARCA se sigue insertando, pero pasa de "automático" a "revisar" y dice que hay que actualizar la librería. | Verificado en su código el 16/10: la 0.x arma el SOAP con un WSDL de 2021 incluido en la librería, sin el campo (en PHP no viaja; en JS falta confirmarlo); la 1.x manda JSON a la API de Afip SDK; `fertandil87/afip.php` actualizó su WSDL. Un PR "automático" ahí sería engañoso; insertar igual deja el código listo para cuando actualicen. |
+| D45 | Se detectan los `.wsdl` de WSFEv1 del repo que no tienen el campo. | Si el cliente SOAP arma el pedido con ese esquema (`SoapClient` en modo WSDL), el campo no viaja aunque esté en el código: hay que reemplazar el WSDL. |
+| D46 | La detección de SOAP propio marca solo archivos que arman el comprobante (`DocTipo`, `CbteDesde`, `ImpTotal`), no tests, mocks, tipos ni copias de la librería; si el repo ya usa el campo en otro archivo, lo que no se pudo leer pasa a "revisar". | En 175 repos reales, 49 quedaban como "parciales" por ruido: librerías ya migradas, tipos generados, constantes. Avisar de más hace que se ignoren los avisos que importan. |
+| D47 | `parche pr` nunca deja el repo del cliente sucio: si la verificación falla, descarta lo que escribió, vuelve a la base y borra su rama (con `finally`); sin cambios de código, o si solo cambiarían tests o mocks, no queda rama ni PR. | Pasó en repos reales: el archivo modificado quedaba sin commitear en la rama base. Y un PR que solo toca un mock no le sirve a nadie. |
+| D48 | `--push-remote <remote>` para abrir PRs desde un fork: pushea al fork y abre el PR contra `origin` con `head: <dueño>:<rama>`. | Es la forma de mandar PRs a repos de terceros. Usa las credenciales de git que ya tiene configuradas la persona: Parche no guarda tokens en ningún remote. |
+| D49 | Los codemods de ARCA no parsean un archivo que no menciona `ElectronicBilling` ni `FECAE…` (prefiltro de texto). | Mismo resultado y órdenes de magnitud más rápido: en repos con bundles grandes, parsear todo tardaba minutos y 1,5 GB de RAM. |
+| D50 | Pack de IA: un ID en el contexto de una llamada (`model: '...'`) es un uso; en una lista o catálogo, una mención. En código de Azure OpenAI, la Assistants API no se da por cerrada. Cada retiro trae la fecha y el reemplazo oficiales. | La mayoría de los repos con estrellas que mencionaban modelos eran catálogos o tablas de precios. Y la fecha oficial de cierre de la Assistants API es la de la API de OpenAI, no la de Azure. |
+| D51 | Python, C#, Java, Go y VB.NET: solo detección por texto (SOAP propio, clientes SOAP generados y modelos de IA). | 8 de los 60 repos afectados por ARCA están en esos lenguajes. Detectar es barato y útil (un cliente SOAP generado hay que regenerarlo); reescribir requeriría un parser por lenguaje. |
 
 ## 5. Cómo extender
 
@@ -202,7 +220,8 @@ Campos obligatorios: `id`, `version` (fecha), `provider`, `title`, `kind`, `seve
 
 - **ARCA (JS y PHP):** si el comprobante lo arma una función de otro archivo (`buildVoucherPayload()`), no se edita esa función: se reporta "falta un dato" con su nombre y su módulo (D41).
 - **ARCA en PHP:** no sigue alias (`$eb = $afip->ElectronicBilling; $eb->CreateVoucher(...)`), ni constantes para DocTipo o CbteTipo (`self::DOC_TIPO`), ni arrays armados por otra función. Hoy todos esos casos son "falta un dato".
-- **ARCA en JS:** lo mismo con alias y objetos armados en varios pasos.
+- **ARCA en JS:** sigue alias simples y casts de TS, pero no objetos armados en varios pasos ni wrappers propios (`afip.createNextVoucher(...)` sobre una copia de la librería). `@arcasdk/core` (`arca.electronicBillingService.createVoucher`) todavía no se reconoce: falta verificar la forma de sus datos.
+- **"Auto en tiempo de ejecución"** (`CondicionIVAReceptorId: docTipo === 99 ? 5 : undefined` cuando `DocTipo` es una variable): propuesto por el frente B, pendiente de una decisión de negocio (¿un arreglo parcial cuenta como PR?).
 - **Integraciones SOAP propias** (JS o PHP): se detectan pero no se reescriben.
 - **Python y Java:** no están cubiertos.
 - **Inventario** (detalle en [`docs/inventario.md`](inventario.md)): sigue variables por nombre sin scopes y no sigue instancias entre archivos; las URLs armadas en otro archivo o con funciones quedan como dinámicas; PHP y Python se listan solo desde el manifiesto.
@@ -221,5 +240,6 @@ Campos obligatorios: `id`, `version` (fecha), `provider`, `title`, `kind`, `seve
 |---|---|
 | `test/parche.test.js` | Validación de packs; ARCA en JS (tres casos, una línea, coma final, CRLF y tabs); Mercado Pago (JS, TS, CommonJS, marketplace bloqueado, webhooks, fin de línea, lugar del import); IA; motor (idempotencia); CLI `pr --dry-run`, incluida la ausencia de atribución en commits y PRs. |
 | `test/inventory.test.js` | Inventario: clasificación de paquetes, SDKs con sus operaciones (imports, require, instancias), HTTP con los cinco clientes, URLs dinámicas, locales y relativas, modelos de IA, manifiestos de PHP y Python, motor sobre `saas-demo` y `tienda-demo`, y la CLI con `inventory.json` y el reporte. |
+| `test/feedback-traccion.test.js` | Los casos reales del frente de tracción: repo limpio si falla la verificación, sin PR si solo cambian tests, librería 0.x y WSDL viejos, casts y alias de TS, archivos que no parsean, menos ruido SOAP, repo ya migrado, cliente SOAP generado en C# y el pack de IA (usos y menciones, Azure, fechas y reemplazos oficiales). |
 | `test/sdk-diff.test.js` | Diff de SDKs: lector de tar (con nombres largos), dónde están los tipos (incluido el caso Stripe 23), versiones, registry con integridad y caché sin red, superficie de un SDK de ejemplo (`test/fixtures/sdk-diff/demo-sdk`, versiones 1 y 2 con cambios a propósito), comparación, versión instalada, `scan --upgrades` y la CLI sin red. |
 | `test/arca-php.test.js` | ARCA en PHP: tres casos más datos de afuera, una línea y minúsculas, CRLF y tabs, reglas de scope, estilo (comillas, alineación, coma final, comentario), lo que no se puede leer, motor con `composer.json` y `vendor/`, y selección de tests en `verify`. |
