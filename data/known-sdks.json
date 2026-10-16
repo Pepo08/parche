@@ -52,7 +52,7 @@
     "@clerk/clerk-sdk-node": { "provider": "Clerk", "category": "auth" }
   },
   "npmPrefixes": {
-    "@aws-sdk/client-": { "provider": "AWS", "category": "nube" },
+    "@aws-sdk/": { "provider": "AWS", "category": "nube" },
     "@google-cloud/": { "provider": "Google Cloud", "category": "nube" },
     "@azure/": { "provider": "Azure", "category": "nube" }
   },
@@ -88,7 +88,8 @@
     "pypi": ["requests", "httpx", "aiohttp", "urllib3"]
   },
   "notApis": {
-    "prefixes": ["@types/", "eslint", "@eslint/", "prettier", "jest", "@jest/", "vitest", "mocha", "typescript", "ts-node", "@babel/", "babel-", "webpack", "vite", "rollup", "esbuild", "@vitejs/", "nodemon", "husky", "lint-staged", "@testing-library/", "@apollo/", "graphql", "react", "vue", "svelte", "next", "nuxt", "express", "fastify", "koa"]
+    "prefixes": ["@types/", "eslint", "@eslint/", "prettier", "jest", "@jest/", "vitest", "mocha", "typescript", "ts-node", "@babel/", "babel-", "webpack", "vite", "rollup", "esbuild", "@vitejs/", "nodemon", "husky", "lint-staged", "@testing-library/", "@apollo/", "graphql", "react", "vue", "svelte", "next", "nuxt", "express", "fastify", "koa", "@nestjs/", "@angular/", "socket.io", "@prisma/", "prisma", "@trpc/", "@tanstack/", "@redis/", "redis", "ioredis", "ws", "pg", "mysql", "mongodb", "mongoose", "sequelize", "typeorm", "knex", "drizzle-orm", "@aws-sdk/types", "@smithy/"],
+    "why": "Librerías de desarrollo, frameworks, bases de datos y transporte (socket.io, ws): no son la API de un tercero aunque el nombre diga 'client'."
   },
   "hosts": {
     "api.stripe.com": { "provider": "Stripe", "category": "pagos" },

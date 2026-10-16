@@ -26,7 +26,7 @@ test('PHP: consumidor final se arregla solo, DNI queda para revisar, Factura A y
   parseCheck(r.output, 'src/Facturacion.php');
   assert.deepEqual(r.findings.map((f) => f.status), ['auto', 'needs-review', 'needs-input', 'needs-input']);
   assert.match(r.findings[2].suggestion, /'CondicionIVAReceptorId' => <condición del cliente>, .*1 \(IVA Responsable Inscripto\), 6 .*13 .*16/);
-  assert.match(r.findings[3].message, /\$comprobante no se define en esta función/);
+  assert.match(r.findings[3].message, /llegan en `\$comprobante` como parámetro/);
   assert.deepEqual(r.usages.map((u) => u.op), ['ElectronicBilling->CreateNextVoucher', 'ElectronicBilling->CreateVoucher',
     'ElectronicBilling->CreateNextVoucher', 'ElectronicBilling->CreateNextVoucher']);
   // Diff mínimo: 2 inserciones de 2 líneas, nada más cambia, y cada una va justo debajo de DocNro.
@@ -72,15 +72,23 @@ test('PHP: $data en el mismo scope sí; en otro scope, reasignada o completada e
   const arr = "array('CbteTipo' => 6, 'DocTipo' => 99, 'DocNro' => 0)";
   // Misma función: se arregla.
   assert.equal(php(fn(`    $data = ${arr};\n    return $afip->ElectronicBilling->CreateNextVoucher($data);`)).findings[0].status, 'auto');
-  // Definida en otra función: no se adivina.
+  // Definida en otra función: no se adivina. Si llega como parámetro, se dice dónde agregar el dato.
   const otra = `<?php\n$data = ${arr};\nfunction f($afip, $data) {\n    return $afip->ElectronicBilling->CreateNextVoucher($data);\n}\n`;
-  assert.match(php(otra).findings[0].message, /\$data no se define en esta función/);
+  assert.match(php(otra).findings[0].message, /llegan en `\$data` como parámetro: agregá CondicionIVAReceptorId donde se arma ese array/);
+  const global = `<?php\n$data = ${arr};\nfunction f($afip) {\n    return $afip->ElectronicBilling->CreateNextVoucher($data);\n}\n`;
+  assert.match(php(global).findings[0].message, /\$data no se define en esta función/);
+  // Lo arma otra función: se dice cuál.
+  const armado = fn("    $data = $this->builder->armarComprobante($venta);\n    $afip->ElectronicBilling->CreateVoucher($data);");
+  assert.match(php(armado).findings[0].message, /los arma `armarComprobante\(\)`: agregá CondicionIVAReceptorId ahí/);
   // Closure: tampoco cruza el límite (necesitaría `use`).
   const closure = `<?php\n$data = ${arr};\n$emitir = function ($afip) use ($data) {\n    return $afip->ElectronicBilling->CreateNextVoucher($data);\n};\n`;
   assert.equal(php(closure).findings[0].status, 'needs-input');
   // Reasignada o con DocTipo cambiado después: needs-input.
   assert.match(php(fn(`    $data = ${arr};\n    if ($x) { $data = []; }\n    $afip->ElectronicBilling->CreateNextVoucher($data);`)).findings[0].message, /más de una vez/);
   assert.match(php(fn(`    $data = ${arr};\n    $data['DocTipo'] = 96;\n    $afip->ElectronicBilling->CreateNextVoucher($data);`)).findings[0].message, /varios pasos/);
+  // El mismo $data en dos llamadas: una sola inserción.
+  const dos = php(fn(`    $data = ${arr};\n    $afip->ElectronicBilling->CreateVoucher($data);\n    $afip->ElectronicBilling->CreateVoucher($data);`));
+  assert.equal((dos.output.match(/CondicionIVAReceptorId/g) || []).length, 1);
   // Otras claves agregadas después no cambian la decisión.
   assert.equal(php(fn(`    $data = ${arr};\n    $data['Iva'] = array();\n    $afip->ElectronicBilling->CreateNextVoucher($data);`)).findings[0].status, 'auto');
   // Ya migrado (en el literal o agregado después): no se toca.

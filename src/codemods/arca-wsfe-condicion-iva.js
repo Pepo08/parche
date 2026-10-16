@@ -39,6 +39,9 @@ export default function transform({ source, file, pack }) {
   }
   let changed = false;
   const edits = [];
+  // Objetos ya editados: el mismo `payload` puede ir a dos llamadas (lo vimos en un repo real). Como se edita
+  // texto y el árbol no se entera, sin esto se insertaba dos veces → clave duplicada y TypeScript no compila.
+  const edited = new Set();
 
   root.find(j.CallExpression).filter((p) => isVoucherCall(p.node.callee)).forEach((p) => {
     const call = p.node;
@@ -51,11 +54,10 @@ export default function transform({ source, file, pack }) {
       if (decl && decl.node.init && decl.node.init.type === 'ObjectExpression') obj = decl.node.init;
     }
     if (!obj || hasSpread(obj)) {
-      findings.push(finding(PACK, file, call, 'needs-input',
-        'No pude leer los datos del comprobante (no es un objeto literal). Agregá CondicionIVAReceptorId a mano.'));
+      findings.push(finding(PACK, file, call, 'needs-input', unreadableMessage(j, root, p, arg, obj)));
       return;
     }
-    if (getProp(obj, 'CondicionIVAReceptorId')) return; // ya está migrado
+    if (getProp(obj, 'CondicionIVAReceptorId') || edited.has(obj)) return; // ya está migrado (o ya lo editamos)
 
     const d = decide(obj, pack);
     if (d.status === 'needs-input') {
@@ -71,6 +73,7 @@ export default function transform({ source, file, pack }) {
     const anchor = getProp(obj, 'DocNro') || props[props.length - 1];
     const isLast = anchor === obj.properties[obj.properties.length - 1];
     edits.push(...insertAfterProp(source, anchor, `${keyText}: ${d.code}`, d.comment, { isLast }));
+    edited.add(obj);
     changed = true;
     findings.push(finding(PACK, file, call, d.status, appliedMessage(d.status)));
   });
@@ -79,6 +82,48 @@ export default function transform({ source, file, pack }) {
   if (soap) { findings.push(soap.finding); usages.push(soap.usage); }
 
   return { output: changed ? applyEdits(source, edits) : null, findings, usages };
+}
+
+// Cuando no se puede leer el comprobante, decir DÓNDE hay que agregar el dato: la función que lo arma
+// (y de qué módulo viene) o que llega como parámetro. Lo encontrado en repos reales: payload = buildVoucherPayload(...).
+function unreadableMessage(j, root, p, arg, obj) {
+  const tail = 'con la condición frente al IVA del cliente.';
+  if (obj) return `No pude leer los datos del comprobante (el objeto usa ...spread). Agregá CondicionIVAReceptorId a mano, ${tail}`;
+  if (arg && arg.type === 'Identifier') {
+    const decl = resolveBinding(p, arg.name);
+    let init = decl && decl.node.init;
+    if (init && init.type === 'AwaitExpression') init = init.argument;
+    if (init && init.type === 'CallExpression') {
+      const fn = init.callee.type === 'Identifier' ? init.callee.name
+        : init.callee.type === 'MemberExpression' && !init.callee.computed && init.callee.property.type === 'Identifier' ? init.callee.property.name : null;
+      if (fn) {
+        const from = importSourceOf(j, root, fn);
+        return `Los datos del comprobante los arma \`${fn}()\`${from ? ` (de \`${from}\`)` : ''}: agregá CondicionIVAReceptorId ahí, ${tail}`;
+      }
+    }
+    if (!decl) return `Los datos del comprobante llegan en \`${arg.name}\` desde afuera de esta función: agregá CondicionIVAReceptorId donde se arma ese objeto, ${tail}`;
+  }
+  return `No pude leer los datos del comprobante (no es un objeto literal). Agregá CondicionIVAReceptorId a mano, ${tail}`;
+}
+
+// De qué módulo viene `name`: import estático, require o import() dinámico con desestructuración.
+function importSourceOf(j, root, name) {
+  let src = null;
+  root.find(j.ImportDeclaration).forEach((ip) => {
+    if (ip.node.specifiers.some((s) => s.local && s.local.name === name)) src = ip.node.source.value;
+  });
+  if (src) return src;
+  root.find(j.VariableDeclarator).forEach((vp) => {
+    const { id } = vp.node;
+    let init = vp.node.init;
+    if (!init || id.type !== 'ObjectPattern') return;
+    if (init.type === 'AwaitExpression') init = init.argument;
+    const isImportCall = init.type === 'CallExpression' && (init.callee.type === 'Import' || (init.callee.type === 'Identifier' && init.callee.name === 'require'));
+    const source = init.type === 'ImportExpression' ? init.source : isImportCall ? init.arguments[0] : null;
+    if (!source || typeof source.value !== 'string') return;
+    if (id.properties.some((pr) => pr.value && pr.value.type === 'Identifier' && pr.value.name === name)) src = source.value;
+  });
+  return src;
 }
 
 // Inserta una propiedad nueva después de `prop` tocando solo el texto necesario,

@@ -13,6 +13,7 @@ const VOUCHER_METHODS = new Map([['createvoucher', 'CreateVoucher'], ['createnex
 // Claves que cambian la decisión: si se tocan fuera del array literal, no se puede inferir.
 const DECISION_KEYS = new Set(['DocTipo', 'CbteTipo', 'DocNro']);
 const FIELD = 'CondicionIVAReceptorId';
+const HINT_TAIL = 'con la condición frente al IVA del cliente.';
 
 const isLookup = (n) => n && (n.kind === 'propertylookup' || n.kind === 'nullsafepropertylookup');
 const identName = (n) => (n && n.kind === 'identifier' ? n.name : null);
@@ -61,9 +62,19 @@ function resolveData(arg, scope, call, scopes) {
   const s = scopes.get(scope) || { assigns: new Map(), offsets: new Map() };
   const defs = s.assigns.get(arg.name) || [];
   const v = `$${arg.name}`;
-  if (defs.length === 0) return { reason: `${v} no se define en esta función` };
+  if (defs.length === 0) {
+    const isParam = (scope.arguments || []).some((a) => a.kind === 'parameter' && (a.name?.name ?? a.name) === arg.name);
+    if (isParam) return { hint: `Los datos del comprobante llegan en \`${v}\` como parámetro: agregá ${FIELD} donde se arma ese array, ${HINT_TAIL}` };
+    return { reason: `${v} no se define en esta función` };
+  }
   if (defs.length > 1) return { reason: `${v} se asigna más de una vez` };
   const def = defs[0];
+  // $data = armarComprobante(...) / $this->builder->armar(...) / Builder::armar(...): decir qué función lo arma.
+  if (def.right.kind === 'call') {
+    const what = def.right.what;
+    const fn = what && (what.kind === 'name' ? what.name : identName(what.offset));
+    if (typeof fn === 'string') return { hint: `Los datos del comprobante los arma \`${fn}()\`: agregá ${FIELD} ahí, ${HINT_TAIL}` };
+  }
   if (def.operator !== '=' || def.right.kind !== 'array') return { reason: `${v} no es un array literal` };
   if (def.loc.start.offset > call.loc.start.offset) return { reason: `${v} se define después de la llamada` };
   const offsets = s.offsets.get(arg.name) || [];
@@ -88,18 +99,19 @@ export default function transform({ source, file, pack }) {
 
   const { scopes, calls } = collect(ast);
   const edits = [];
+  const edited = new Set(); // el mismo $data en dos llamadas: se inserta una sola vez (ver el codemod de JS)
   for (const { node: call, scope, method } of calls) {
     usages.push({ provider: 'arca', op: `ElectronicBilling->${method}`, line: call.loc.start.line });
     const data = resolveData(call.arguments[0], scope, call, scopes);
     if (data.migrated) continue;
     const entries = data.arr ? data.arr.items.filter((it) => it && it.kind === 'entry') : null;
     if (!entries || entries.some((e) => e.unpack || e.byRef)) {
-      findings.push(finding(PACK, file, call, 'needs-input',
-        `No pude leer los datos del comprobante (${data.reason || 'el array usa ...$otro o referencias'}). Agregá ${FIELD} a mano.`));
+      findings.push(finding(PACK, file, call, 'needs-input', data.hint
+        || `No pude leer los datos del comprobante (${data.reason || 'el array usa ...$otro o referencias'}). Agregá ${FIELD} a mano, ${HINT_TAIL}`));
       continue;
     }
     const byKey = (k) => entries.find((e) => phpKey(e) === k);
-    if (byKey(FIELD)) continue; // ya está migrado
+    if (byKey(FIELD) || edited.has(data.arr)) continue; // ya está migrado (o ya lo editamos)
 
     const d = decideCondition({ docTipo: phpLiteral(byKey('DocTipo')?.value), cbteTipo: phpLiteral(byKey('CbteTipo')?.value) }, pack);
     if (d.status === 'needs-input') {
@@ -109,6 +121,7 @@ export default function transform({ source, file, pack }) {
     }
     const anchor = byKey('DocNro') || entries[entries.length - 1];
     edits.push(...insertAfterEntry(source, entries, anchor, { value: d.code, comment: d.comment }));
+    edited.add(data.arr);
     findings.push(finding(PACK, file, call, d.status, appliedMessage(d.status)));
   }
 

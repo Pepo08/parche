@@ -21,7 +21,8 @@ const MODEL_PATTERNS = [
 ];
 
 function parseJs(source, file) {
-  const plugins = /\.tsx$/.test(file) ? ['typescript', 'jsx'] : /\.(ts|mts|cts)$/.test(file) ? ['typescript'] : ['jsx'];
+  const lang = /\.tsx$/.test(file) ? ['typescript', 'jsx'] : /\.(ts|mts|cts)$/.test(file) ? ['typescript'] : ['jsx'];
+  const plugins = [...lang, 'decorators-legacy']; // NestJS, Angular, TypeORM
   return parse(source, {
     sourceType: 'unambiguous', plugins, errorRecovery: true,
     allowAwaitOutsideFunction: true, allowReturnOutsideFunction: true, allowImportExportEverywhere: true,
@@ -51,7 +52,8 @@ function chainOf(node) {
     cur = cur.object;
   }
   if (cur && cur.type === 'Identifier') return { root: cur.name, path };
-  if (cur && cur.type === 'ThisExpression') return null;
+  // this.afip.ElectronicBilling.createVoucher → raíz "this.afip" (cliente guardado en la clase)
+  if (cur && cur.type === 'ThisExpression' && path.length) return { root: `this.${path[0]}`, path: path.slice(1) };
   return null;
 }
 
@@ -86,8 +88,44 @@ export function scanJs(source, file) {
     && obj.properties.find((p) => (p.type === 'ObjectProperty' || p.type === 'Property') && !p.computed && propName(p.key) === name);
   const objString = (obj, name) => { const p = objProp(obj, name); return p ? staticText(p.value) : null; };
 
+  // Instancias: new Stripe(key), twilio(sid, token), new Payment(client), axios.create({ baseURL }).
+  // → binding nuevo, o null si la expresión no crea un cliente de un SDK conocido en el archivo.
+  const instanceBinding = (expr) => {
+    let init = expr;
+    if (init && init.type === 'AwaitExpression') init = init.argument;
+    if (!init || (init.type !== 'NewExpression' && init.type !== 'CallExpression')) return null;
+    if (init.callee.type === 'Identifier' && bindings.has(init.callee.name)) {
+      const b = bindings.get(init.callee.name);
+      if (b.kind === 'named') return { pkg: b.pkg, kind: 'client', prefix: b.imported };
+      return { pkg: b.pkg, kind: 'client', prefix: b.prefix || '' };
+    }
+    const ch = init.callee.type === 'MemberExpression' ? chainOf(init.callee) : null;
+    if (ch && bindings.has(ch.root)) {
+      const b = bindings.get(ch.root);
+      const last = ch.path[ch.path.length - 1];
+      if ((b.pkg === 'axios' && last === 'create') || (b.pkg === 'got' && last === 'extend')) {
+        const cfg = init.arguments[0];
+        return { pkg: b.pkg, kind: 'http', base: objString(cfg, 'baseURL') ?? objString(cfg, 'prefixUrl') };
+      }
+      if (init.type === 'NewExpression') return { pkg: b.pkg, kind: 'client', prefix: [b.prefix, ...ch.path].filter(Boolean).join('.') };
+    }
+    return null;
+  };
+
   // 1) Imports, require, constantes e instancias (en orden de aparición).
   walk(ast, (node) => {
+    // Cliente guardado en una clase: `private afip = new Afip(...)` o `this.afip = new Afip(...)` en el constructor.
+    if ((node.type === 'ClassProperty' || node.type === 'PropertyDefinition') && !node.computed && node.key.type === 'Identifier' && node.value) {
+      const b = instanceBinding(node.value);
+      if (b) bind(`this.${node.key.name}`, b);
+      return;
+    }
+    if (node.type === 'AssignmentExpression' && node.left.type === 'MemberExpression' && node.left.object.type === 'ThisExpression'
+      && !node.left.computed && node.left.property.type === 'Identifier') {
+      const b = instanceBinding(node.right);
+      if (b) bind(`this.${node.left.property.name}`, b);
+      return;
+    }
     if (node.type === 'ImportDeclaration' && node.importKind !== 'type') {
       const pkg = packageOf(node.source.value);
       if (!pkg) return;
@@ -125,25 +163,9 @@ export function scanJs(source, file) {
       }
       return;
     }
-    // Instancias: new Stripe(key), twilio(sid, token), new Payment(client), axios.create({ baseURL })
     if (id.type !== 'Identifier') return;
-    if ((init.type === 'NewExpression' || init.type === 'CallExpression')) {
-      if (init.callee.type === 'Identifier' && bindings.has(init.callee.name)) {
-        const b = bindings.get(init.callee.name);
-        if (b.kind === 'named') return bind(id.name, { pkg: b.pkg, kind: 'client', prefix: b.imported });
-        return bind(id.name, { pkg: b.pkg, kind: 'client', prefix: b.prefix || '' });
-      }
-      const ch = init.callee.type === 'MemberExpression' ? chainOf(init.callee) : null;
-      if (ch && bindings.has(ch.root)) {
-        const b = bindings.get(ch.root);
-        const last = ch.path[ch.path.length - 1];
-        if ((b.pkg === 'axios' && last === 'create') || (b.pkg === 'got' && last === 'extend')) {
-          const cfg = init.arguments[0];
-          return bind(id.name, { pkg: b.pkg, kind: 'http', base: objString(cfg, 'baseURL') ?? objString(cfg, 'prefixUrl') });
-        }
-        if (init.type === 'NewExpression') return bind(id.name, { pkg: b.pkg, kind: 'client', prefix: [b.prefix, ...ch.path].filter(Boolean).join('.') });
-      }
-    }
+    const b = instanceBinding(init);
+    if (b) bind(id.name, b);
   });
 
   const usesOpenAI = result.imports.has('openai');
@@ -157,7 +179,8 @@ export function scanJs(source, file) {
     }
     const m = url.match(/^https?:\/\/([^/?#{}]+)(\/[^?#]*)?/i);
     if (!m) return; // ruta relativa: es el backend propio, no una API de terceros
-    const host = m[1].toLowerCase().replace(/:\d+$/, '');
+    // Sin el puerto, también cuando es dinámico: http://localhost:${PORT} → "localhost:" → "localhost".
+    const host = m[1].toLowerCase().replace(/:.*$/, '');
     if (isInternalHost(host)) return;
     result.http.push({ client, method: (method || 'GET').toUpperCase(), host, path: (m[2] || '/').replace(/\{\}[^/]*/g, '{}'), line });
   };
