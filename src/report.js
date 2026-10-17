@@ -115,17 +115,25 @@ export function prBody({ pack, findings, changed, verification }, today = new Da
       if (f.suggestion) out.push(`  - Agregá: \`${f.suggestion}\``);
     }
   }
-  out.push('', '### Verificación', '');
-  if (verification) {
-    out.push(`- Sintaxis de los archivos modificados: ${verification.parse.ok ? '✅ OK' : '❌ ' + verification.parse.errors.join('; ')}`);
-    const t = verification.tests;
-    if (t) {
-      out.push(t.skipped
-        ? '- Tests del repo: — no hay tests para correr; se validó la sintaxis de los archivos modificados.'
-        : `- Tests del repo (${t.commands.map((c) => `\`${c}\``).join(' y ')}): ${t.ok ? '✅ pasan' : '❌ fallan'}`);
+  // Un issue no cambia código: no hay verificación que mostrar (antes decía "Sin verificar").
+  if (!asIssue) {
+    out.push('', '### Verificación', '');
+    if (verification) {
+      out.push(`- Sintaxis de los archivos modificados: ${verification.parse.ok ? '✅ OK' : '❌ ' + verification.parse.errors.join('; ')}`);
+      const t = verification.tests;
+      if (t?.notRun) {
+        // Lo que escribió a mano el frente B en el primer PR real (obraya), ahora lo dice Parche.
+        out.push(t.ci.length
+          ? `- Tests del repo: Parche no los corrió; los corre el CI de este repo (${t.ci.map((w) => `\`${w}\``).join(', ')}) en este PR.`
+          : '- Tests del repo: Parche no los corrió (sin `--verify` no ejecuta código del repo). Corrélos antes de mergear.');
+      } else if (t) {
+        out.push(t.skipped
+          ? '- Tests del repo: — no hay tests para correr; se validó la sintaxis de los archivos modificados.'
+          : `- Tests del repo (${t.commands.map((c) => `\`${c}\``).join(' y ')}): ${t.ok ? '✅ pasan' : '❌ fallan'}`);
+      }
+    } else {
+      out.push('- Sin verificar (corré `parche pr --verify`).');
     }
-  } else {
-    out.push('- Sin verificar (corré `parche pr --verify`).');
   }
   out.push('', asIssue ? '### Checklist' : '### Checklist antes de mergear', '', ...pack.review_checklist_es.map((x) => `- [ ] ${x}`), '');
   out.push('### Fuentes', '', ...pack.sources.map((s) => `- [${s.title}](${s.url})`), '');
