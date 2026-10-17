@@ -180,6 +180,11 @@ Campos obligatorios: `id`, `version` (fecha), `provider`, `title`, `kind`, `seve
 | D35 | Las operaciones del repo que no aparecen en los tipos de la versión instalada se informan como "sin verificar". | Cero inventos: decir "lo que usás no cambia" sobre algo que no se pudo verificar sería una falsa tranquilidad. |
 | D36 | Para mostrar se deduplican los cambios; para cruzar con el repo se usa la lista completa. | El mismo método se alcanza por la instancia, la clase y la fábrica: mostrarlo tres veces es ruido, pero el repo puede usar cualquiera de los tres caminos. |
 | D37 | Versión instalada: `node_modules` → `package-lock.json` → base del rango declarado (o la más alta de la misma mayor). | Lo instalado es lo que de verdad corre; si no hay instalación (CI sin `npm ci`, un clon), el lock; y si tampoco, lo declarado. |
+| D38 | Un codemod que edita texto lleva registro de los objetos que ya editó. | Salió de un repo real: el mismo `payload` iba a dos `createVoucher` y se insertaba dos veces. Babel no lo marca, pero TypeScript no compila un objeto con claves duplicadas: el PR habría roto el build. |
+| D39 | El chequeo de sintaxis y el inventario aceptan decoradores (`decorators-legacy`). | NestJS, Angular y TypeORM los usan en todos los servicios. Sin el plugin, el inventario no veía nada y `--verify`/`--dry-run` frenaban el PR en esos repos. |
+| D40 | El inventario lee **todos** los manifiestos del repo (salteando `node_modules`, `vendor`, etc.) y sigue clientes guardados en clases (`private x = new X()`, `this.x = new X()`). | Los repos reales son monorepos (`packages/backend/package.json`, `ms-billing/package.json`) y los servicios guardan el cliente en la clase. Sin esto, repos con ARCA, Mercado Pago y AWS daban "0 APIs". |
+| D41 | Cuando no se puede leer el comprobante, el hallazgo dice **dónde** agregar el dato: la función que lo arma (y de qué módulo viene) o que llega como parámetro. | "Falta un dato" sin decir dónde es poco accionable; con la ubicación, el mantenedor lo resuelve en un minuto. Se sigue sin adivinar el valor: depende del cliente. |
+| D42 | La lista de "no son APIs" se compara por familia (`pg` y `pg-*`, no cualquier cosa que empiece con "pg") y va antes que los prefijos de proveedores. | Con nombres cortos (`ws`, `pg`) un prefijo suelto se llevaba puesto un SDK real (`wsfe-sdk`). Y `@aws-sdk/types` es de la familia de AWS pero son solo tipos. |
 
 ## 5. Cómo extender
 
@@ -195,6 +200,7 @@ Campos obligatorios: `id`, `version` (fecha), `provider`, `title`, `kind`, `seve
 
 ## 6. Límites conocidos (dónde meterle más fino)
 
+- **ARCA (JS y PHP):** si el comprobante lo arma una función de otro archivo (`buildVoucherPayload()`), no se edita esa función: se reporta "falta un dato" con su nombre y su módulo (D41).
 - **ARCA en PHP:** no sigue alias (`$eb = $afip->ElectronicBilling; $eb->CreateVoucher(...)`), ni constantes para DocTipo o CbteTipo (`self::DOC_TIPO`), ni arrays armados por otra función. Hoy todos esos casos son "falta un dato".
 - **ARCA en JS:** lo mismo con alias y objetos armados en varios pasos.
 - **Integraciones SOAP propias** (JS o PHP): se detectan pero no se reescriben.

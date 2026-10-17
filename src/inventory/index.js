@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { classifyPackage, providerForHost } from './known.js';
+import { SKIP_DIRS, toPosix } from '../paths.js';
 
 export const SCHEMA_VERSION = 1;
 const KIND_ORDER = { sdk: 0, http: 1, 'ai-model': 2 };
@@ -28,17 +29,51 @@ export function parseRequirements(text) {
   return out;
 }
 
-// Dependencias declaradas por ecosistema.
-export function readManifests(root) {
-  const pkg = readJson(path.join(root, 'package.json')) || {};
-  const composer = readJson(path.join(root, 'composer.json')) || {};
-  const req = path.join(root, 'requirements.txt');
-  return {
-    npm: { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) },
-    composer: Object.fromEntries(Object.entries({ ...(composer.require || {}), ...(composer['require-dev'] || {}) })
-      .filter(([name]) => name.includes('/'))), // fuera "php" y las extensiones "ext-*"
-    pypi: fs.existsSync(req) ? parseRequirements(fs.readFileSync(req, 'utf8')) : {},
+const MANIFEST_NAMES = new Set(['package.json', 'composer.json', 'requirements.txt']);
+
+// Todos los manifiestos del repo, no solo los de la raíz: los monorepos (packages/backend/package.json,
+// ms-billing/package.json) declaran ahí sus SDKs. Primero la raíz, después por profundidad.
+export function findManifests(root) {
+  const out = [];
+  const walk = (dir) => {
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name)) walk(path.join(dir, e.name)); }
+      else if (MANIFEST_NAMES.has(e.name)) out.push(toPosix(path.relative(root, path.join(dir, e.name))));
+    }
   };
+  walk(root);
+  return out.sort((a, b) => a.split('/').length - b.split('/').length || a.localeCompare(b));
+}
+
+// Dependencias declaradas por ecosistema (si un paquete aparece en varios manifiestos, gana el más cercano a la raíz).
+export function readManifests(root) {
+  const deps = { npm: {}, composer: {}, pypi: {} };
+  const files = { npm: [], composer: [], pypi: [] };
+  const merge = (eco, entries, file) => {
+    files[eco].push(file);
+    for (const [name, version] of entries) if (!(name in deps[eco])) deps[eco][name] = version;
+  };
+  for (const rel of findManifests(root)) {
+    const abs = path.join(root, rel);
+    const name = path.posix.basename(rel);
+    if (name === 'package.json') {
+      const pkg = readJson(abs) || {};
+      merge('npm', Object.entries({ ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) }), rel);
+    } else if (name === 'composer.json') {
+      const c = readJson(abs) || {};
+      // fuera "php" y las extensiones "ext-*": no son paquetes
+      merge('composer', Object.entries({ ...(c.require || {}), ...(c['require-dev'] || {}) }).filter(([n]) => n.includes('/')), rel);
+    } else {
+      merge('pypi', Object.entries(parseRequirements(fs.readFileSync(abs, 'utf8'))), rel);
+    }
+  }
+  return { ...deps, files };
 }
 
 // fileScans: [{ file, scan }] con el resultado de scanJs; packs: los packs cargados.
@@ -57,8 +92,8 @@ export function buildInventory({ repo, manifests, fileScans, packs }) {
   const packsFor = (pkg) => packs.filter((p) => (p.detect.packages || []).includes(pkg)).map((p) => p.id);
 
   // Dependencias declaradas que son SDKs de una API (aunque todavía no se vean usadas).
-  for (const [eco, deps] of Object.entries(manifests)) {
-    for (const [name, version] of Object.entries(deps)) {
+  for (const eco of ['npm', 'composer', 'pypi']) {
+    for (const [name, version] of Object.entries(manifests[eco] || {})) {
       const c = classifyPackage(eco, name);
       if (!c || c.kind !== 'sdk') continue;
       add(`${eco}:${name}`, { kind: 'sdk', provider: c.provider, category: c.category, ecosystem: eco, package: name, version,
@@ -100,7 +135,8 @@ export function buildInventory({ repo, manifests, fileScans, packs }) {
   }).sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind]
     || (a.provider || a.package || a.host || '').localeCompare(b.provider || b.package || b.host || ''));
 
-  return { schemaVersion: SCHEMA_VERSION, repo, apis: list, unresolved, dependencies: manifests };
+  const { files: manifestFiles = {}, ...dependencies } = manifests;
+  return { schemaVersion: SCHEMA_VERSION, repo, apis: list, unresolved, dependencies, manifestFiles };
 }
 
 // Nombre corto para mostrar una API en el reporte y en la CLI.

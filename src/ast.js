@@ -160,7 +160,9 @@ export function parseCheck(source, file) {
     parsePhp(source, file);
     return true;
   }
-  const plugins = ['jsx'];
+  // decorators-legacy: NestJS, Angular y TypeORM usan decoradores (@Injectable()); sin el plugin, el chequeo
+  // de sintaxis fallaba y --verify frenaba el PR en esos repos.
+  const plugins = ['jsx', 'decorators-legacy'];
   if (/\.(ts|tsx)$/.test(file)) plugins.push('typescript');
   if (/\.ts$/.test(file)) plugins.splice(plugins.indexOf('jsx'), 1);
   babelParse(source, { sourceType: 'unambiguous', plugins, allowAwaitOutsideFunction: true });

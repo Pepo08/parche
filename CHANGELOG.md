@@ -2,6 +2,21 @@
 
 Todas las versiones de `parche-cli` (npm) y de la Action `Pepo08/parche@v0`.
 
+## 0.4.1 — 2026-10-16
+
+Arreglos encontrados al correr Parche sobre los primeros repos públicos reales con ARCA y Mercado Pago.
+
+### Arreglado
+- **ARCA:** si el mismo objeto de comprobante se pasaba a dos llamadas, el campo se insertaba dos veces (clave duplicada: TypeScript no compila). Ahora se inserta una sola vez, en JS y en PHP.
+- **Decoradores** (NestJS, Angular, TypeORM): el chequeo de sintaxis fallaba y `--verify`/`--dry-run` frenaban el PR; el inventario no veía nada en esos archivos.
+- **Inventario en monorepos:** se leen todos los `package.json`, `composer.json` y `requirements.txt` del repo, no solo los de la raíz (`manifestFiles` dice cuáles).
+- **Inventario:** se siguen los clientes guardados en clases (`private x = new X()`, `this.x = new X()`).
+- `http://localhost:${PORT}` ya no aparece como un host externo.
+- `socket.io-client`, `@prisma/client`, `@trpc/client`, `pg`, `ws`, `@aws-sdk/types` y similares ya no se listan como APIs; toda la familia `@aws-sdk/` cuenta como AWS.
+
+### Mejorado
+- **ARCA:** cuando el comprobante lo arma otra función o llega como parámetro, el hallazgo dice dónde agregar el dato (por ejemplo: "lo arma `buildVoucherPayload()` (de `@/lib/afip/voucher-builder`)").
+
 ## 0.4.0 — 2026-10-16
 
 ### Nuevo

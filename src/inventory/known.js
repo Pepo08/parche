@@ -15,16 +15,24 @@ const NAME_HINT = /(^|[-_./@])(api|sdk|client)([-_./]|$)/i;
 export function classifyPackage(ecosystem, name) {
   const curated = KNOWN[ecosystem]?.[name];
   if (curated) return { kind: 'sdk', ...curated, confidence: 'alta', source: 'curated' };
+  // Antes que los prefijos de familias: @aws-sdk/types es de la familia de AWS pero son solo tipos.
+  if (KNOWN.notApis.prefixes.some((p) => isFamily(name, p))) return null;
   if (ecosystem === 'npm') {
     for (const [prefix, info] of Object.entries(KNOWN.npmPrefixes)) {
       if (name.startsWith(prefix)) return { kind: 'sdk', ...info, confidence: 'alta', source: 'curated' };
     }
   }
   if ((KNOWN.httpClients[ecosystem] || []).includes(name)) return { kind: 'http-client' };
-  if (KNOWN.notApis.prefixes.some((p) => name === p || name.startsWith(p))) return null;
   // Heurística: el nombre dice api/sdk/client. Confianza baja hasta que se vea usado (el inventario la sube).
   if (NAME_HINT.test(name)) return { kind: 'sdk', provider: null, category: null, confidence: 'baja', source: 'heuristic' };
   return null;
+}
+
+// ¿`name` es de la familia `p`? "@types/" y "babel-" son prefijos; "pg" es "pg" o "pg-*", pero no "pgsql"
+// (con nombres cortos como "ws", un prefijo suelto se llevaría puesto un "wsfe-sdk").
+function isFamily(name, p) {
+  if (p.endsWith('/') || p.endsWith('-')) return name.startsWith(p);
+  return name === p || name.startsWith(`${p}-`);
 }
 
 // Paquete de un import: 'openai/resources' → 'openai'; '@aws-sdk/client-s3/dist' → '@aws-sdk/client-s3'.

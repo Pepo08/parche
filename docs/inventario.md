@@ -12,6 +12,8 @@ Qué detecta:
 
 PHP y Python, por ahora, solo se **listan** desde su manifiesto: el análisis de código es de JS/TS.
 
+Se leen **todos** los manifiestos del repo, no solo los de la raíz (monorepos: `packages/*/package.json`, microservicios), salteando `node_modules`, `vendor`, `dist`, `build`, `coverage`, `.next` y `.parche`. Si un paquete aparece en varios, gana el más cercano a la raíz. También se siguen los clientes guardados en clases (`private afip = new Afip(...)`, `this.afip = new Afip(...)` → `this.afip.ElectronicBilling.createVoucher`), y el código con decoradores (NestJS, Angular) se lee bien.
+
 ## Esquema (versión 1)
 
 ```jsonc
@@ -40,7 +42,8 @@ PHP y Python, por ahora, solo se **listan** desde su manifiesto: el análisis de
   "unresolved": [                     // llamadas HTTP con URL dinámica: no se sabe a qué host van
     { "file": "src/integraciones.js", "line": 32, "kind": "http", "client": "fetch", "reason": "URL dinámica: ..." }
   ],
-  "dependencies": { "npm": {}, "composer": {}, "pypi": {} },   // todo lo declarado, sea API o no
+  "dependencies": { "npm": {}, "composer": {}, "pypi": {} },   // todo lo declarado, sea API o no (de todos los manifiestos)
+  "manifestFiles": { "npm": ["package.json", "packages/backend/package.json"], "composer": [], "pypi": [] },  // qué manifiestos se leyeron
   "upgrades": [                       // solo con `scan --upgrades`: versión instalada vs última, por SDK de npm
     { "package": "openai", "installed": "3.3.0", "latest": "7.34.0", "status": "afectado",   // afectado | sin-impacto | al-dia | sin-verificar | sin-tipos | no-publicado | sin-version | error
       "totalChanges": 9, "unverified": [],

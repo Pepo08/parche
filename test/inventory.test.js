@@ -134,6 +134,40 @@ test('manifiestos: composer.json y requirements.txt se listan (sin analizar el c
   fs.rmSync(tmp, { recursive: true, force: true });
 });
 
+test('repos reales: NestJS con decoradores, cliente guardado en la clase, monorepo, puerto dinámico y no-APIs', () => {
+  // Lo que encontramos al correr Parche sobre los primeros repos públicos (16/10).
+  const scan = scanJs([
+    "import { Injectable } from '@nestjs/common';",
+    "import Afip from '@afipsdk/afip.js';",
+    "import { MercadoPagoConfig, Payment } from 'mercadopago';",
+    '@Injectable()',
+    'export class Facturacion {',
+    "  private payment = new Payment(new MercadoPagoConfig({ accessToken: 'x' }));",
+    '  private afip: Afip;',
+    "  constructor(@Inject('CFG') private cfg: string) { this.afip = new Afip({ CUIT: 1 }); }",
+    '  ver(id: string) { return this.payment.get({ id }); }',
+    '  emitir(d) { return this.afip.ElectronicBilling.createVoucher(d); }',
+    '  salud() { return fetch(`http://localhost:${process.env.PORT}/salud`); }',
+    '}',
+  ].join('\n'), 'facturacion.service.ts');
+  assert.deepEqual(ops(scan).filter((o) => !o.startsWith('@nestjs')), ['mercadopago:Payment.get', '@afipsdk/afip.js:ElectronicBilling.createVoucher']);
+  assert.equal(scan.http.length, 0, 'localhost con puerto dinámico es local');
+  for (const name of ['socket.io-client', '@prisma/client', '@trpc/client', 'pg', 'ws']) assert.equal(classifyPackage('npm', name), null, name);
+  assert.equal(classifyPackage('npm', 'wsfe-sdk').kind, 'sdk', 'un nombre que empieza con "ws" no se descarta');
+  // Monorepo: el SDK está declarado en un package.json de una subcarpeta.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'parche-mono-'));
+  fs.writeFileSync(path.join(tmp, 'package.json'), JSON.stringify({ name: 'mono', workspaces: ['packages/*'] }));
+  fs.mkdirSync(path.join(tmp, 'packages', 'billing', 'src'), { recursive: true });
+  fs.writeFileSync(path.join(tmp, 'packages', 'billing', 'package.json'), JSON.stringify({ dependencies: { '@afipsdk/afip.js': '^1.2.2' } }));
+  fs.mkdirSync(path.join(tmp, 'node_modules', 'x'), { recursive: true });
+  fs.writeFileSync(path.join(tmp, 'node_modules', 'x', 'package.json'), JSON.stringify({ dependencies: { stripe: '1' } }));
+  const inv = run(tmp).inventory;
+  assert.equal(inv.dependencies.npm['@afipsdk/afip.js'], '^1.2.2');
+  assert.ok(!('stripe' in inv.dependencies.npm), 'node_modules no cuenta');
+  assert.deepEqual(inv.manifestFiles.npm, ['package.json', 'packages/billing/package.json']);
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
 test('CLI: scan escribe inventory.json con schemaVersion y el reporte con la tabla de APIs', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'parche-scan-'));
   fs.cpSync(path.join(EXAMPLES, 'saas-demo'), tmp, { recursive: true });

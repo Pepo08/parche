@@ -48,6 +48,26 @@ test('ARCA: objeto en una sola línea y sin comillas', () => {
   assert.match(r.output, /DocNro: 0, CondicionIVAReceptorId: 5 \/\*/);
 });
 
+test('ARCA: el mismo objeto en dos llamadas se edita una sola vez (repo real: clave duplicada rompía TypeScript)', () => {
+  const source = 'const payload = {\n  DocTipo: 99,\n  DocNro: 0,\n};\nawait afip.ElectronicBilling.createVoucher(payload);\nawait afip.ElectronicBilling.createVoucher(payload);\n';
+  const r = arca({ source, file: 'x.ts', pack: packs['arca.wsfe.condicion-iva-receptor'] });
+  assert.equal((r.output.match(/CondicionIVAReceptorId/g) || []).length, 1);
+  assert.equal(r.findings.length, 1);
+  assert.equal(arca({ source: r.output, file: 'x.ts', pack: packs['arca.wsfe.condicion-iva-receptor'] }).output, null, 'idempotente');
+});
+
+test('ARCA: si lo arma otra función, el hallazgo dice cuál y de dónde viene', () => {
+  const source = "const { buildVoucherPayload } = await import('@/lib/afip/voucher-builder');\nconst payload = buildVoucherPayload({ pos });\nawait afip.ElectronicBilling.createVoucher(payload);\n";
+  const r = arca({ source, file: 'x.ts', pack: packs['arca.wsfe.condicion-iva-receptor'] });
+  assert.equal(r.findings[0].status, 'needs-input');
+  assert.match(r.findings[0].message, /los arma `buildVoucherPayload\(\)` \(de `@\/lib\/afip\/voucher-builder`\): agregá CondicionIVAReceptorId ahí/);
+});
+
+test('verify: el chequeo de sintaxis acepta decoradores (NestJS, Angular, TypeORM)', () => {
+  parseCheck("@Injectable()\nexport class A {\n  constructor(@Inject('x') private x: string) {}\n}\n", 'a.service.ts');
+  parseCheck('@Component({})\nclass B {}\n', 'b.js');
+});
+
 test('ARCA: respeta la coma final (si el último no la tenía, la propiedad nueva tampoco)', () => {
   const run = (body) => arca({ source: `afip.ElectronicBilling.createVoucher({\n${body}\n});\n`, file: 'x.js', pack: packs['arca.wsfe.condicion-iva-receptor'] }).output;
   const sin = run('  DocTipo: 99,\n  DocNro: 0');

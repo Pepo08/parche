@@ -3,11 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { loadPacks, transformFor } from './packs.js';
 import { isPhp } from './php.js';
+import { SKIP_DIRS, toPosix } from './paths.js';
 import { scanJs } from './inventory/js-scan.js';
 import { readManifests, buildInventory } from './inventory/index.js';
 
-// vendor/ es donde composer instala las dependencias de PHP (incluida la propia librería de ARCA).
-const SKIP_DIRS = new Set(['node_modules', 'vendor', '.git', 'dist', 'build', 'coverage', '.next', '.parche']);
 const EXT = /\.(m?js|cjs|jsx|ts|tsx|php)$/;
 
 export function listFiles(dir) {
@@ -26,8 +25,6 @@ export function listFiles(dir) {
   return out.sort((a, b) => (toPosix(a) < toPosix(b) ? -1 : 1));
 }
 
-// Rutas siempre con "/": van al reporte, al cuerpo del PR y al inventario.
-const toPosix = (p) => p.split(path.sep).join('/');
 
 export function run(dir, { write = false, packIds = null, today } = {}) {
   const root = path.resolve(dir);
