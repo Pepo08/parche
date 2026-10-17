@@ -10,6 +10,7 @@ import * as git from '../src/git.js';
 import { parseGithubRemote, openPullRequest } from '../src/github.js';
 import { record } from '../src/ledger.js';
 import { apiLabel } from '../src/inventory/index.js';
+import { isTestFile } from '../src/paths.js';
 
 const HELP = `parche — Dependabot para APIs
 
@@ -21,8 +22,9 @@ Uso:
   parche diff <paquete> --from <v> --to <v> [--json] [--all]
                                        Qué cambia en la API de un paquete de npm entre dos versiones
   parche fix <dir> [--pack <id>]       Aplica los arreglos en el código
-  parche pr <dir> [--pack <id>] [--dry-run] [--verify]
-                                       Rama + commit + PR por cada cambio
+  parche pr <dir> [--pack <id>] [--dry-run] [--verify] [--push-remote <remote>]
+                                       Rama + commit + PR por cada cambio. Con --push-remote,
+                                       pushea a ese remote (tu fork) y abre el PR contra origin
   parche feedback <dir> --pack <id> --outcome merged|edited|rejected [--note "..."]
 `;
 
@@ -194,46 +196,59 @@ async function main() {
     ensureLocalDir(root);
     const base = git.currentBranch(root);
     const packs = loadPacks().filter((p) => p.codemod && (!packIds || packIds.includes(p.id)));
+    // A dónde se pushea: origin, o el fork de quien abre el PR (--push-remote fork). El PR se abre contra origin.
+    const pushRemote = typeof args['push-remote'] === 'string' ? args['push-remote'] : 'origin';
     for (const pack of packs) {
       const preview = run(root, { write: false, packIds: [pack.id] });
       if (!preview.findings.length) continue;
       const branch = `parche/${pack.id}`;
-      git.checkoutNewBranch(root, branch, base);
-      const result = run(root, { write: true, packIds: [pack.id] });
-      const changedFiles = result.changed.map((c) => c.file);
-      const verification = args.verify || args['dry-run'] ? verify(root, changedFiles, { runTests: !!args.verify }) : null;
-      if (verification && !verification.ok) {
-        git.checkout(root, base);
-        throw new Error(`La verificación falló para ${pack.id}; no se abre el PR.\n${JSON.stringify(verification, null, 2)}`);
-      }
-      const body = prBody({ pack, findings: result.findings, changed: result.changed, verification });
-      const bodyPath = path.join(root, '.parche', `pr-${pack.id}.md`);
-      fs.writeFileSync(bodyPath, body);
-      const c = counts(result.findings);
-      const draft = !!(c['needs-review'] || c['needs-input'] || c.blocked);
       const title = `Parche: ${pack.title}`;
-      console.log(`\n■ ${title}`);
-      if (!changedFiles.length) {
-        console.log('  Sin cambios de código: queda como issue/reporte (ver cuerpo del PR).');
+      git.checkoutNewBranch(root, branch, base);
+      let keepBranch = false;
+      try {
+        const result = run(root, { write: true, packIds: [pack.id] });
+        const changedFiles = result.changed.map((c) => c.file);
+        const c = counts(result.findings);
+        const bodyPath = path.join(root, '.parche', `pr-${pack.id}.md`);
+        console.log(`\n■ ${title}`);
+        const verification = changedFiles.length && (args.verify || args['dry-run']) ? verify(root, changedFiles, { runTests: !!args.verify }) : null;
+        if (verification && !verification.ok) {
+          // Nada de lo que escribió Parche queda en el repo: se descarta y se borra la rama.
+          git.discardChanges(root);
+          throw new Error(`La verificación falló para ${pack.id}; no se abre el PR y el repo queda como estaba.\n${JSON.stringify(verification, null, 2)}`);
+        }
+        fs.writeFileSync(bodyPath, prBody({ pack, findings: result.findings, changed: result.changed, verification }));
+        if (!changedFiles.length || changedFiles.every(isTestFile)) {
+          const why = changedFiles.length ? 'solo cambiaría tests o mocks: no se abre un PR' : 'sin cambios de código';
+          git.discardChanges(root);
+          console.log(`  ${summary(result.findings)}`);
+          console.log(`  ${why[0].toUpperCase()}${why.slice(1)}; queda como issue o reporte: ${bodyPath}`);
+          record(root, { type: 'report-only', pack: pack.id, findings: c, reason: why });
+          continue;
+        }
+        const draft = !!(c['needs-review'] || c['needs-input'] || c.blocked);
+        const sha = git.commitAll(root, `${title}\n\n${pack.summary_es}\nPack ${pack.id} v${pack.version}.`);
+        keepBranch = true;
+        console.log(`  Rama ${branch} · commit ${sha} · ${changedFiles.length} archivo(s)${verification ? ` · verificación ${verification.ok ? 'OK' : 'FALLÓ'}` : ''}`);
+        console.log(`  ${summary(result.findings)}`);
+        console.log(`  Cuerpo del PR: ${bodyPath}`);
+        const target = parseGithubRemote(git.originUrl(root));
+        const pushTo = parseGithubRemote(git.remoteUrl(root, pushRemote));
+        let url = null;
+        if (!args['dry-run'] && process.env.GITHUB_TOKEN && target && pushTo) {
+          git.push(root, branch, pushRemote);
+          const head = pushTo.owner !== target.owner ? `${pushTo.owner}:${branch}` : branch;
+          url = await openPullRequest({ token: process.env.GITHUB_TOKEN, ...target, head, base, title, body: fs.readFileSync(bodyPath, 'utf8'), draft });
+          console.log(`  PR abierto${draft ? ' (borrador)' : ''}: ${url}`);
+        } else {
+          console.log(`  Modo prueba: no se abrió el PR${draft ? ' (iría como borrador por tener ítems para revisar)' : ''}.`);
+        }
+        record(root, { type: 'pr', pack: pack.id, packVersion: pack.version, branch, sha, url, draft, files: changedFiles, findings: c });
+      } finally {
+        // Pase lo que pase, se vuelve a la rama base; la rama de Parche solo queda si tiene un commit.
         git.checkout(root, base);
-        record(root, { type: 'report-only', pack: pack.id, findings: c });
-        continue;
+        if (!keepBranch) git.deleteBranch(root, branch);
       }
-      const sha = git.commitAll(root, `${title}\n\n${pack.summary_es}\nPack ${pack.id} v${pack.version}.`);
-      console.log(`  Rama ${branch} · commit ${sha} · ${changedFiles.length} archivo(s)${verification ? ` · verificación ${verification.ok ? 'OK' : 'FALLÓ'}` : ''}`);
-      console.log(`  ${summary(result.findings)}`);
-      console.log(`  Cuerpo del PR: ${bodyPath}`);
-      const remote = parseGithubRemote(git.originUrl(root));
-      let url = null;
-      if (!args['dry-run'] && process.env.GITHUB_TOKEN && remote) {
-        git.push(root, branch);
-        url = await openPullRequest({ token: process.env.GITHUB_TOKEN, ...remote, head: branch, base, title, body, draft });
-        console.log(`  PR abierto${draft ? ' (borrador)' : ''}: ${url}`);
-      } else {
-        console.log(`  Modo prueba: no se abrió el PR${draft ? ' (iría como borrador por tener ítems para revisar)' : ''}.`);
-      }
-      record(root, { type: 'pr', pack: pack.id, packVersion: pack.version, branch, sha, url, draft, files: changedFiles, findings: c });
-      git.checkout(root, base);
     }
     return 0;
   }

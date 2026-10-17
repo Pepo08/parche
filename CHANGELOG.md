@@ -2,6 +2,30 @@
 
 Todas las versiones de `parche-cli` (npm) y de la Action `Pepo08/parche@v0`.
 
+## 0.5.0 — 2026-10-16
+
+Lo que encontró el frente de tracción al correr Parche sobre 175 repos públicos reales.
+
+### Nuevo
+- **La versión de la librería de ARCA importa:** con `afip.js`/`afip.php` 0.x (o `eesnaola/afip.php`) el campo no llega a ARCA (WSDL de 2021). Parche lee la versión instalada y el arreglo pasa a "revisar" con el aviso de actualizar a 1.x.
+- Detección de **`.wsdl` de WSFEv1 sin el campo** en el repo.
+- **Python, C#, Java, Go y VB.NET:** detección de integraciones SOAP propias y de clientes SOAP generados sin el campo.
+- `parche pr --push-remote <remote>`: abre PRs **desde un fork**.
+- **Pack de IA al día con las páginas oficiales:** `claude-sonnet-4-5-20250929` se retira el 30/11/2026; OpenAI retira `gpt-3.5-turbo`, `gpt-4`, `gpt-4-turbo`, `o1`, `o3-mini`, `o4-mini`, `gpt-4.1-nano`, `gpt-image-1` y otros el **23/10/2026**, y los snapshots de `gpt-5-*-2025-08-07` y `o3` el 11/12/2026; suma los ya retirados (DALL·E, `gpt-3.5-turbo-instruct`, `chatgpt-4o-latest`, Claude 2/3.5…). Cada aviso trae el reemplazo recomendado.
+
+### Arreglado
+- `parche pr` dejaba el archivo modificado en la rama base cuando fallaba la verificación; ahora el repo queda como estaba y la rama se borra. Tampoco quedan ramas vacías.
+- No se abre un PR cuyo único cambio sea un test o un mock.
+- ARCA en JS: se reconocen `(afip.ElectronicBilling as any).createVoucher(...)`, `afip.ElectronicBilling!` y alias (`const eb = afip.ElectronicBilling`). Si un archivo de ARCA no parsea, se avisa (antes se descartaba en silencio).
+- Menos ruido: la detección de SOAP propio ya no marca tests, mocks, tipos, constantes ni copias de la librería; si el repo ya usa el campo en otro archivo, lo que no se pudo leer pasa a "revisar".
+- Pack de IA: un modelo en una lista o catálogo se avisa como mención, no como uso; en Azure OpenAI no se da por cerrada la Assistants API.
+- Mucho más rápido en repos grandes: los codemods de ARCA no parsean archivos que no mencionan ARCA.
+- El texto para un issue (sin cambios de código) ya no habla de "este PR".
+- `detect.packages` de ARCA: fuera `afip.js` (no existe en npm); suma `@arcasdk/core`, `afip.ts`, `ts-afip-ws` y `facturajs`.
+
+### Cambiado
+- `docs/arquitectura.md` sale del repo: era documentación interna del equipo. El formato del inventario sigue en `docs/inventario.md`.
+
 ## 0.4.1 — 2026-10-16
 
 Arreglos encontrados al correr Parche sobre los primeros repos públicos reales con ARCA y Mercado Pago.

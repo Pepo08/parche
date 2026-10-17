@@ -52,6 +52,9 @@ npx parche-cli feedback . --pack <id> --outcome merged|edited|rejected
 
 `parche pr` abre el PR por la API de GitHub si hay `GITHUB_TOKEN` y un remote `origin` en github.com; si no (o con `--dry-run`), deja la rama, el commit y el cuerpo del PR en `.parche/pr-<pack>.md`. Si hay ítems para revisar, el PR se abre como borrador.
 
+- **Desde un fork:** `parche pr . --push-remote fork` pushea la rama al remote `fork` (tu fork, con tus credenciales de git) y abre el PR contra `origin`.
+- **Nunca deja el repo sucio:** si la verificación falla, descarta lo que escribió y borra su rama. Si no hay cambios de código, o solo cambiarían tests o mocks, no abre PR: deja el texto como issue en `.parche/`.
+
 ### Qué cambia en las versiones nuevas de tus SDKs
 
 `--upgrades` compara, para cada SDK de npm que usás, la versión instalada con la última publicada. Lee los tipos (`.d.ts`) de las dos versiones y te dice qué operaciones **de tu código** desaparecen, piden parámetros nuevos, cambian de tipo o pasan a deprecadas. Solo avisa: no toca código.
@@ -85,8 +88,6 @@ Para que corra todas las semanas, copiá [`templates/github-workflow.yml`](templ
 El workflow necesita `permissions: contents: write` y `pull-requests: write`.
 
 ### Desarrollo
-
-Cómo está hecho y por qué (módulos, flujo, decisiones técnicas y límites conocidos): [`docs/arquitectura.md`](docs/arquitectura.md).
 
 ```bash
 npm install
@@ -149,6 +150,10 @@ Para `afipsdk/afip.php` y sus forks (`fertandil87/afip.php`, `ivanalemunioz/afip
 - Lee el array cuando está en la llamada (`array(...)` o `[...]`) o en una variable definida una sola vez, antes de la llamada y en la misma función. Si los datos llegan de otro lado, se reasignan o se completan en varios pasos (`$data['DocTipo'] = ...`), lo reporta como "falta un dato" y no toca nada.
 - Copia el estilo del array: comillas de las claves, indentación (espacios o tabs), alineación de los `=>`, coma final y fin de línea (LF o CRLF).
 - Saltea `vendor/`.
+
+**La versión de la librería importa.** Con `afip.js`/`afip.php` 0.x (y `eesnaola/afip.php`) el pedido se arma con un WSDL de 2021 que no tiene `CondicionIVAReceptorId`: aunque el campo esté en el código, no llega a ARCA. Parche lee la versión instalada (`composer.lock`, `package-lock.json`, `node_modules`) y, en esos casos, el arreglo sale como **"revisar"** con el aviso de actualizar a 1.x. También avisa si el repo tiene un `.wsdl` de WSFEv1 sin el campo.
+
+**Otros lenguajes:** en Python, C#, Java, Go y VB.NET, Parche detecta integraciones SOAP propias y clientes SOAP generados sin el campo (no los reescribe).
 
 ## Límites del MVP
 
