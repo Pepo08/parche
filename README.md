@@ -135,7 +135,9 @@ Con el tag, el workflow corre los tests, controla que la versión de `package.js
 
 ## Verificación
 
-Antes de commitear, `--verify` parsea cada archivo modificado (JS/TS o PHP) y corre los tests del repo que correspondan a lo que cambió: `npm test` para JS/TS; para PHP, `composer test` o `vendor/bin/phpunit`. Si no hay tests, queda el chequeo de sintaxis y el PR lo dice. Si algo falla, no hay PR. El commit lleva la versión del pack que lo generó, para poder rastrear qué regla produjo cada cambio.
+Antes de commitear, Parche parsea **siempre** cada archivo modificado (JS/TS o PHP): eso no ejecuta nada del repo. Con `--verify`, además corre los tests del repo que correspondan a lo que cambió: `npm test` para JS/TS; para PHP, `composer test` o `vendor/bin/phpunit`. Si no hay tests, queda el chequeo de sintaxis y el PR lo dice. Sin `--verify` (por ejemplo, en un PR a un repo de terceros, donde no se ejecuta su código), el PR dice que Parche no corrió los tests y nombra los workflows del repo que los corren en cada pull request. Si algo falla, no hay PR. El commit lleva la versión del pack que lo generó, para poder rastrear qué regla produjo cada cambio.
+
+**Quién firma el commit:** `PARCHE_GIT_NAME` y `PARCHE_GIT_EMAIL` si están; si no, tu identidad de git (`user.name` y `user.email`, también la que configure tu workflow); en GitHub Actions sin identidad, `github-actions[bot]`, el mismo que abre el PR. Si no hay ninguna, `parche pr` frena antes de tocar el repo.
 
 ## ARCA en PHP
 

@@ -2,6 +2,15 @@
 
 Todas las versiones de `parche-cli` (npm) y de la Action `Pepo08/parche@v0`.
 
+## 0.5.1 — 2026-10-17
+
+Lo que apareció en el primer PR real (lunamarie11/obraya#1).
+
+### Arreglado
+- **Los commits ya no se firman con `bot@parche.dev`**, un dominio que no es nuestro. Ahora firma `PARCHE_GIT_NAME`/`PARCHE_GIT_EMAIL` si están; si no, la identidad de git de quien lo corre; y en GitHub Actions sin identidad, `github-actions[bot]`. Sin ninguna, `parche pr` frena antes de tocar el repo.
+- **`parche pr` chequea la sintaxis siempre**, también sin `--verify` (no ejecuta nada del repo). El PR ya no dice "Sin verificar": dice que Parche no corrió los tests y nombra los workflows del repo que los corren en cada pull request (`pull_request`; `pull_request_target` no cuenta).
+- El texto para un issue (sin cambios de código) ya no lleva la sección de verificación.
+
 ## 0.5.0 — 2026-10-16
 
 Lo que encontró el frente de tracción al correr Parche sobre 175 repos públicos reales.
