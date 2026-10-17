@@ -48,6 +48,37 @@ export function appliedMessage(status) {
     : 'Agregado CondicionIVAReceptorId: 5 por inferencia (DNI + comprobante B/C). Confirmá que el cliente no sea exento ni no alcanzado.';
 }
 
+// Arreglo parcial "en tiempo de ejecución" (punto 7 del frente B, 16/10): si DocTipo no es un literal
+// (DocTipo: docTipo), la regla 99 → 5 se aplica al ejecutarse y, con otro DocTipo, el pedido sale igual que hoy.
+// No inventa nada: Consumidor Final es el único caso que no depende de datos del negocio. No se aplica si el
+// comprobante es clase A o de otra clase conocida (99 con factura A no existe).
+export const PARTIAL = 'consumidor final';
+export const PARTIAL_COMMENT = ' parche: 5 = Consumidor Final solo si DocTipo es 99; con otro DocTipo falta la condición frente al IVA del cliente';
+
+export function canApplyAtRuntime(decision, cbteTipo) {
+  return decision.status === 'needs-input' && (cbteTipo === undefined || decision.clase === 'B' || decision.clase === 'C');
+}
+
+const dmy = (iso) => iso.split('-').map(Number).reverse().join('/');
+
+export function partialAppliedMessage(docTipoText) {
+  return `Arreglo parcial (${PARTIAL}): CondicionIVAReceptorId: 5 solo cuando \`${docTipoText}\` vale 99 al ejecutarse. Con otro DocTipo el pedido sale igual que hoy, sin el campo.`;
+}
+
+// Lo que el arreglo parcial NO cubre: va en el cuerpo del PR como "lo que este PR no resuelve".
+export function partialPending(decision, pack, suggestion) {
+  return {
+    covers: PARTIAL,
+    message: `No cubre los comprobantes con DocTipo distinto de 99 (CUIT, DNI y otros): siguen sin CondicionIVAReceptorId y desde el ${dmy(pack.deadline)} ARCA los va a rechazar. Falta la condición frente al IVA de cada cliente${decision.clase ? ` (comprobante clase ${decision.clase})` : ''}.`,
+    suggestion,
+  };
+}
+
+// En un scan posterior (el PR parcial ya se mergeó): lo que falta se sigue reportando.
+export function partialLeftMessage(pending) {
+  return `Tiene el arreglo parcial de Parche (solo DocTipo 99 → 5). ${pending.message}`;
+}
+
 // "El repo ya usa CondicionIVAReceptorId en otro lado": prefijo para bajar a "revisar" lo que no se pudo leer
 // (en repos ya migrados, el objeto suele salir de un builder que sí pone el campo).
 export function alreadyMigratedPrefix(context) {

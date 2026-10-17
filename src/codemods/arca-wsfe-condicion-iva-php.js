@@ -7,6 +7,7 @@ import { eolOf, applyEdits, finding } from '../ast.js';
 import { parsePhp, walkPhp, phpLiteral, phpKey } from '../php.js';
 import {
   PACK, decideCondition, validCodesText, missingMessage, appliedMessage, soapDetection, ARCA_HINT, libraryCaveat, alreadyMigratedPrefix,
+  canApplyAtRuntime, PARTIAL_COMMENT, partialAppliedMessage, partialPending, partialLeftMessage,
 } from './arca-rules.js';
 import { emptyContext } from '../context.js';
 
@@ -31,16 +32,33 @@ function voucherMethod(call) {
   return VOUCHER_METHODS.get(method.toLowerCase());
 }
 
+// if ($data['DocTipo'] == 99) / if ((int) $data['DocTipo'] === 99): el arreglo parcial de Parche
+// (o uno igual escrito a mano). Devuelve el nombre de la variable, o null.
+function partialIfVar(test) {
+  if (!test || test.kind !== 'bin' || (test.type !== '==' && test.type !== '===')) return null;
+  const side = (n) => (n && n.kind === 'cast' ? n.expr : n);
+  const isDocTipo = (n) => n && n.kind === 'offsetlookup' && n.what?.kind === 'variable' && typeof n.what.name === 'string'
+    && n.offset && phpLiteral(n.offset) === 'DocTipo';
+  const [a, b] = [side(test.left), side(test.right)];
+  const lookup = isDocTipo(a) ? a : isDocTipo(b) ? b : null;
+  const other = lookup === a ? b : a;
+  return lookup && phpLiteral(other) === 99 ? lookup.what.name : null;
+}
+
 // Asignaciones por scope: $var = ... y $var['Clave'] = ...
 function collect(ast) {
   const scopes = new Map();
   const calls = [];
   const info = (scope) => {
-    if (!scopes.has(scope)) scopes.set(scope, { assigns: new Map(), offsets: new Map() });
+    if (!scopes.has(scope)) scopes.set(scope, { assigns: new Map(), offsets: new Map(), partialIfs: new Map() });
     return scopes.get(scope);
   };
   const push = (map, name, value) => map.set(name, [...(map.get(name) || []), value]);
   walkPhp(ast, (node, scope) => {
+    if (node.kind === 'if') {
+      const v = partialIfVar(node.test);
+      if (v) push(info(scope).partialIfs, v, node);
+    }
     if (node.kind === 'assign') {
       const left = node.left;
       if (left.kind === 'variable' && typeof left.name === 'string') push(info(scope).assigns, left.name, node);
@@ -62,7 +80,7 @@ function resolveData(arg, scope, call, scopes) {
   if (!arg) return { reason: 'la llamada no tiene argumentos' };
   if (arg.kind === 'array') return { arr: arg };
   if (arg.kind !== 'variable' || typeof arg.name !== 'string') return { reason: 'no es un array literal ni una variable' };
-  const s = scopes.get(scope) || { assigns: new Map(), offsets: new Map() };
+  const s = scopes.get(scope) || { assigns: new Map(), offsets: new Map(), partialIfs: new Map() };
   const defs = s.assigns.get(arg.name) || [];
   const v = `$${arg.name}`;
   if (defs.length === 0) {
@@ -81,9 +99,14 @@ function resolveData(arg, scope, call, scopes) {
   if (def.operator !== '=' || def.right.kind !== 'array') return { reason: `${v} no es un array literal` };
   if (def.loc.start.offset > call.loc.start.offset) return { reason: `${v} se define después de la llamada` };
   const offsets = s.offsets.get(arg.name) || [];
-  if (offsets.some((o) => o.key === FIELD)) return { migrated: true };
+  // $data['CondicionIVAReceptorId'] = ... : migrado, salvo que solo pase dentro del if del arreglo parcial.
+  const fieldSets = offsets.filter((o) => o.key === FIELD);
+  const ifs = s.partialIfs.get(arg.name) || [];
+  const insideIf = (o) => ifs.some((i) => o.node.loc.start.offset >= i.loc.start.offset && o.node.loc.end.offset <= i.loc.end.offset);
+  const partial = fieldSets.length > 0 && fieldSets.every(insideIf);
+  if (fieldSets.length && !partial) return { migrated: true };
   if (offsets.some((o) => o.key === undefined || DECISION_KEYS.has(o.key))) return { reason: `${v} se completa en varios pasos` };
-  return { arr: def.right };
+  return { arr: def.right, def, name: arg.name, partial };
 }
 
 export default function transform({ source, file, pack, context = emptyContext() }) {
@@ -120,9 +143,28 @@ export default function transform({ source, file, pack, context = emptyContext()
     if (byKey(FIELD) || edited.has(data.arr)) continue; // ya está migrado (o ya lo editamos)
 
     const d = decideCondition({ docTipo: phpLiteral(byKey('DocTipo')?.value), cbteTipo: phpLiteral(byKey('CbteTipo')?.value) }, pack);
+    const suggestion = `'${FIELD}' => <condición del cliente>,  // valores válidos: ${validCodesText(d, pack)}`;
+    if (data.partial) {
+      // Ya tiene el arreglo parcial: no se toca, pero lo que falta se sigue reportando.
+      const pending = partialPending(d, pack, suggestion);
+      findings.push(finding(PACK, file, call, 'needs-input', partialLeftMessage(pending), { suggestion }));
+      continue;
+    }
     if (d.status === 'needs-input') {
-      findings.push(finding(PACK, file, call, 'needs-input', missingMessage(d) + (caveat ? ` ${caveat}` : ''),
-        { suggestion: `'${FIELD}' => <condición del cliente>,  // valores válidos: ${validCodesText(d, pack)}` }));
+      // DocTipo no literal y $data en una variable: arreglo parcial con un if después de armar el array.
+      // Con un array dentro de la llamada no hay dónde poner el if, y `null` no sirve: mandarlo antes del 1/12
+      // podría generar un rechazo que hoy no existe (frente B, punto 7).
+      const docTipo = byKey('DocTipo');
+      const partialEdit = data.def && docTipo && phpLiteral(docTipo.value) === undefined
+        && canApplyAtRuntime(d, phpLiteral(byKey('CbteTipo')?.value)) ? insertPartialIf(source, data, entries) : null;
+      if (partialEdit) {
+        edits.push(partialEdit.edit);
+        edited.add(data.arr);
+        findings.push(finding(PACK, file, call, 'needs-review', partialAppliedMessage(partialEdit.read) + (caveat ? ` ${caveat}` : ''),
+          { partial: partialPending(d, pack, suggestion) }));
+        continue;
+      }
+      findings.push(finding(PACK, file, call, 'needs-input', missingMessage(d) + (caveat ? ` ${caveat}` : ''), { suggestion }));
       continue;
     }
     const anchor = byKey('DocNro') || entries[entries.length - 1];
@@ -139,13 +181,52 @@ export default function transform({ source, file, pack, context = emptyContext()
   return { output: edits.length ? applyEdits(source, edits) : null, findings, usages };
 }
 
+// Comillas de las claves del array: las que use la mayoría.
+function quoteOf(source, entries) {
+  const keyed = entries.filter((e) => e.key && e.key.kind === 'string');
+  const doubles = keyed.filter((e) => source[e.key.loc.start.offset] === '"').length;
+  return doubles > keyed.length / 2 ? '"' : "'";
+}
+
+// Arreglo parcial en PHP: después de `$data = [...];` agrega
+//   if ((int) $data['DocTipo'] === 99) { $data['CondicionIVAReceptorId'] = 5; }
+// en tres líneas, con la indentación del archivo. Lee DocTipo del array ya armado, así no repite la
+// expresión original (puede ser una llamada). (int) y === : '99' como string también cuenta, como en JS.
+// null si la asignación no termina la línea (dentro de un if, varias sentencias en una línea...).
+function insertPartialIf(source, data, entries) {
+  const eol = eolOf(source);
+  const { def, name } = data;
+  let semi = def.loc.end.offset - 1;
+  if (source[semi] !== ';') {
+    semi = def.loc.end.offset;
+    while (semi < source.length && /[ \t]/.test(source[semi])) semi++;
+    if (source[semi] !== ';') return null;
+  }
+  const nl = source.indexOf('\n', semi);
+  const rest = source.slice(semi + 1, nl === -1 ? source.length : nl);
+  if (nl === -1 || !(rest.trim() === '' || /^\s*(\/\/|#)/.test(rest))) return null;
+  const lineStart = source.lastIndexOf('\n', def.loc.start.offset - 1) + 1;
+  const indent = source.slice(lineStart).match(/^[ \t]*/)[0];
+  // Unidad de indentación: la de las claves del array respecto de la sentencia; si no, la del archivo.
+  const first = entries.find((e) => e.loc.start.line > def.loc.start.line);
+  const entryIndent = first ? source.slice(source.lastIndexOf('\n', first.loc.start.offset - 1) + 1).match(/^[ \t]*/)[0] : '';
+  const unit = entryIndent.startsWith(indent) && entryIndent.length > indent.length ? entryIndent.slice(indent.length)
+    : indent.includes('\t') ? '\t' : '    ';
+  const q = quoteOf(source, entries);
+  const read = `$${name}[${q}DocTipo${q}]`;
+  const text = `${indent}//${PARTIAL_COMMENT}${eol}`
+    + `${indent}if ((int) ${read} === 99) {${eol}`
+    + `${indent}${unit}$${name}[${q}${FIELD}${q}] = 5;${eol}`
+    + `${indent}}${eol}`;
+  return { edit: { offset: nl + 1, text }, read };
+}
+
 // Inserta 'CondicionIVAReceptorId' => N después de `anchor`, copiando el estilo del array:
 // comillas de las claves, indentación, alineación de los =>, coma final y fin de línea.
 export function insertAfterEntry(source, entries, anchor, { value, comment }) {
   const eol = eolOf(source);
   const keyed = entries.filter((e) => e.key && e.key.kind === 'string');
-  const doubles = keyed.filter((e) => source[e.key.loc.start.offset] === '"').length;
-  const q = doubles > keyed.length / 2 ? '"' : "'";
+  const q = quoteOf(source, entries);
   const key = `${q}${FIELD}${q}`;
 
   const end = anchor.loc.end.offset;
