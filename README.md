@@ -137,7 +137,9 @@ Con el tag, el workflow corre los tests, controla que la versión de `package.js
 
 Antes de commitear, Parche parsea **siempre** cada archivo modificado (JS/TS o PHP): eso no ejecuta nada del repo. Con `--verify`, además corre los tests del repo que correspondan a lo que cambió: `npm test` para JS/TS; para PHP, `composer test` o `vendor/bin/phpunit`. Si no hay tests, queda el chequeo de sintaxis y el PR lo dice. Sin `--verify` (por ejemplo, en un PR a un repo de terceros, donde no se ejecuta su código), el PR dice que Parche no corrió los tests y nombra los workflows del repo que los corren en cada pull request. Si algo falla, no hay PR. El commit lleva la versión del pack que lo generó, para poder rastrear qué regla produjo cada cambio.
 
-**Quién firma el commit:** `PARCHE_GIT_NAME` y `PARCHE_GIT_EMAIL` si están; si no, tu identidad de git (`user.name` y `user.email`, también la que configure tu workflow); en GitHub Actions sin identidad, `github-actions[bot]`, el mismo que abre el PR. Si no hay ninguna, `parche pr` frena antes de tocar el repo.
+**Quién firma el commit:** `--author "Nombre <email>"` si lo pasás; si no, `PARCHE_GIT_NAME` y `PARCHE_GIT_EMAIL` si están; si no, tu identidad de git (`user.name` y `user.email`, también la que configure tu workflow); en GitHub Actions sin identidad, `github-actions[bot]`, el mismo que abre el PR. Si no hay ninguna, `parche pr` frena antes de tocar el repo. Antes de pushear, si el email no es un noreply de GitHub, avisa: va a quedar público en el commit del PR.
+
+**Copias de respaldo:** Parche no lee ni edita carpetas `BAK/`, `backup/`, `old/`, `_old/` y `deprecated/`, ni archivos como `factura copy.php`, `factura - Copy.js`, `factura.bak.php` o `factura-old.php`. El scan dice cuáles saltó, por si alguno es código que corre.
 
 ## ARCA en PHP
 

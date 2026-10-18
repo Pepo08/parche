@@ -74,6 +74,32 @@ const otherSpread = (obj) => obj.properties.some((p) => (p.type === 'SpreadEleme
 
 const textOf = (source, node) => source.slice(offsetAt(source, node.loc.start), offsetAt(source, node.loc.end));
 
+// Nombre de la propiedad de un acceso: voucher.Campo o voucher['Campo'].
+const memberName = (m) => (!m.computed && m.property.type === 'Identifier' ? m.property.name
+  : m.computed && (m.property.type === 'StringLiteral' || m.property.type === 'Literal') ? m.property.value : null);
+
+// ¿El objeto de la variable `name` (declarada en `decl`) recibe el campo después de armarse?
+// voucher.CondicionIVAReceptorId = …, voucher['CondicionIVAReceptorId'] = …, (voucher as any).CondicionIVAReceptorId = …
+// u Object.assign(voucher, { CondicionIVAReceptorId: … }). Cuenta como migrado, igual que en PHP
+// (frente B, punto 18: tometh04/vibook-services lo asigna en un if y Parche agregaba el arreglo parcial igual).
+// Solo cuenta si es la misma variable: otra con el mismo nombre en otra función no.
+function fieldAssignedLater(j, root, decl, name) {
+  const same = (p) => resolveBinding(p, name)?.node === decl.node;
+  const isVar = (n) => { const x = unwrap(n); return !!(x && x.type === 'Identifier' && x.name === name); };
+  const assigned = root.find(j.AssignmentExpression).filter((p) => {
+    const left = unwrap(p.node.left);
+    return left && left.type === 'MemberExpression' && isVar(left.object) && memberName(left) === 'CondicionIVAReceptorId' && same(p);
+  }).size() > 0;
+  if (assigned) return true;
+  return root.find(j.CallExpression).filter((p) => {
+    const c = unwrap(p.node.callee);
+    const isAssign = c && c.type === 'MemberExpression' && !c.computed && c.object.type === 'Identifier' && c.object.name === 'Object'
+      && c.property.type === 'Identifier' && c.property.name === 'assign';
+    if (!isAssign || !isVar(p.node.arguments[0]) || !same(p)) return false;
+    return p.node.arguments.slice(1).some((a) => { const o = unwrap(a); return o && o.type === 'ObjectExpression' && !!getProp(o, 'CondicionIVAReceptorId'); });
+  }).size() > 0;
+}
+
 // La clave nueva copia el estilo del objeto: con comillas si la mayoría de las claves las tiene, y las
 // mismas comillas que esas claves. Las del resto del archivo solo desempatan: en un repo real las claves
 // iban con ' y el archivo usaba " en el resto, y la clave nueva salía distinta a sus vecinas.
@@ -117,10 +143,11 @@ export default function transform({ source, file, pack, context = emptyContext()
     usages.push({ provider: 'arca', op: `ElectronicBilling.${voucherCallee(p).property.name}`, line: call.loc?.start.line });
     const arg = call.arguments[0];
     let obj = null;
+    let binding = null;
     if (arg && arg.type === 'ObjectExpression') obj = arg;
     else if (arg && arg.type === 'Identifier') {
       const decl = resolveBinding(p, arg.name);
-      if (decl && decl.node.init && decl.node.init.type === 'ObjectExpression') obj = decl.node.init;
+      if (decl && decl.node.init && decl.node.init.type === 'ObjectExpression') { obj = decl.node.init; binding = decl; }
     }
     if (!obj || otherSpread(obj)) {
       // Si el repo ya usa el campo en otro lado, lo más probable es que el builder ya lo ponga: "revisar".
@@ -128,6 +155,7 @@ export default function transform({ source, file, pack, context = emptyContext()
       return;
     }
     if (getProp(obj, 'CondicionIVAReceptorId') || edited.has(obj)) return; // ya está migrado (o ya lo editamos)
+    if (binding && fieldAssignedLater(j, root, binding, arg.name)) return; // lo completa después: también migrado
     const spreads = obj.properties.map(conditionSpread);
     if (spreads.includes('full')) return;
 

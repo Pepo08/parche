@@ -53,7 +53,7 @@ function upgradesSection(upgrades) {
   return out;
 }
 
-export function scanReport({ inventory, findings, packs, changed, upgrades = null }, today = new Date()) {
+export function scanReport({ inventory, findings, packs, changed, upgrades = null, skipped = [] }, today = new Date()) {
   const out = [];
   out.push(`# Parche — reporte de \`${inventory.repo}\``, '');
   out.push('## APIs que usa este repo', '');
@@ -72,6 +72,10 @@ export function scanReport({ inventory, findings, packs, changed, upgrades = nul
   if (inventory.unresolved.length) {
     out.push('**Llamadas HTTP con URL dinámica** (no se puede saber a qué host van):', '',
       ...inventory.unresolved.map((u) => `- \`${u.file}:${u.line}\` (${u.client})`), '');
+  }
+  if (skipped.length) {
+    out.push('**Copias de respaldo que no se revisaron** (si alguna es código que corre, renombrala o movela):', '',
+      ...skipped.map((s) => `- \`${s}\``), '');
   }
   if (upgrades) out.push(...upgradesSection(upgrades));
   for (const pack of packs) {

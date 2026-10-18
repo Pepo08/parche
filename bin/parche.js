@@ -22,9 +22,10 @@ Uso:
   parche diff <paquete> --from <v> --to <v> [--json] [--all]
                                        Qué cambia en la API de un paquete de npm entre dos versiones
   parche fix <dir> [--pack <id>]       Aplica los arreglos en el código
-  parche pr <dir> [--pack <id>] [--dry-run] [--verify] [--push-remote <remote>]
+  parche pr <dir> [--pack <id>] [--dry-run] [--verify] [--push-remote <remote>] [--author "Nombre <email>"]
                                        Rama + commit + PR por cada cambio. Con --push-remote,
-                                       pushea a ese remote (tu fork) y abre el PR contra origin
+                                       pushea a ese remote (tu fork) y abre el PR contra origin.
+                                       Con --author, firma con esa identidad y no con la de git
   parche feedback <dir> --pack <id> --outcome merged|edited|rejected [--note "..."]
 `;
 
@@ -115,6 +116,13 @@ function printDiff(d, { all = false } = {}) {
   }
 }
 
+// Lo que no se revisó por ser copia de respaldo: se dice, no se oculta.
+function printSkipped(skipped = []) {
+  if (!skipped.length) return;
+  const shown = skipped.slice(0, 8).join(', ');
+  console.log(`\nNo revisé ${skipped.length} copia(s) de respaldo: ${shown}${skipped.length > 8 ? ` y ${skipped.length - 8} más` : ''}. Si alguna es código que corre, renombrala o movela.`);
+}
+
 function printFindings(result) {
   for (const pack of result.packs) {
     const fs2 = result.findings.filter((f) => f.pack === pack.id);
@@ -123,7 +131,8 @@ function printFindings(result) {
     console.log(`\n■ ${pack.title}\n  ${pack.provider} · severidad ${pack.severity}${d}`);
     for (const f of fs2) {
       console.log(`  ${LABEL[f.status].padEnd(16)} ${f.file}${f.line ? ':' + f.line : ''}  ${f.message}`);
-      if (f.partial) console.log(`  ${''.padEnd(16)} No cubre: ${f.partial.message}`);
+      // partial.message ya empieza con "No cubre…": sin prefijo (antes salía "No cubre: No cubre").
+      if (f.partial) console.log(`  ${''.padEnd(16)} ${f.partial.message}`);
     }
   }
 }
@@ -171,11 +180,12 @@ async function main() {
     fs.writeFileSync(path.join(root, '.parche', 'inventory.json'), JSON.stringify(result.inventory, null, 2));
     fs.writeFileSync(path.join(root, '.parche', 'report.md'), scanReport({ ...result, changed: [], upgrades }));
     record(root, { type: 'scan', findings: counts(result.findings) });
-    if (args.json) { console.log(JSON.stringify({ inventory: result.inventory, findings: result.findings }, null, 2)); return 0; }
+    if (args.json) { console.log(JSON.stringify({ inventory: result.inventory, findings: result.findings, skipped: result.skipped }, null, 2)); return 0; }
     console.log(`Parche · scan de ${path.basename(root)}\n`);
     printInventory(result.inventory);
     if (upgrades) printUpgrades(upgrades);
     printFindings(result);
+    printSkipped(result.skipped);
     const s = summary(result.findings);
     console.log(s ? `\n${s}` : '\nNinguno de los packs verificados tiene cambios que te afecten hoy.');
     console.log(`Reporte: ${path.join(root, '.parche', 'report.md')}`);
@@ -197,7 +207,13 @@ async function main() {
     if (!git.isRepo(root)) throw new Error('`parche pr` necesita un repositorio git.');
     if (!git.isClean(root)) throw new Error('Hay cambios sin commitear. Commiteá o guardá (stash) antes de correr `parche pr`.');
     // Quién firma el commit se resuelve antes de escribir nada: si falla al commitear, el repo quedaría sucio.
-    git.commitIdentity(root);
+    const env = args.author !== undefined ? { ...process.env, ...git.parseAuthor(args.author) } : process.env;
+    const identity = git.commitIdentity(root, env);
+    console.log(`Firma los commits: ${identity.name} <${identity.email}>`);
+    // El email queda público en el PR: si no es un noreply de GitHub, se avisa antes de pushear (frente B, punto 20).
+    if (!args['dry-run'] && process.env.GITHUB_TOKEN && process.env.GITHUB_ACTIONS !== 'true' && !git.isNoreply(identity.email)) {
+      console.warn(`Ojo: ${identity.email} va a quedar público en el commit del PR. Si preferís no mostrarlo, usá --author "Nombre <usuario@users.noreply.github.com>".`);
+    }
     ensureLocalDir(root);
     const base = git.currentBranch(root);
     const packs = loadPacks().filter((p) => p.codemod && (!packIds || packIds.includes(p.id)));
@@ -225,8 +241,10 @@ async function main() {
           git.discardChanges(root);
           throw new Error(`La verificación falló para ${pack.id}; no se abre el PR y el repo queda como estaba.\n${JSON.stringify(verification, null, 2)}`);
         }
-        fs.writeFileSync(bodyPath, prBody({ pack, findings: result.findings, changed: result.changed, verification }));
-        if (!changedFiles.length || changedFiles.every(isTestFile)) {
+        // Si solo cambiarían tests o mocks no hay PR: el texto queda como issue, sin "Modifica 1 archivo" (frente B, punto 20).
+        const reportOnly = !changedFiles.length || changedFiles.every(isTestFile);
+        fs.writeFileSync(bodyPath, prBody({ pack, findings: result.findings, changed: reportOnly ? [] : result.changed, verification: reportOnly ? null : verification }));
+        if (reportOnly) {
           const why = changedFiles.length ? 'solo cambiaría tests o mocks: no se abre un PR' : 'sin cambios de código';
           git.discardChanges(root);
           console.log(`  ${summary(result.findings)}`);
@@ -235,7 +253,7 @@ async function main() {
           continue;
         }
         const draft = !!(c['needs-review'] || c['needs-input'] || c.blocked);
-        const sha = git.commitAll(root, `${title}\n\n${pack.summary_es}\nPack ${pack.id} v${pack.version}.`);
+        const sha = git.commitAll(root, `${title}\n\n${pack.summary_es}\nPack ${pack.id} v${pack.version}.`, env);
         keepBranch = true;
         console.log(`  Rama ${branch} · commit ${sha} · ${changedFiles.length} archivo(s)${verification ? ` · verificación ${verification.ok ? 'OK' : 'FALLÓ'}` : ''}`);
         console.log(`  ${summary(result.findings)}`);
