@@ -196,6 +196,8 @@ async function main() {
   if (cmd === 'pr') {
     if (!git.isRepo(root)) throw new Error('`parche pr` necesita un repositorio git.');
     if (!git.isClean(root)) throw new Error('Hay cambios sin commitear. Commiteá o guardá (stash) antes de correr `parche pr`.');
+    // Quién firma el commit se resuelve antes de escribir nada: si falla al commitear, el repo quedaría sucio.
+    git.commitIdentity(root);
     ensureLocalDir(root);
     const base = git.currentBranch(root);
     const packs = loadPacks().filter((p) => p.codemod && (!packIds || packIds.includes(p.id)));
@@ -216,7 +218,8 @@ async function main() {
         const c = counts(result.findings);
         const bodyPath = path.join(root, '.parche', `pr-${pack.id}.md`);
         console.log(`\n■ ${title}`);
-        const verification = changedFiles.length && (args.verify || args['dry-run']) ? verify(root, changedFiles, { runTests: !!args.verify }) : null;
+        // La sintaxis se chequea siempre (no ejecuta nada del repo); los tests, solo con --verify.
+        const verification = changedFiles.length ? verify(root, changedFiles, { runTests: !!args.verify }) : null;
         if (verification && !verification.ok) {
           // Nada de lo que escribió Parche queda en el repo: se descarta y se borra la rama.
           git.discardChanges(root);

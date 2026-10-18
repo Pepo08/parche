@@ -2,7 +2,7 @@
 
 Todas las versiones de `parche-cli` (npm) y de la Action `Pepo08/parche@v0`.
 
-## 0.6.0 — 2026-10-16
+## 0.6.0 — 2026-10-17
 
 ### Nuevo
 - **ARCA con `DocTipo` en una variable: PR parcial (consumidor final).** Antes se reportaba como "falta un dato" y no se tocaba nada. Ahora Parche aplica la regla 99 → 5 **al ejecutarse** y, con otro `DocTipo`, el pedido sale igual que hoy (la clave ni existe). En JS agrega `...(Number(docTipo) === 99 ? { CondicionIVAReceptorId: 5 } : {})`; en PHP, un `if ((int) $data['DocTipo'] === 99)` después de armar el array, nunca `null`. El PR sale borrador, con "(parcial: consumidor final)" en el título y, en "Lo que este PR NO resuelve", los casos que no cubre con los códigos válidos. No se aplica a facturas A, a expresiones con efectos (llamadas, `await`) ni a arrays de PHP dentro de la llamada. Si se corre de nuevo después del merge, no cambia nada y sigue avisando lo que falta.
@@ -10,6 +10,15 @@ Todas las versiones de `parche-cli` (npm) y de la Action `Pepo08/parche@v0`.
 
 ### Arreglado
 - ARCA en JS: la clave nueva usa las mismas comillas que las claves del objeto. Antes copiaba las del resto del archivo y, en un repo real con claves `'...'` en un archivo con `"..."`, quedaba distinta a sus vecinas.
+
+## 0.5.1 — 2026-10-17
+
+Lo que apareció en el primer PR real (lunamarie11/obraya#1).
+
+### Arreglado
+- **Los commits ya no se firman con `bot@parche.dev`**, un dominio que no es nuestro. Ahora firma `PARCHE_GIT_NAME`/`PARCHE_GIT_EMAIL` si están; si no, la identidad de git de quien lo corre; y en GitHub Actions sin identidad, `github-actions[bot]`. Sin ninguna, `parche pr` frena antes de tocar el repo.
+- **`parche pr` chequea la sintaxis siempre**, también sin `--verify` (no ejecuta nada del repo). El PR ya no dice "Sin verificar": dice que Parche no corrió los tests y nombra los workflows del repo que los corren en cada pull request (`pull_request`; `pull_request_target` no cuenta).
+- El texto para un issue (sin cambios de código) ya no lleva la sección de verificación.
 
 ## 0.5.0 — 2026-10-16
 

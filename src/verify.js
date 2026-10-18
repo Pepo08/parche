@@ -31,6 +31,28 @@ export function testCommands(root, changedFiles) {
   return cmds;
 }
 
+// Workflows del repo que corren en cada pull request: si Parche no corrió los tests, el PR dice dónde se corren.
+// `on: [push, pull_request]`, `on:` + `pull_request:` o `- pull_request`. No cuenta pull_request_target:
+// corre el código de la rama base, no el del PR.
+const ON_PULL_REQUEST = /^\s*(['"]?on['"]?\s*:.*\bpull_request\b|-?\s*pull_request\b\s*(:|#|$))/m;
+
+export function prWorkflows(root) {
+  const dir = path.join(root, '.github', 'workflows');
+  let names = [];
+  try {
+    names = fs.readdirSync(dir).filter((f) => /\.ya?ml$/i.test(f)).sort();
+  } catch {
+    return [];
+  }
+  return names.filter((f) => {
+    try {
+      return ON_PULL_REQUEST.test(fs.readFileSync(path.join(dir, f), 'utf8'));
+    } catch {
+      return false;
+    }
+  }).map((f) => `.github/workflows/${f}`);
+}
+
 export function verify(root, changedFiles, { runTests = false } = {}) {
   const errors = [];
   for (const rel of changedFiles) {
@@ -56,6 +78,9 @@ export function verify(root, changedFiles, { runTests = false } = {}) {
       }
       result.tests = { ok, commands: cmds.map((c) => c.label), output: output.slice(-2000) };
     }
+  } else {
+    // Sin --verify, Parche no ejecuta código del repo (por ejemplo, en un repo de terceros): se dice, no se oculta.
+    result.tests = { ok: true, notRun: true, ci: prWorkflows(root) };
   }
   result.ok = result.parse.ok && (!result.tests || result.tests.ok);
   return result;
