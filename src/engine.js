@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadPacks, transformFor, languageOf } from './packs.js';
-import { SKIP_DIRS, toPosix } from './paths.js';
+import { SKIP_DIRS, toPosix, isBackupDir, isBackupFile } from './paths.js';
 import { scanJs } from './inventory/js-scan.js';
 import { readManifests, buildInventory } from './inventory/index.js';
 import { buildContext } from './context.js';
@@ -10,18 +10,25 @@ import { buildContext } from './context.js';
 // JS/TS y PHP (codemods), WSDL (detección de esquemas viejos) y Python, C#, Java, Go, VB.NET (solo detección).
 const EXT = /\.(m?js|cjs|jsx|ts|tsx|php|wsdl|py|cs|java|go|vb)$/i;
 
-export function listFiles(dir) {
+// Archivos que el motor lee. Las copias de respaldo (BAK/, "x copy.php"…) no se leen ni se editan:
+// van a `skipped`, con "/", para decir en el reporte qué se ignoró.
+export function listFiles(dir, skipped = []) {
   const out = [];
   const walk = (d) => {
     for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const rel = () => toPosix(path.relative(dir, path.join(d, e.name)));
       if (e.isDirectory()) {
-        if (!SKIP_DIRS.has(e.name)) walk(path.join(d, e.name));
+        if (SKIP_DIRS.has(e.name)) continue;
+        if (isBackupDir(e.name)) { skipped.push(`${rel()}/`); continue; }
+        walk(path.join(d, e.name));
       } else if (EXT.test(e.name) && !/\.d\.ts$/.test(e.name)) {
-        out.push(path.join(d, e.name));
+        if (isBackupFile(e.name)) skipped.push(rel());
+        else out.push(path.join(d, e.name));
       }
     }
   };
   walk(dir);
+  skipped.sort();
   // Mismo orden en Windows y en Linux: se ordena por la ruta con "/".
   return out.sort((a, b) => (toPosix(a) < toPosix(b) ? -1 : 1));
 }
@@ -31,7 +38,8 @@ export function run(dir, { write = false, packIds = null, today } = {}) {
   const packs = loadPacks().filter((p) => !packIds || packIds.includes(p.id));
   const manifests = readManifests(root);
   const deps = { ...manifests.npm, ...manifests.composer };
-  const files = listFiles(root);
+  const skipped = [];
+  const files = listFiles(root, skipped);
   const rels = files.map((abs) => toPosix(path.relative(root, abs)));
   // Lo que un archivo solo no sabe (versiones instaladas, si el repo ya usa el campo, WSDL viejos).
   const context = buildContext(root, rels, manifests);
@@ -83,7 +91,7 @@ export function run(dir, { write = false, packIds = null, today } = {}) {
     providers: Object.fromEntries(Object.entries(providers).map(([k, v]) => [k, { ...v, files: [...v.files] }])),
     usages,
   };
-  return { root, packs, context, inventory, findings, changed: [...changed.entries()].map(([file, packIds]) => ({ file, packs: packIds })) };
+  return { root, packs, context, inventory, findings, skipped, changed: [...changed.entries()].map(([file, packIds]) => ({ file, packs: packIds })) };
 }
 
 export const STATUS_ORDER = ['blocked', 'needs-input', 'needs-review', 'auto', 'detect-only'];

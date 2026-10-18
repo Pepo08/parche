@@ -2,6 +2,18 @@
 
 Todas las versiones de `parche-cli` (npm) y de la Action `Pepo08/parche@v0`.
 
+## 0.6.1 — 2026-10-18
+
+Lo que encontró el frente de tracción al preparar los PRs con la 0.6.0.
+
+### Arreglado
+- **ARCA en JS: si el objeto recibe el campo después, cuenta como migrado**, igual que en PHP: `voucher.CondicionIVAReceptorId = …`, `voucher['CondicionIVAReceptorId'] = …`, con cast de TS u `Object.assign(voucher, { CondicionIVAReceptorId: … })`. Antes se agregaba el arreglo parcial igual, y era redundante. Una variable con el mismo nombre en otra función no cuenta.
+- **Copias de respaldo:** no se leen ni se editan las carpetas `BAK/`, `backup(s)/`, `old/`, `_old/` y `deprecated/`, ni los archivos `* copy.*`, `* - Copy.*`, `* copia.*`, `*.bak.*`, `*-old.*`, `*_old.*` y `*.old.*`. Tampoco cuentan sus manifiestos ni sus WSDL. El scan y `report.md` dicen qué se saltó.
+- **Windows:** los comandos de git corren con `core.longpaths`. Sin eso, un clon recién hecho con rutas largas daba "Hay cambios sin commitear".
+- **`parche pr --author "Nombre <email>"`** firma con esa identidad sin tocar la configuración de git. `pr` muestra quién firma y, antes de pushear, avisa si el email no es un noreply de GitHub (queda público en el PR).
+- Si solo cambiarían tests o mocks, el texto queda como issue: ya no empieza con "Modifica 1 archivo".
+- La consola ya no repite "No cubre: No cubre…" en los arreglos parciales.
+
 ## 0.6.0 — 2026-10-17
 
 ### Nuevo

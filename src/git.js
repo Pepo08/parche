@@ -1,6 +1,9 @@
 import { execFileSync } from 'node:child_process';
 
-const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+// En Windows, sin core.longpaths, git ve modificado un archivo con ruta de más de 260 caracteres, y `parche pr`
+// frenaba con "Hay cambios sin commitear" en un clon recién hecho (frente B, punto 20).
+export const gitArgs = (args, platform = process.platform) => (platform === 'win32' ? ['-c', 'core.longpaths=true', ...args] : args);
+const git = (cwd, ...args) => execFileSync('git', gitArgs(args), { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 
 export function isRepo(cwd) {
   try {
@@ -47,6 +50,17 @@ export function commitIdentity(cwd, env = process.env) {
   if (env.GITHUB_ACTIONS === 'true') return ACTIONS_BOT;
   throw new Error('No hay una identidad de git para firmar el commit: configurá `git config user.name` y `git config user.email`, o PARCHE_GIT_NAME y PARCHE_GIT_EMAIL.');
 }
+
+// --author "Nombre <email>": quién firma, sin tocar la configuración de git de la máquina (frente B, punto 20:
+// la identidad global de la compu era otra persona con un mail personal).
+export function parseAuthor(text) {
+  const m = /^\s*(.+?)\s*<([^<>\s]+@[^<>\s]+)>\s*$/.exec(typeof text === 'string' ? text : '');
+  if (!m) throw new Error('--author tiene que ser "Nombre <email>", por ejemplo --author "Ana Pérez <ana@users.noreply.github.com>".');
+  return { PARCHE_GIT_NAME: m[1], PARCHE_GIT_EMAIL: m[2] };
+}
+
+// El email del commit queda público en el PR: si no es un noreply de GitHub, `parche pr` avisa antes de pushear.
+export const isNoreply = (email) => /@users\.noreply\.github\.com$/i.test(email || '');
 
 export function commitAll(cwd, message, env = process.env) {
   const id = commitIdentity(cwd, env);
