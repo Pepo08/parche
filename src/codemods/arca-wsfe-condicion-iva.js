@@ -2,10 +2,11 @@
 // Agrega CondicionIVAReceptorId a cada pedido de CAE hecho con afip.js cuando se puede inferir
 // sin datos del negocio, y marca el resto para que una persona complete el dato.
 import {
-  jFor, detectQuote, eolOf, offsetAt, applyEdits, getProp, hasSpread, isQuotedKey, isPlainProp, literalValue, resolveBinding, finding,
+  jFor, detectQuote, eolOf, offsetAt, applyEdits, getProp, isQuotedKey, isPlainProp, literalValue, resolveBinding, finding,
 } from '../ast.js';
 import {
   PACK, decideCondition, validCodesText, missingMessage, appliedMessage, soapDetection, ARCA_HINT, libraryCaveat, alreadyMigratedPrefix,
+  canApplyAtRuntime, PARTIAL_COMMENT, partialAppliedMessage, partialPending, partialLeftMessage,
 } from './arca-rules.js';
 import { emptyContext } from '../context.js';
 
@@ -45,6 +46,50 @@ export function decide(obj, pack) {
   }, pack);
 }
 
+// Un valor que se puede volver a leer sin efectos: docTipo, cliente.docTipo, this.doc?.tipo, datos['DocTipo'].
+// El arreglo parcial repite esa expresión; una llamada o un await no se repiten.
+function isPureRead(node, top = true) {
+  const n = unwrap(node);
+  if (!n) return false;
+  if (n.type === 'Identifier') return n.name !== 'undefined';
+  if (n.type === 'ThisExpression') return !top;
+  if (n.type === 'MemberExpression' || n.type === 'OptionalMemberExpression') {
+    if (n.computed && !['StringLiteral', 'NumericLiteral', 'Literal'].includes(n.property.type)) return false;
+    return isPureRead(n.object, false);
+  }
+  return false;
+}
+
+// ...(cond ? { CondicionIVAReceptorId: N } : {}): 'partial' si para el otro caso no hay valor (el arreglo
+// parcial de Parche, o uno igual escrito a mano), 'full' si los dos lados ponen el campo.
+function conditionSpread(prop) {
+  if (prop.type !== 'SpreadElement' && prop.type !== 'SpreadProperty') return null;
+  const c = unwrap(prop.argument);
+  if (!c || c.type !== 'ConditionalExpression') return null;
+  const sets = (o) => { const x = unwrap(o); return !!(x && x.type === 'ObjectExpression' && getProp(x, 'CondicionIVAReceptorId')); };
+  if (!sets(c.consequent) && !sets(c.alternate)) return null;
+  return sets(c.consequent) && sets(c.alternate) ? 'full' : 'partial';
+}
+const otherSpread = (obj) => obj.properties.some((p) => (p.type === 'SpreadElement' || p.type === 'SpreadProperty' || p.type === 'ObjectMethod') && !conditionSpread(p));
+
+const textOf = (source, node) => source.slice(offsetAt(source, node.loc.start), offsetAt(source, node.loc.end));
+
+// La clave nueva copia el estilo del objeto: con comillas si la mayoría de las claves las tiene, y las
+// mismas comillas que esas claves. Las del resto del archivo solo desempatan: en un repo real las claves
+// iban con ' y el archivo usaba " en el resto, y la clave nueva salía distinta a sus vecinas.
+function keyTextFor(source, obj) {
+  const props = obj.properties.filter(isPlainProp);
+  const quotedKeys = props.filter(isQuotedKey);
+  if (!props.length || quotedKeys.length < props.length / 2) return 'CondicionIVAReceptorId';
+  const raw = (k) => (k.extra?.raw ?? k.raw ?? source[offsetAt(source, k.loc.start)])[0];
+  const doubles = quotedKeys.filter((p) => raw(p.key) === '"').length;
+  const singles = quotedKeys.length - doubles;
+  const q = doubles === singles ? (detectQuote(source) === 'double' ? '"' : "'") : doubles > singles ? '"' : "'";
+  return `${q}CondicionIVAReceptorId${q}`;
+}
+
+const suggestionFor = (d, pack) => `'CondicionIVAReceptorId': <condición del cliente>,  // valores válidos: ${validCodesText(d, pack)}`;
+
 export default function transform({ source, file, pack, context = emptyContext() }) {
   const findings = [];
   const usages = [];
@@ -77,26 +122,44 @@ export default function transform({ source, file, pack, context = emptyContext()
       const decl = resolveBinding(p, arg.name);
       if (decl && decl.node.init && decl.node.init.type === 'ObjectExpression') obj = decl.node.init;
     }
-    if (!obj || hasSpread(obj)) {
+    if (!obj || otherSpread(obj)) {
       // Si el repo ya usa el campo en otro lado, lo más probable es que el builder ya lo ponga: "revisar".
       findings.push(finding(PACK, file, call, migrated ? 'needs-review' : 'needs-input', (migrated || '') + unreadableMessage(j, root, p, arg, obj)));
       return;
     }
     if (getProp(obj, 'CondicionIVAReceptorId') || edited.has(obj)) return; // ya está migrado (o ya lo editamos)
+    const spreads = obj.properties.map(conditionSpread);
+    if (spreads.includes('full')) return;
 
     const d = decide(obj, pack);
+    const props = obj.properties.filter(isPlainProp);
+    const keyText = keyTextFor(source, obj);
+    const anchor = getProp(obj, 'DocNro') || props[props.length - 1];
+    const isLast = anchor === obj.properties[obj.properties.length - 1];
+    if (spreads.includes('partial')) {
+      // Ya tiene el arreglo parcial: no se toca, pero lo que falta se sigue reportando.
+      const pending = partialPending(d, pack, suggestionFor(d, pack));
+      findings.push(finding(PACK, file, call, 'needs-input', partialLeftMessage(pending), { suggestion: pending.suggestion }));
+      return;
+    }
     if (d.status === 'needs-input') {
+      const docTipo = getProp(obj, 'DocTipo')?.value;
+      const expr = docTipo && anchor && literalValue(docTipo) === undefined && isPureRead(docTipo) ? textOf(source, docTipo) : null;
+      if (expr && !expr.includes('\n') && canApplyAtRuntime(d, literalValue(getProp(obj, 'CbteTipo')?.value))) {
+        // Spread y no `CondicionIVAReceptorId: x === 99 ? 5 : undefined`: con otro DocTipo la clave ni existe,
+        // así el pedido queda idéntico al de hoy sin depender de cómo serialice la librería (decisión D52).
+        edits.push(...insertAfterProp(source, anchor, `...(Number(${expr}) === 99 ? { ${keyText}: 5 } : {})`, PARTIAL_COMMENT, { isLast }));
+        edited.add(obj);
+        changed = true;
+        findings.push(finding(PACK, file, call, 'needs-review', partialAppliedMessage(expr) + (caveat ? ` ${caveat}` : ''),
+          { partial: partialPending(d, pack, suggestionFor(d, pack)) }));
+        return;
+      }
       findings.push(finding(PACK, file, call, 'needs-input', missingMessage(d) + (caveat ? ` ${caveat}` : ''),
-        { suggestion: `'CondicionIVAReceptorId': <condición del cliente>,  // valores válidos: ${validCodesText(d, pack)}` }));
+        { suggestion: suggestionFor(d, pack) }));
       return;
     }
 
-    const props = obj.properties.filter(isPlainProp);
-    const quoted = props.length > 0 && props.filter(isQuotedKey).length >= props.length / 2;
-    const q = detectQuote(source) === 'double' ? '"' : "'";
-    const keyText = quoted ? `${q}CondicionIVAReceptorId${q}` : 'CondicionIVAReceptorId';
-    const anchor = getProp(obj, 'DocNro') || props[props.length - 1];
-    const isLast = anchor === obj.properties[obj.properties.length - 1];
     edits.push(...insertAfterProp(source, anchor, `${keyText}: ${d.code}`, d.comment, { isLast }));
     edited.add(obj);
     changed = true;

@@ -129,7 +129,7 @@ Con el tag, el workflow corre los tests, controla que la versión de `package.js
 
 | Pack | Proveedor | Tipo | Fecha límite | Arreglo |
 |---|---|---|---|---|
-| `arca.wsfe.condicion-iva-receptor` | ARCA | rompe | 2026-12-01 | sí, en JS (`afip.js`) y PHP (`afipsdk/afip.php` y forks): consumidor final y DNI B/C |
+| `arca.wsfe.condicion-iva-receptor` | ARCA | rompe | 2026-12-01 | sí, en JS (`afip.js`) y PHP (`afipsdk/afip.php` y forks): consumidor final y DNI B/C; con `DocTipo` en una variable, consumidor final al ejecutarse (PR parcial) |
 | `mercadopago.payments-to-orders` | Mercado Pago | migración | — | sí (creación de pagos en SDK Node v2) |
 | `ai.model-retirements` | Anthropic, OpenAI | retiro | varias | solo detección |
 
@@ -156,6 +156,31 @@ Para `afipsdk/afip.php` y sus forks (`fertandil87/afip.php`, `ivanalemunioz/afip
 **La versión de la librería importa.** Con `afip.js`/`afip.php` 0.x (y `eesnaola/afip.php`) el pedido se arma con un WSDL de 2021 que no tiene `CondicionIVAReceptorId`: aunque el campo esté en el código, no llega a ARCA. Parche lee la versión instalada (`composer.lock`, `package-lock.json`, `node_modules`) y, en esos casos, el arreglo sale como **"revisar"** con el aviso de actualizar a 1.x. También avisa si el repo tiene un `.wsdl` de WSFEv1 sin el campo.
 
 **Otros lenguajes:** en Python, C#, Java, Go y VB.NET, Parche detecta integraciones SOAP propias y clientes SOAP generados sin el campo (no los reescribe).
+
+## ARCA con `DocTipo` en una variable: PR parcial
+
+Cuando `DocTipo` no es un número fijo (`DocTipo: docTipo`), Parche no puede saber la condición frente al IVA de cada cliente. Lo único que se sabe sin datos del negocio es que **99 (consumidor final sin identificar) va con 5**, así que aplica esa regla **al ejecutarse** y, con cualquier otro `DocTipo`, el pedido sale exactamente igual que hoy:
+
+```js
+    DocNro: docNro,
+    // parche: 5 = Consumidor Final solo si DocTipo es 99; con otro DocTipo falta la condición frente al IVA del cliente
+    ...(Number(docTipo) === 99 ? { CondicionIVAReceptorId: 5 } : {}),
+```
+
+```php
+        );
+        // parche: 5 = Consumidor Final solo si DocTipo es 99; con otro DocTipo falta la condición frente al IVA del cliente
+        if ((int) $data['DocTipo'] === 99) {
+            $data['CondicionIVAReceptorId'] = 5;
+        }
+```
+
+- El PR sale **borrador**, con "(parcial: consumidor final)" en el título. En "Lo que este PR NO resuelve" dice qué falta: los comprobantes con otro `DocTipo` (CUIT, DNI y otros) siguen sin el campo y desde el 1/12/2026 ARCA los va a rechazar. Ahí también están los códigos válidos para la clase del comprobante.
+- Con otro `DocTipo` la clave ni existe (no queda en `undefined` ni en `null`): el pedido no depende de cómo lo serialice la librería y no aparece un rechazo que hoy no existe.
+- `Number(...)` y `(int)` hacen que `'99'` como texto también cuente.
+- En JS solo se aplica si `DocTipo` se puede releer sin efectos (`docTipo`, `cliente.docTipo`, `this.datos['DocTipo']`), no si es una llamada o un `await`. En PHP se lee del array ya armado, así que sirve cualquier expresión, pero el array tiene que estar en una variable (`$data = [...]`): con el array dentro de la llamada no hay dónde poner el `if`.
+- No se aplica a facturas A ni a otras clases conocidas que no sean B o C.
+- Si se vuelve a correr después del merge, no cambia nada y sigue avisando lo que falta.
 
 ## Límites del MVP
 

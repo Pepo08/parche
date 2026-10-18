@@ -2,6 +2,15 @@
 
 Todas las versiones de `parche-cli` (npm) y de la Action `Pepo08/parche@v0`.
 
+## 0.6.0 — 2026-10-17
+
+### Nuevo
+- **ARCA con `DocTipo` en una variable: PR parcial (consumidor final).** Antes se reportaba como "falta un dato" y no se tocaba nada. Ahora Parche aplica la regla 99 → 5 **al ejecutarse** y, con otro `DocTipo`, el pedido sale igual que hoy (la clave ni existe). En JS agrega `...(Number(docTipo) === 99 ? { CondicionIVAReceptorId: 5 } : {})`; en PHP, un `if ((int) $data['DocTipo'] === 99)` después de armar el array, nunca `null`. El PR sale borrador, con "(parcial: consumidor final)" en el título y, en "Lo que este PR NO resuelve", los casos que no cubre con los códigos válidos. No se aplica a facturas A, a expresiones con efectos (llamadas, `await`) ni a arrays de PHP dentro de la llamada. Si se corre de nuevo después del merge, no cambia nada y sigue avisando lo que falta.
+- El ledger registra cuántos arreglos parciales lleva cada PR (`partial`).
+
+### Arreglado
+- ARCA en JS: la clave nueva usa las mismas comillas que las claves del objeto. Antes copiaba las del resto del archivo y, en un repo real con claves `'...'` en un archivo con `"..."`, quedaba distinta a sus vecinas.
+
 ## 0.5.1 — 2026-10-17
 
 Lo que apareció en el primer PR real (lunamarie11/obraya#1).

@@ -83,6 +83,7 @@ export function scanReport({ inventory, findings, packs, changed, upgrades = nul
     for (const f of fs) {
       out.push(`- ${LABEL[f.status]} \`${f.file}${f.line ? `:${f.line}` : ''}\` — ${f.message}`);
       if (f.suggestion) out.push(`  - Sugerido: \`${f.suggestion}\``);
+      if (f.partial) out.push(`  - ${LABEL['needs-input']} ${f.partial.message}`, `  - Cuando tengas el dato: \`${f.partial.suggestion}\``);
     }
     out.push('');
   }
@@ -90,6 +91,11 @@ export function scanReport({ inventory, findings, packs, changed, upgrades = nul
     out.push('## Archivos modificados', '', ...changed.map((c) => `- \`${c.file}\` (${c.packs.join(', ')})`), '');
   }
   return out.join('\n');
+}
+
+// Si algún arreglo es parcial, qué casos cubre ("consumidor final"): va en el título y arriba del cuerpo del PR.
+export function partialCovers(findings) {
+  return [...new Set(findings.filter((f) => f.partial).map((f) => f.partial.covers))];
 }
 
 export function prBody({ pack, findings, changed, verification }, today = new Date()) {
@@ -102,12 +108,20 @@ export function prBody({ pack, findings, changed, verification }, today = new Da
   // Sin cambios de código el texto se usa como issue: los títulos no pueden hablar de "este PR".
   const asIssue = !changed.length;
   out.push(asIssue ? '### Qué encontró Parche' : '### Qué hace este PR', '');
+  const covers = partialCovers(fs);
+  if (covers.length && !asIssue) {
+    out.push(`> **Este PR es parcial (${covers.join(', ')}).** Arregla solo esos casos, sin inventar datos: el resto del pedido sale igual que hoy. Lo que no cubre está en "Lo que este PR NO resuelve" y hay que completarlo antes de la fecha límite.`, '');
+  }
   const applied = fs.filter((f) => f.status === 'auto' || f.status === 'needs-review');
   out.push(changed.length
     ? `Modifica ${changed.length} archivo(s): ${changed.map((x) => `\`${x.file}\``).join(', ')}.`
     : 'No hay un arreglo automático seguro: esto es lo que hay que resolver a mano.', '');
   for (const f of applied) out.push(`- ${LABEL[f.status]} \`${f.file}:${f.line}\` — ${f.message}`);
-  const pending = fs.filter((f) => f.status === 'needs-input' || f.status === 'blocked');
+  // Lo que falta: los hallazgos sin arreglo y, de cada arreglo parcial, la parte que no cubre.
+  const pending = [
+    ...fs.filter((f) => f.status === 'needs-input' || f.status === 'blocked'),
+    ...fs.filter((f) => f.partial).map((f) => ({ ...f, status: 'needs-input', message: f.partial.message, suggestion: f.partial.suggestion })),
+  ];
   if (pending.length) {
     out.push('', asIssue ? '### Lo que hay que resolver (necesita una persona)' : '### Lo que este PR NO resuelve (necesita una persona)', '');
     for (const f of pending) {

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { run } from '../src/engine.js';
 import { loadPacks } from '../src/packs.js';
-import { scanReport, prBody, counts, LABEL, daysUntil } from '../src/report.js';
+import { scanReport, prBody, counts, LABEL, daysUntil, partialCovers } from '../src/report.js';
 import { verify } from '../src/verify.js';
 import * as git from '../src/git.js';
 import { parseGithubRemote, openPullRequest } from '../src/github.js';
@@ -121,7 +121,10 @@ function printFindings(result) {
     if (!fs2.length) continue;
     const d = pack.deadline ? ` · vence ${pack.deadline} (${daysUntil(pack.deadline)} días)` : '';
     console.log(`\n■ ${pack.title}\n  ${pack.provider} · severidad ${pack.severity}${d}`);
-    for (const f of fs2) console.log(`  ${LABEL[f.status].padEnd(16)} ${f.file}${f.line ? ':' + f.line : ''}  ${f.message}`);
+    for (const f of fs2) {
+      console.log(`  ${LABEL[f.status].padEnd(16)} ${f.file}${f.line ? ':' + f.line : ''}  ${f.message}`);
+      if (f.partial) console.log(`  ${''.padEnd(16)} No cubre: ${f.partial.message}`);
+    }
   }
 }
 
@@ -204,7 +207,9 @@ async function main() {
       const preview = run(root, { write: false, packIds: [pack.id] });
       if (!preview.findings.length) continue;
       const branch = `parche/${pack.id}`;
-      const title = `Parche: ${pack.title}`;
+      // Un arreglo parcial lo dice en el título: "(parcial: consumidor final)".
+      const covers = partialCovers(preview.findings);
+      const title = `Parche: ${pack.title}${covers.length ? ` (parcial: ${covers.join(', ')})` : ''}`;
       git.checkoutNewBranch(root, branch, base);
       let keepBranch = false;
       try {
@@ -246,7 +251,8 @@ async function main() {
         } else {
           console.log(`  Modo prueba: no se abrió el PR${draft ? ' (iría como borrador por tener ítems para revisar)' : ''}.`);
         }
-        record(root, { type: 'pr', pack: pack.id, packVersion: pack.version, branch, sha, url, draft, files: changedFiles, findings: c });
+        record(root, { type: 'pr', pack: pack.id, packVersion: pack.version, branch, sha, url, draft, files: changedFiles, findings: c,
+          partial: result.findings.filter((f) => f.partial).length });
       } finally {
         // Pase lo que pase, se vuelve a la rama base; la rama de Parche solo queda si tiene un commit.
         git.checkout(root, base);
