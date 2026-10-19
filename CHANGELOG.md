@@ -2,6 +2,15 @@
 
 Todas las versiones de `parche-cli` (npm) y de la Action `Pepo08/parche@v0`.
 
+## 0.6.2 — 2026-10-18
+
+Pack de IA completo para el apagado de OpenAI del **23/10/2026** (sección "2026-04-22: Legacy GPT model snapshots" de la página oficial, verificada el 18/10).
+
+### Nuevo
+- **Alias `-completions`:** `gpt-3.5-turbo-completions` (reemplazo `gpt-5.6-terra`), `gpt-4-completions`, `gpt-4-0613-completions` y `gpt-4-turbo-completions` (reemplazo `gpt-5.6-sol`).
+- **Modelos fine-tuned:** se avisan los IDs reales (`ft:<modelo base>:<org>:<sufijo>:<id>`, también con `:ckpt-step-…`) de las familias que OpenAI apaga: `ft-gpt-3.5-turbo` y `ft-babbage-002`, `ft-davinci-002` y `ft-o4-mini-2025-04-16` (base de reemplazo `gpt-5.6-terra`), `ft-gpt-4` (`gpt-5.6-sol`) y `ft-gpt-4.1-nano-2025-04-14` (`gpt-5.6-luna`). Se compara el modelo base entero: `ft:gpt-4o-mini-…`, `ft:gpt-4o-…` y `ft:gpt-4.1-…` no son de `gpt-4` y no se avisan (OpenAI los apaga en otra fecha). Como siempre, Parche avisa y no cambia el modelo.
+- El pack cita la guía de fine-tuning de OpenAI como fuente del formato de los IDs. `last_verified`: 2026-10-18 (Anthropic y el resto de OpenAI, revisados contra sus páginas ese día: sin cambios).
+
 ## 0.6.1 — 2026-10-18
 
 Lo que encontró el frente de tracción al preparar los PRs con la 0.6.0.

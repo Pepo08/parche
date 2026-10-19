@@ -1,17 +1,18 @@
 {
   "id": "ai.model-retirements",
-  "version": "2026.10.16",
+  "version": "2026.10.18",
   "provider": "Modelos de IA",
   "title": "Modelos y endpoints de IA retirados o por retirarse",
   "kind": "retirement",
   "severity": "high",
   "deadline": null,
-  "last_verified": "2026-10-16",
+  "last_verified": "2026-10-18",
   "summary_es": "Tu código usa modelos o APIs de IA que ya no responden o tienen fecha de retiro.",
   "why_es": "Los proveedores de modelos retiran IDs de modelo y endpoints con algunas semanas o meses de aviso. Después de la fecha, las llamadas fallan. Parche no reemplaza el modelo automáticamente porque cambiar de modelo cambia el comportamiento: te avisa, te dice la fecha y el reemplazo que recomienda el proveedor.",
   "sources": [
     { "title": "Anthropic: Model deprecations", "url": "https://platform.claude.com/docs/en/about-claude/model-deprecations" },
-    { "title": "OpenAI: Deprecations", "url": "https://developers.openai.com/api/docs/deprecations" }
+    { "title": "OpenAI: Deprecations", "url": "https://developers.openai.com/api/docs/deprecations" },
+    { "title": "OpenAI: Supervised fine-tuning (formato de los IDs ft:)", "url": "https://developers.openai.com/api/docs/guides/supervised-fine-tuning" }
   ],
   "detect": {
     "packages": ["@anthropic-ai/sdk", "openai"],
@@ -45,11 +46,15 @@
       "o3-pro-2025-06-10": { "date": "2026-12-11", "replacement": "gpt-5.6-sol (reasoning.mode: pro)" },
       "gpt-3.5-turbo": { "date": "2026-10-23", "replacement": "gpt-5.6-terra" },
       "gpt-3.5-turbo-0125": { "date": "2026-10-23", "replacement": "gpt-5.6-terra" },
+      "gpt-3.5-turbo-completions": { "date": "2026-10-23", "replacement": "gpt-5.6-terra" },
       "gpt-4": { "date": "2026-10-23", "replacement": "gpt-5.6-sol" },
       "gpt-4-0613": { "date": "2026-10-23", "replacement": "gpt-5.6-sol" },
+      "gpt-4-completions": { "date": "2026-10-23", "replacement": "gpt-5.6-sol" },
+      "gpt-4-0613-completions": { "date": "2026-10-23", "replacement": "gpt-5.6-sol" },
       "gpt-4-1106-preview": { "date": "2026-10-23", "replacement": "gpt-5.6-sol" },
       "gpt-4-turbo": { "date": "2026-10-23", "replacement": "gpt-5.6-sol" },
       "gpt-4-turbo-2024-04-09": { "date": "2026-10-23", "replacement": "gpt-5.6-sol" },
+      "gpt-4-turbo-completions": { "date": "2026-10-23", "replacement": "gpt-5.6-sol" },
       "gpt-4.1-nano": { "date": "2026-10-23", "replacement": "gpt-5.6-luna" },
       "gpt-4.1-nano-2025-04-14": { "date": "2026-10-23", "replacement": "gpt-5.6-luna" },
       "gpt-4o-2024-05-13": { "date": "2026-10-23", "replacement": "gpt-5.6-sol" },
@@ -76,6 +81,14 @@
       "gpt-4-turbo-preview": { "date": "2026-03-26", "replacement": "gpt-5 o gpt-4.1" },
       "chatgpt-4o-latest": { "date": "2026-02-17", "replacement": "gpt-5.1-chat-latest" },
       "codex-mini-latest": { "date": "2026-02-12", "replacement": "gpt-5-codex-mini" }
+    },
+    "retired_fine_tunes": {
+      "ft-gpt-3.5-turbo": { "date": "2026-10-23", "replacement": "gpt-5.6-terra", "bases": ["gpt-3.5-turbo", "gpt-3.5-turbo-0125", "gpt-3.5-turbo-1106", "gpt-3.5-turbo-0613"] },
+      "ft-gpt-4": { "date": "2026-10-23", "replacement": "gpt-5.6-sol", "bases": ["gpt-4", "gpt-4-0613"] },
+      "ft-gpt-4.1-nano-2025-04-14": { "date": "2026-10-23", "replacement": "gpt-5.6-luna", "bases": ["gpt-4.1-nano-2025-04-14", "gpt-4.1-nano"] },
+      "ft-o4-mini-2025-04-16": { "date": "2026-10-23", "replacement": "gpt-5.6-terra", "bases": ["o4-mini-2025-04-16", "o4-mini"] },
+      "ft-babbage-002": { "date": "2026-10-23", "replacement": "gpt-5.6-terra", "bases": ["babbage-002"] },
+      "ft-davinci-002": { "date": "2026-10-23", "replacement": "gpt-5.6-terra", "bases": ["davinci-002"] }
     },
     "retirement_floors": {
       "claude-haiku-4-5-20251001": "2026-10-15",
