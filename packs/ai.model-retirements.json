@@ -1,12 +1,12 @@
 {
   "id": "ai.model-retirements",
-  "version": "2026.10.18",
+  "version": "2026.10.19",
   "provider": "Modelos de IA",
   "title": "Modelos y endpoints de IA retirados o por retirarse",
   "kind": "retirement",
   "severity": "high",
   "deadline": null,
-  "last_verified": "2026-10-18",
+  "last_verified": "2026-10-19",
   "summary_es": "Tu código usa modelos o APIs de IA que ya no responden o tienen fecha de retiro.",
   "why_es": "Los proveedores de modelos retiran IDs de modelo y endpoints con algunas semanas o meses de aviso. Después de la fecha, las llamadas fallan. Parche no reemplaza el modelo automáticamente porque cambiar de modelo cambia el comportamiento: te avisa, te dice la fecha y el reemplazo que recomienda el proveedor.",
   "sources": [
@@ -18,7 +18,9 @@
     { "title": "OpenAI: Moving from OpenAI Evals to Promptfoo", "url": "https://developers.openai.com/cookbook/examples/evaluation/moving-from-openai-evals-to-promptfoo" },
     { "title": "OpenAI: API reference, Evals (métodos del SDK de Node y de Python)", "url": "https://developers.openai.com/api/reference/resources/evals" },
     { "title": "OpenAI: Migrate from Agent Builder", "url": "https://developers.openai.com/api/docs/guides/agent-builder/migrate-from-agent-builder" },
-    { "title": "OpenAI: ChatKit (workflow alojado en Agent Builder; sessions.create exige un workflow)", "url": "https://developers.openai.com/api/docs/guides/chatkit" }
+    { "title": "OpenAI: ChatKit (workflow alojado en Agent Builder; sessions.create exige un workflow)", "url": "https://developers.openai.com/api/docs/guides/chatkit" },
+    { "title": "OpenAI: API reference, Videos (métodos del SDK de Node y de Python; sin reemplazo uno a uno)", "url": "https://developers.openai.com/api/reference/resources/videos" },
+    { "title": "OpenAI: SDK de Python, recurso videos (create_and_poll y poll)", "url": "https://github.com/openai/openai-python/blob/main/src/openai/resources/videos.py" }
   ],
   "detect": {
     "packages": ["@anthropic-ai/sdk", "openai"],
@@ -171,7 +173,9 @@
       { "regex": "\\.(evals(?:\\.runs(?:\\.(?:outputItems|output_items))?)?\\.(?:create|retrieve|update|list|delete|cancel))\\s*\\(", "openai_context": true, "retired": "2026-11-30", "milestones": [{ "date": "2026-10-31", "future_es": "las evals existentes pasan a solo lectura", "past_es": "las evals existentes están en solo lectura" }], "api_es": "plataforma de Evals", "replacement_es": "Promptfoo, que recomienda OpenAI (guía oficial \"Moving from OpenAI Evals to Promptfoo\")", "provider": "openai" },
       { "pattern": "/v1/evals", "openai_context": true, "retired": "2026-11-30", "milestones": [{ "date": "2026-10-31", "future_es": "las evals existentes pasan a solo lectura", "past_es": "las evals existentes están en solo lectura" }], "api_es": "plataforma de Evals", "replacement_es": "Promptfoo, que recomienda OpenAI (guía oficial \"Moving from OpenAI Evals to Promptfoo\")", "provider": "openai" },
       { "regex": "\\.(chatkit\\.sessions\\.create)\\s*\\(", "openai_context": true, "retired": "2026-11-30", "api_es": "integración de ChatKit con Agent Builder", "replacement_es": "exportar el workflow como código del Agents SDK y conectar ChatKit a tu propio servidor (guía oficial \"Migrate from Agent Builder\")", "note_es": "ChatKit sigue disponible; el workflow alojado en Agent Builder se puede usar solo durante la transición.", "provider": "openai" },
-      { "pattern": "/v1/chatkit/sessions", "openai_context": true, "retired": "2026-11-30", "api_es": "integración de ChatKit con Agent Builder", "replacement_es": "exportar el workflow como código del Agents SDK y conectar ChatKit a tu propio servidor (guía oficial \"Migrate from Agent Builder\")", "note_es": "ChatKit sigue disponible; el workflow alojado en Agent Builder se puede usar solo durante la transición.", "provider": "openai" }
+      { "pattern": "/v1/chatkit/sessions", "openai_context": true, "retired": "2026-11-30", "api_es": "integración de ChatKit con Agent Builder", "replacement_es": "exportar el workflow como código del Agents SDK y conectar ChatKit a tu propio servidor (guía oficial \"Migrate from Agent Builder\")", "note_es": "ChatKit sigue disponible; el workflow alojado en Agent Builder se puede usar solo durante la transición.", "provider": "openai" },
+      { "regex": "(?<![Yy]ou[Tt]ube\\w*|[Yy]ou[Tt]ube\\([^)]*\\))\\.(videos\\.(?:with_(?:raw|streaming)_response\\.)?(?:create|createCharacter|create_character|create_and_poll|delete|downloadContent|download_content|edit|extend|getCharacter|get_character|list|poll|remix|retrieve))\\s*\\(", "openai_context": true, "retired": "2026-09-24", "api_es": "Videos API", "replacement_es": "OpenAI no indica ninguno (según su referencia, no hay una API que la reemplace uno a uno)", "note_es": "Ese mismo día cerraron los modelos `sora-2` y `sora-2-pro`: no alcanza con cambiar de modelo.", "provider": "openai" },
+      { "pattern": "/v1/videos", "openai_context": true, "retired": "2026-09-24", "api_es": "Videos API", "replacement_es": "OpenAI no indica ninguno (según su referencia, no hay una API que la reemplace uno a uno)", "note_es": "Ese mismo día cerraron los modelos `sora-2` y `sora-2-pro`: no alcanza con cambiar de modelo.", "provider": "openai" }
     ]
   },
   "codemod": null,

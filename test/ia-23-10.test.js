@@ -76,7 +76,7 @@ test('IA 23/10: un fine-tuned en una lista es una mención, y después de la fec
 });
 
 test('IA 23/10: cada familia fine-tuned del pack tiene fecha, reemplazo y modelos base', () => {
-  assert.equal(AI.last_verified, '2026-10-18');
+  assert.equal(AI.last_verified, '2026-10-19');
   const ft = AI.detect.retired_fine_tunes;
   assert.deepEqual(Object.keys(ft).sort(), ['ft-babbage-002', 'ft-davinci-002', 'ft-gpt-3.5-turbo', 'ft-gpt-4',
     'ft-gpt-4.1', 'ft-gpt-4.1-mini', 'ft-gpt-4.1-nano-2025-04-14', 'ft-gpt-4o', 'ft-gpt-4o-mini', 'ft-o4-mini-2025-04-16']);

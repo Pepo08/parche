@@ -131,7 +131,7 @@ Con el tag, el workflow corre los tests, controla que la versión de `package.js
 |---|---|---|---|---|
 | `arca.wsfe.condicion-iva-receptor` | ARCA | rompe | 2026-12-01 | sí, en JS (`afip.js`) y PHP (`afipsdk/afip.php` y forks): consumidor final y DNI B/C; con `DocTipo` en una variable, consumidor final al ejecutarse (PR parcial) |
 | `mercadopago.payments-to-orders` | Mercado Pago | migración | — | sí (creación de pagos en SDK Node v2) |
-| `ai.model-retirements` | Anthropic, OpenAI | retiro | varias | solo detección (también modelos fine-tuned de OpenAI, `ft:…`). De OpenAI, los modelos que su página de deprecaciones apaga desde 2026: texto, código, imagen, video, voz, transcripción y realtime; y los productos que cierran: Assistants API, prompts reutilizables (`pmpt_…`, `v1/prompts`), la plataforma de Evals y ChatKit con un workflow de Agent Builder |
+| `ai.model-retirements` | Anthropic, OpenAI | retiro | varias | solo detección (también modelos fine-tuned de OpenAI, `ft:…`). De OpenAI, los modelos que su página de deprecaciones apaga desde 2026: texto, código, imagen, video, voz, transcripción y realtime; y los productos que cierran: Assistants API, prompts reutilizables (`pmpt_…`, `v1/prompts`), la plataforma de Evals, ChatKit con un workflow de Agent Builder y la Videos API (cerrada el 24/9/2026) |
 
 ## Verificación
 

@@ -12,10 +12,11 @@ const AZURE = /azure|AzureOpenAI|openai\.azure\.com/i;
 // Se compara el modelo base entero, hasta el `:`, contra `bases` del pack: nunca un prefijo, porque
 // `ft:gpt-4o-mini-2024-07-18:...` no es un fine-tuned de `gpt-4` y se apaga en otra fecha.
 const FINE_TUNE = /["'`]ft:([\w.-]+):/g;
-// Productos de OpenAI que cierran y no son modelos (prompts reutilizables, Evals, ChatKit con Agent Builder). Un
-// endpoint del pack es un `pattern` (texto literal) o un `regex` (se muestra el grupo 1). Con `openai_context`, solo
-// cuenta si el archivo importa el SDK oficial (JS o Python) o nombra el host de la API: `.evals.create(` o
-// `/v1/evals` pueden ser de otra librería o de otra API.
+// Productos de OpenAI que cierran y no son modelos (prompts reutilizables, Evals, ChatKit con Agent Builder, Videos API).
+// Un endpoint del pack es un `pattern` (texto literal) o un `regex` (se muestra el grupo 1). Con `openai_context`, solo
+// cuenta si el archivo importa el SDK oficial (JS o Python) o nombra el host de la API: `.evals.create(`,
+// `.videos.list(` o `/v1/evals` pueden ser de otra librería o de otra API. El regex de la Videos API además descarta
+// los receptores de YouTube (`youtube.videos.list(`), que conviven con el SDK de OpenAI en los resumidores de videos.
 const OPENAI_CONTEXT = /\b(?:from|import)\s+["']openai(?:\/[^"']*)?["']|\b(?:require|import)\(\s*["']openai(?:\/[^"']*)?["']\s*\)|^\s*(?:from\s+openai(?:\.\w+)*\s+import|import\s+openai)\b|api\.openai\.com/m;
 
 // Acepta el formato nuevo ({ date, replacement }) y el viejo (solo la fecha). `replacement` es un ID de modelo

@@ -1,0 +1,9 @@
+{
+  "name": "ia-openai-videos",
+  "private": true,
+  "dependencies": {
+    "@api.video/nodejs-client": "^2.6.8",
+    "googleapis": "^150.0.0",
+    "openai": "^6.3.0"
+  }
+}
