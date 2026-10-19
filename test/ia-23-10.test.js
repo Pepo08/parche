@@ -51,10 +51,20 @@ for (const { family, file, needles, replacement, fineTune } of FAMILIES) {
   });
 }
 
-test('IA 23/10: no avisa fine-tuned de otros modelos base ni nombres parecidos', () => {
+test('IA 23/10: los fine-tuned de otros modelos base no salen con el 23/10, y los nombres parecidos no avisan', () => {
   // ft:gpt-4o*, ft:gpt-4.1* y ft:gpt-4.1-mini* empiezan igual que ft:gpt-4 pero son otros modelos: OpenAI los
-  // apaga el 14/1/2027 (sección del 14/10/2026), que el pack todavía no tiene. Si se agrega, este test cambia.
-  assert.deepEqual(scan('src/no-retirados.js'), []);
+  // apaga el 14/1/2027 (sección del 14/10/2026). Cada uno, con su familia y esa fecha.
+  const file = 'src/no-retirados.js';
+  const findings = scan(file);
+  const expected = { 'ft:gpt-4o-mini-2024-07-18:': 'ft-gpt-4o-mini', 'ft:gpt-4o-2024-08-06:': 'ft-gpt-4o',
+    'ft:gpt-4.1-mini-2025-04-14:': 'ft-gpt-4.1-mini', 'ft:gpt-4.1-2025-04-14:': 'ft-gpt-4.1' };
+  for (const [needle, family] of Object.entries(expected)) {
+    const here = findings.filter((f) => f.line === lineOf(file, needle));
+    assert.equal(here.length, 1, needle);
+    assert.match(here[0].message, new RegExp(`\\(\`${family.replace(/\./g, '\\.')}\`\\) se retira el 2027-01-14\\.`), needle);
+    assert.doesNotMatch(here[0].message, /2026-10-23/, needle);
+  }
+  assert.equal(findings.length, 4, 'ETIQUETAS, gpt-4o y gpt-4.1-nano-completions-proxy no avisan');
 });
 
 test('IA 23/10: un fine-tuned en una lista es una mención, y después de la fecha ya falla', () => {
@@ -69,7 +79,7 @@ test('IA 23/10: cada familia fine-tuned del pack tiene fecha, reemplazo y modelo
   assert.equal(AI.last_verified, '2026-10-18');
   const ft = AI.detect.retired_fine_tunes;
   assert.deepEqual(Object.keys(ft).sort(), ['ft-babbage-002', 'ft-davinci-002', 'ft-gpt-3.5-turbo', 'ft-gpt-4',
-    'ft-gpt-4.1-nano-2025-04-14', 'ft-o4-mini-2025-04-16']);
+    'ft-gpt-4.1', 'ft-gpt-4.1-mini', 'ft-gpt-4.1-nano-2025-04-14', 'ft-gpt-4o', 'ft-gpt-4o-mini', 'ft-o4-mini-2025-04-16']);
   for (const [name, e] of Object.entries(ft)) {
     assert.match(e.date, /^\d{4}-\d{2}-\d{2}$/, name);
     assert.ok(e.replacement && e.bases.length, name);
@@ -86,7 +96,7 @@ test('IA 23/10: el motor lo reporta en JS, TS y Python, con rutas "/" y usos en 
   assert.equal(byFile('src/completions.js'), 4);
   assert.equal(byFile('src/finetune.ts'), 6);
   assert.equal(byFile('src/finetune.py'), 2);
-  assert.equal(byFile('src/no-retirados.js'), 0);
+  assert.equal(byFile('src/no-retirados.js'), 4, 'los cuatro fine-tuned del 14/1/2027');
   assert.ok(r.findings.every((f) => !f.file.includes('\\')));
   assert.equal(r.changed.length, 0);
   const ops = r.inventory.usages.map((u) => u.op);
