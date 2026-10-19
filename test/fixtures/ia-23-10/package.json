@@ -1,0 +1,7 @@
+{
+  "name": "ia-23-10",
+  "private": true,
+  "dependencies": {
+    "openai": "^4.104.0"
+  }
+}

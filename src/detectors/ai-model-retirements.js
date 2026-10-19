@@ -8,6 +8,10 @@ const PACK = 'ai.model-retirements';
 
 const MODEL_CONTEXT = /\bmodel(?:Id|Name)?\b\s*[:=(]|["']model["']\s*[:=]|\b(?:DEFAULT|default)_?(?:MODEL|Model)\b|\bmodel\s*\(/i;
 const AZURE = /azure|AzureOpenAI|openai\.azure\.com/i;
+// Modelos fine-tuned de OpenAI: el ID real es `ft:<modelo base>:<org>:<sufijo>:<id>` (guía de fine-tuning).
+// Se compara el modelo base entero, hasta el `:`, contra `bases` del pack: nunca un prefijo, porque
+// `ft:gpt-4o-mini-2024-07-18:...` no es un fine-tuned de `gpt-4` y se apaga en otra fecha.
+const FINE_TUNE = /["'`]ft:([\w.-]+):/g;
 
 // Acepta el formato nuevo ({ date, replacement }) y el viejo (solo la fecha).
 const entry = (v) => (typeof v === 'string' ? { date: v, replacement: null } : v);
@@ -17,6 +21,8 @@ export default function detect({ source, file, pack, today = new Date().toISOStr
   const findings = [];
   const usages = [];
   const { retired_models: retired, retirement_floors: floors, retired_endpoints: endpoints } = pack.detect;
+  const fineTunes = new Map();
+  for (const [name, e] of Object.entries(pack.detect.retired_fine_tunes || {})) for (const b of e.bases) fineTunes.set(b, { name, ...e });
   const azure = AZURE.test(source);
   const lines = source.split('\n');
   lines.forEach((l, i) => {
@@ -33,6 +39,18 @@ export default function detect({ source, file, pack, today = new Date().toISOStr
         : `Aparece \`${model}\` (${when}) fuera de una llamada: si es una lista o un catálogo de modelos, actualizalo.${repl}`;
       findings.push({ pack: PACK, file, line, status: 'detect-only', message });
       usages.push({ provider: 'ia', op: `modelo ${model}`, line });
+    }
+    for (const [, base] of l.matchAll(FINE_TUNE)) {
+      const ft = fineTunes.get(base);
+      if (!ft) continue;
+      const past = ft.date <= today;
+      const when = past ? `fue retirado el ${ft.date}` : `se retira el ${ft.date}`;
+      const repl = `OpenAI recomienda como modelo base de reemplazo \`${ft.replacement}\`; el modelo fine-tuned no se migra solo.`;
+      const message = inCall
+        ? `El modelo fine-tuned sobre \`${base}\` (\`${ft.name}\`) ${when}${past ? ': las llamadas ya fallan' : ''}. ${repl} Corré tus pruebas de prompts antes de cambiarlo.`
+        : `Aparece un modelo fine-tuned sobre \`${base}\` (\`${ft.name}\`, ${when}) fuera de una llamada: si es una lista o un catálogo de modelos, actualizalo. ${repl}`;
+      findings.push({ pack: PACK, file, line, status: 'detect-only', message });
+      usages.push({ provider: 'ia', op: `modelo fine-tuned ${base}`, line });
     }
     for (const [model, date] of Object.entries(floors)) {
       if (!l.includes(model)) continue;
