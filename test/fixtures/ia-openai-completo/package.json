@@ -1,0 +1,7 @@
+{
+  "name": "ia-openai-completo",
+  "private": true,
+  "dependencies": {
+    "openai": "^6.3.0"
+  }
+}

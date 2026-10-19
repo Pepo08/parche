@@ -1,9 +1,10 @@
-// Nada de esto se apaga el 23/10/2026: Parche no tiene que avisar.
+// Nada de esto se apaga el 23/10/2026: Parche no tiene que avisarlo con esa fecha.
 import OpenAI from 'openai';
 
 const openai = new OpenAI();
 
-// Fine-tuned cuyo modelo base empieza igual que uno retirado (gpt-4, gpt-4.1-nano), pero es otro modelo.
+// Fine-tuned cuyo modelo base empieza igual que uno retirado (gpt-4, gpt-4.1-nano), pero es otro modelo: se
+// apaga el 14/1/2027 (sección del 14/10/2026), no el 23/10.
 export const a = () => openai.responses.create({ model: 'ft:gpt-4o-mini-2024-07-18:acme::Aa1Bb2', input: 'hola' });
 export const b = () => openai.responses.create({ model: 'ft:gpt-4o-2024-08-06:acme:resumen:Cc3Dd4', input: 'hola' });
 export const c = () => openai.responses.create({ model: 'ft:gpt-4.1-mini-2025-04-14:acme::Ee5Ff6', input: 'hola' });

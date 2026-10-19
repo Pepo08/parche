@@ -2,6 +2,26 @@
 
 Todas las versiones de `parche-cli` (npm) y de la Action `Pepo08/parche@v0`.
 
+## 0.6.3 — 2026-10-18
+
+Pack de IA con el resto de la página de deprecaciones de OpenAI (verificada fila por fila el 18/10): los modelos que se apagan desde 2026. Como siempre, Parche avisa con la fecha y el reemplazo oficial, y no cambia el modelo.
+
+### Nuevo
+- **Lo que viene:**
+  - 1/12/2026: `gpt-image-1-mini`, `gpt-image-1.5` y `chatgpt-image-latest` (reemplazo `gpt-image-2.5-sunburst` o `gpt-image-2.5-flare`).
+  - 6/1/2027: voz con `tts-1`, `tts-1-hd` y los snapshots `gpt-4o-mini-tts-2025-03-20` y `-2025-12-15` (`gpt-realtime-2.1-mini`).
+  - 14/1/2027: los snapshots `gpt-4o-2024-08-06`, `gpt-4o-2024-11-20`, `gpt-4o-mini-2024-07-18`, `gpt-4.1-2025-04-14` y `gpt-4.1-mini-2025-04-14` (`gpt-6-luna`), y sus modelos fine-tuned (`ft:…`), que se apagan con su modelo base. Los alias `gpt-4o`, `gpt-4o-mini`, `gpt-4.1` y `gpt-4.1-mini` no figuran en la página y no se avisan; un fine-tuned sobre el alias se avisa solo cuando ese alias tiene un único snapshot (no es el caso de `gpt-4o`).
+  - 20/1/2027: las familias `gpt-realtime`, `gpt-realtime-mini`, `gpt-audio` y `gpt-audio-mini` (alias y snapshots) y `gpt-4o-mini-transcribe-2025-03-20`.
+  - 26/2/2027: transcripción con `whisper-1`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe` y `gpt-4o-transcribe-diarize` (`gpt-live-transcribe` o `gpt-transcribe`). El aviso de `whisper-1` dice además que `/v1/audio/translations` cierra ese día.
+  - 1/4/2027: `gpt-5.1`, `gpt-5.3-codex` (`gpt-6-sol`) y `gpt-5.4-nano` (`gpt-6-luna`).
+- **Lo que ya se apagó y faltaba:** 23/7/2026 (`computer-use-preview`, los `*-search-preview-2025-03-11`, `gpt-5-chat-latest`, `gpt-5.1-chat-latest`, los `gpt-5*-codex`, `o3-deep-research`, `o4-mini-deep-research` y los snapshots `-2025-10-06` de `gpt-audio-mini` y `gpt-realtime-mini`), 10/8 (`gpt-5.2-chat-latest`, `gpt-5.3-chat-latest`), 24/9 (Sora 2: `sora-2`, `sora-2-pro` y sus snapshots, sin reemplazo), 1/10 (`gpt-5.4-cyber`), 7/5 (`gpt-4o-mini-realtime-preview`, `gpt-4o-audio-preview`, `gpt-4o-mini-audio-preview`), 26/3 (`gpt-4-turbo-preview-completions`) y el header `OpenAI-Beta: realtime=v1` de la Realtime API Beta (12/5).
+- El inventario reconoce como modelos de OpenAI `gpt-realtime*`, `gpt-audio*`, `gpt-6*`, `sora-2*`, `computer-use-preview*` y `o4-mini-deep-research`.
+
+### Todavía no cubre
+- Los productos que OpenAI cierra y no son modelos: prompts reutilizables (`v1/prompts`, 30/11/2026), la plataforma de Evals (solo lectura el 31/10, cierre el 30/11/2026), Agent Builder (30/11/2026) y la Videos API (cerrada el 24/9/2026; sí se avisan los modelos `sora-2`).
+- Las familias `gpt-4o-audio`, `gpt-4o-realtime`, `gpt-4o-mini-realtime` y `gpt-4o-mini-audio` (20/1/2027): la página no dice qué IDs siguen activos (sus alias `-preview` se apagaron el 7/5/2026).
+- Los snapshots de un alias que la página nombra sin ellos (por ejemplo `gpt-5.1-2025-11-13`, `gpt-5.4-nano-2026-03-17`) y lo que OpenAI apagó antes de 2026.
+
 ## 0.6.2 — 2026-10-18
 
 Pack de IA completo para el apagado de OpenAI del **23/10/2026** (sección "2026-04-22: Legacy GPT model snapshots" de la página oficial, verificada el 18/10).

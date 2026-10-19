@@ -10,10 +10,11 @@ const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options'
 const FETCH_PACKAGES = new Set(['node-fetch', 'cross-fetch', 'isomorphic-fetch', 'undici']);
 const SKIP_KEYS = new Set(['loc', 'start', 'end', 'extra', 'range', 'comments', 'leadingComments', 'trailingComments', 'innerComments', 'tokens']);
 
-// IDs de modelos de IA. Prefijos inequívocos; la serie o1/o3/o4 de OpenAI solo cuenta si el archivo usa OpenAI.
+// IDs de modelos de IA. Prefijos inequívocos; la serie o1/o3/o4, Sora y computer-use de OpenAI solo cuentan si
+// el archivo usa OpenAI.
 const MODEL_PATTERNS = [
-  [/^(gpt-(3\.5|4|4\.1|4o|4\.5|5)[\w.-]*|chatgpt-[\w.-]+|text-embedding-[\w-]+|dall-e-[23]|whisper-1|tts-1(-hd)?|gpt-image-[\w.-]+)$/, 'OpenAI'],
-  [/^o[1-9](-(mini|pro|preview|deep-research))?(-\d{4}-\d{2}-\d{2})?$/, 'OpenAI', { needs: 'openai' }],
+  [/^(gpt-(3\.5|4|4\.1|4o|4\.5|5|6|realtime|audio)[\w.-]*|chatgpt-[\w.-]+|text-embedding-[\w-]+|dall-e-[23]|whisper-1|tts-1(-hd)?|gpt-image-[\w.-]+)$/, 'OpenAI'],
+  [/^(o[1-9](-(mini|pro|preview))?(-deep-research)?(-\d{4}-\d{2}-\d{2})?|sora-2[\w.-]*|computer-use-preview[\w.-]*)$/, 'OpenAI', { needs: 'openai' }],
   [/^claude-[\w.-]+$/, 'Anthropic'],
   [/^(gemini|gemma)-[\w.-]+$/, 'Google (Gemini)'],
   [/^(mistral|mixtral|codestral|pixtral|ministral)-[\w.-]+$/, 'Mistral'],
