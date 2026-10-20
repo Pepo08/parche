@@ -2,6 +2,19 @@
 
 Todas las versiones de `parche-cli` (npm) y de la Action `Pepo08/parche@v0`.
 
+## 0.6.5 — 2026-10-19
+
+Pack de IA con la Videos API de OpenAI, que cerró el 24/9/2026 junto con los modelos Sora 2 (página de deprecaciones verificada el 19/10; los métodos salen de la referencia oficial de la API y del SDK de Python). Hasta ahora solo se avisaban los modelos `sora-2*`; ahora también las llamadas que quedaron en el código sin un ID de modelo cerca (consultar el estado, bajar el video, listar, borrar). Como siempre, Parche avisa y no toca el código.
+
+### Nuevo
+- **Videos API (cerrada el 24/9/2026, sin reemplazo):** los métodos del SDK de Node (`videos.create`, `retrieve`, `list`, `delete`, `remix`, `edit`, `extend`, `downloadContent`, `createCharacter`, `getCharacter`), los del SDK de Python (los mismos en snake_case, más `create_and_poll` y `poll`, también detrás de `with_raw_response` y `with_streaming_response`) y `/v1/videos` por HTTP. OpenAI no indica reemplazo (su referencia dice que no hay una API que la reemplace uno a uno), y el aviso lo dice así, sin inventar uno.
+- **Menos falsos positivos:** como Evals y ChatKit, solo cuenta si el archivo importa el SDK oficial de OpenAI o nombra `api.openai.com`, porque api.video tiene `client.videos.create(` y otros proveedores usan `/v1/videos`. Además no se avisan los receptores de YouTube (`youtube.videos.list(`, `google.youtube('v3').videos.list(`), que conviven con el SDK de OpenAI en los resumidores de videos. En Azure OpenAI no se da por cerrada con la fecha de OpenAI.
+
+### Todavía no cubre
+- Un archivo que importa el SDK de OpenAI y llama a otro cliente con `videos` (api.video, o YouTube con un nombre como `yt`): se avisa igual.
+- Un cliente de OpenAI que llega de otro archivo (`import { openai } from './lib/openai'`) sin importar el SDK ni nombrar el host.
+- Los SDKs de Go, Java, .NET y Ruby.
+
 ## 0.6.4 — 2026-10-18
 
 Pack de IA con los productos que OpenAI cierra y no son modelos (página de deprecaciones verificada el 18/10; cómo se usa cada uno, de la referencia oficial de la API y de los SDKs de Node y Python). Como siempre, Parche avisa con la fecha y el reemplazo oficial, y no toca el código.

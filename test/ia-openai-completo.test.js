@@ -77,7 +77,8 @@ for (const { section, file, date, ids } of SECTIONS) {
     for (const [id, expected] of Object.entries(ids)) {
       const line = lineOfId(file, id);
       assert.ok(line > 0, `${id} está en ${file}`);
-      const here = r.findings.filter((f) => f.line === line);
+      // Las líneas de Sora llaman a `openai.videos.create(`: ese otro aviso (la Videos API) se prueba en ia-openai-videos.test.js.
+      const here = r.findings.filter((f) => f.line === line && !f.message.includes('la Videos API de OpenAI'));
       assert.equal(here.length, 1, `${id}: un solo aviso (no se confunde con otro ID que empieza igual)`);
       assert.equal(here[0].status, 'detect-only');
       assert.ok(here[0].message.startsWith(head(id)), here[0].message);
@@ -154,7 +155,7 @@ test('IA OpenAI: el motor lo reporta en JS, TS y Python, con rutas "/", y el inv
   assert.equal(byFile('src/codex.js'), 3);
   assert.equal(byFile('src/imagenes.js'), 3);
   assert.equal(byFile('src/audio.py'), 17, '4 de voz, 5 de transcripción y 8 de audio y realtime');
-  assert.equal(byFile('src/retirados.js'), 30, '29 modelos y el header de la Realtime API Beta');
+  assert.equal(byFile('src/retirados.js'), 35, '29 modelos, el header de la Realtime API Beta y las 5 llamadas a la Videos API');
   assert.equal(byFile('src/no-retirados.js'), 0);
   assert.ok(r.findings.every((f) => !f.file.includes('\\')));
   assert.equal(r.changed.length, 0);
