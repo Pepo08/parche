@@ -1,16 +1,22 @@
 {
   "id": "ai.model-retirements",
-  "version": "2026.10.19",
+  "version": "2026.10.20",
   "provider": "Modelos de IA",
-  "title": "Modelos y endpoints de IA retirados o por retirarse",
+  "title": "Modelos, endpoints y parámetros de IA retirados o por retirarse",
   "kind": "retirement",
   "severity": "high",
   "deadline": null,
   "last_verified": "2026-10-19",
-  "summary_es": "Tu código usa modelos o APIs de IA que ya no responden o tienen fecha de retiro.",
-  "why_es": "Los proveedores de modelos retiran IDs de modelo y endpoints con algunas semanas o meses de aviso. Después de la fecha, las llamadas fallan. Parche no reemplaza el modelo automáticamente porque cambiar de modelo cambia el comportamiento: te avisa, te dice la fecha y el reemplazo que recomienda el proveedor.",
+  "summary_es": "Tu código usa modelos, APIs o parámetros de IA que ya no responden, tienen fecha de retiro o el modelo nuevo rechaza.",
+  "why_es": "Los proveedores de modelos retiran IDs de modelo y endpoints con algunas semanas o meses de aviso. Después de la fecha, las llamadas fallan. Parche no reemplaza el modelo automáticamente porque cambiar de modelo cambia el comportamiento: te avisa, te dice la fecha y el reemplazo que recomienda el proveedor. También avisa los parámetros que los modelos nuevos rechazan, como `temperature`, `top_p` y `top_k` en Claude 4.7 y posteriores.",
   "sources": [
     { "title": "Anthropic: Model deprecations", "url": "https://platform.claude.com/docs/en/about-claude/model-deprecations" },
+    { "title": "Anthropic: Model deprecations, API parameter deprecations (temperature, top_p y top_k en Claude 4.7 y posteriores)", "url": "https://platform.claude.com/docs/en/about-claude/model-deprecations#api-parameter-deprecations" },
+    { "title": "Anthropic: API reference, Messages (valores que se aceptan: temperature 1, top_p desde 0.99, top_k ninguno)", "url": "https://platform.claude.com/docs/en/api/messages/create" },
+    { "title": "Anthropic: Claude Haiku 5.5 migration guide (top_p solo 0.99; temperature y top_p juntos dan 400)", "url": "https://platform.claude.com/docs/en/models/haiku-5-5/migration-guide#remove-sampling-parameters" },
+    { "title": "Anthropic: Claude Opus 5.5 migration guide (Opus 4.7 y posteriores, Sonnet 5; SDK de Python 1.0 y TypeError)", "url": "https://platform.claude.com/docs/en/models/opus-5-5/migration-guide" },
+    { "title": "Anthropic: Claude Sonnet 5.5 migration guide (Sonnet 4.6 y anteriores y Haiku 4.5 aceptan los tres)", "url": "https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide" },
+    { "title": "Anthropic: Claude Fable 5.1 and Claude Mythos 5.1 migration guide (la restricción de muestreo se mantiene)", "url": "https://platform.claude.com/docs/en/models/fable-5-1/migration-guide" },
     { "title": "OpenAI: Deprecations", "url": "https://developers.openai.com/api/docs/deprecations" },
     { "title": "OpenAI: Supervised fine-tuning (formato de los IDs ft:)", "url": "https://developers.openai.com/api/docs/guides/supervised-fine-tuning" },
     { "title": "OpenAI: Models (snapshots de cada familia y de cada modelo base)", "url": "https://developers.openai.com/api/docs/models" },
@@ -163,6 +169,28 @@
       "claude-haiku-4-5-20251001": "2026-10-15",
       "claude-opus-4-5-20251101": "2026-11-24"
     },
+    "sampling_params": {
+      "last_verified": "2026-10-20",
+      "models": ["claude-opus-4-7", "claude-opus-4-8", "claude-opus-5", "claude-opus-5-5", "claude-sonnet-5", "claude-sonnet-5-5", "claude-haiku-5-5",
+        "claude-fable-5", "claude-fable-5-1", "claude-mythos-5", "claude-mythos-5-1", "claude-mythos-preview"],
+      "scope_es": "en Claude 4.7 y posteriores (y en Claude Mythos Preview)",
+      "accepted": {
+        "temperature": { "min": 1, "max": 1, "es": "solo acepta 1, su valor por defecto" },
+        "top_p": { "min": 0.99, "max": 1, "es": "solo acepta valores desde 0.99" },
+        "top_k": { "es": "no acepta ningún valor" }
+      },
+      "overrides": {
+        "claude-haiku-5-5": {
+          "scope_es": "en Claude Haiku 5.5",
+          "accepted": { "top_p": { "min": 0.99, "max": 0.99, "es": "solo acepta 0.99, su valor por defecto (ni siquiera 1)" } },
+          "exclusive": ["temperature", "top_p"],
+          "exclusive_es": "Claude Haiku 5.5 rechaza los pedidos que mandan los dos, aunque tengan sus valores por defecto"
+        }
+      },
+      "recommendation_es": "sacar {params} del pedido y guiar el comportamiento del modelo con el prompt",
+      "temperature_zero_es": "Si estaba en 0 para tener respuestas determinísticas: según Anthropic, eso nunca garantizó respuestas idénticas.",
+      "python_sdk_es": "Además, el SDK de Python 1.0 o posterior ya no tiene `temperature`, `top_p` ni `top_k`: pasarlos tira `TypeError`."
+    },
     "retired_endpoints": [
       { "pattern": ".beta.assistants", "retired": "2026-08-26", "api_es": "Assistants API", "replacement_es": "Responses API + Conversations API", "provider": "openai" },
       { "pattern": ".beta.threads", "retired": "2026-08-26", "api_es": "Assistants API", "replacement_es": "Responses API + Conversations API", "provider": "openai" },
@@ -182,6 +210,6 @@
   "review_checklist_es": [
     "Elegir el modelo de reemplazo según la página de deprecaciones del proveedor.",
     "Correr tus evals o pruebas de regresión de prompts antes de cambiar de modelo.",
-    "Revisar parámetros que cambian entre generaciones de modelos."
+    "Revisar parámetros que cambian entre generaciones de modelos (desde Claude 4.7, `temperature`, `top_p` y `top_k`)."
   ]
 }

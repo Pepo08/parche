@@ -1,0 +1,9 @@
+{
+  "name": "ia-claude-47",
+  "private": true,
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
+    "axios": "^1.12.0",
+    "openai": "^6.3.0"
+  }
+}

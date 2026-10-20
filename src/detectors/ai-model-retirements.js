@@ -4,6 +4,8 @@
 // Menos ruido (frente B, 16/10): un ID que aparece en el contexto de una llamada (model: '...', DEFAULT_MODEL)
 // es un uso; si aparece en una lista o un catálogo, se avisa como mención. Y en código de Azure OpenAI no se
 // da por cerrada la Assistants API: la fecha oficial es la de la API de OpenAI.
+import samplingParams from './anthropic-sampling-params.js';
+
 const PACK = 'ai.model-retirements';
 
 const MODEL_CONTEXT = /\bmodel(?:Id|Name)?\b\s*[:=(]|["']model["']\s*[:=]|\b(?:DEFAULT|default)_?(?:MODEL|Model)\b|\bmodel\s*\(/i;
@@ -92,5 +94,10 @@ export default function detect({ source, file, pack, today = new Date().toISOStr
       usages.push({ provider: 'ia', op: `OpenAI ${ep.api_es}`, line });
     }
   });
+  // `temperature`, `top_p` y `top_k` en Claude 4.7 y posteriores: el modelo y el parámetro pueden estar en líneas
+  // distintas del pedido, así que va aparte (anthropic-sampling-params.js).
+  const sampling = samplingParams({ source, file, pack });
+  findings.push(...sampling.findings);
+  usages.push(...sampling.usages);
   return { output: null, findings, usages };
 }

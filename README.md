@@ -20,7 +20,7 @@ APIs del repo (6):
   👀 revisar       src/facturacion.js:56  Agregado CondicionIVAReceptorId: 5 por inferencia (DNI + comprobante B/C)…
   ✋ falta un dato  src/facturacion.js:62  Falta CondicionIVAReceptorId y no se puede inferir… (comprobante clase A).
 
-■ Modelos y endpoints de IA retirados o por retirarse
+■ Modelos, endpoints y parámetros de IA retirados o por retirarse
   🔎 detectado     src/ia.js:9  El modelo `claude-3-5-haiku-20241022` fue retirado el 2026-02-19: las llamadas ya fallan…
 …
 ```
@@ -131,7 +131,7 @@ Con el tag, el workflow corre los tests, controla que la versión de `package.js
 |---|---|---|---|---|
 | `arca.wsfe.condicion-iva-receptor` | ARCA | rompe | 2026-12-01 | sí, en JS (`afip.js`) y PHP (`afipsdk/afip.php` y forks): consumidor final y DNI B/C; con `DocTipo` en una variable, consumidor final al ejecutarse (PR parcial) |
 | `mercadopago.payments-to-orders` | Mercado Pago | migración | — | sí (creación de pagos en SDK Node v2) |
-| `ai.model-retirements` | Anthropic, OpenAI | retiro | varias | solo detección (también modelos fine-tuned de OpenAI, `ft:…`). De OpenAI, los modelos que su página de deprecaciones apaga desde 2026: texto, código, imagen, video, voz, transcripción y realtime; y los productos que cierran: Assistants API, prompts reutilizables (`pmpt_…`, `v1/prompts`), la plataforma de Evals, ChatKit con un workflow de Agent Builder y la Videos API (cerrada el 24/9/2026) |
+| `ai.model-retirements` | Anthropic, OpenAI | retiro | varias | solo detección (también modelos fine-tuned de OpenAI, `ft:…`). De OpenAI, los modelos que su página de deprecaciones apaga desde 2026: texto, código, imagen, video, voz, transcripción y realtime; y los productos que cierran: Assistants API, prompts reutilizables (`pmpt_…`, `v1/prompts`), la plataforma de Evals, ChatKit con un workflow de Agent Builder y la Videos API (cerrada el 24/9/2026). De Anthropic, los modelos retirados y `temperature`, `top_p` y `top_k` con un valor que no es el de por defecto en Claude 4.7 y posteriores, que dan error 400 (SDK de JS/TS y de Python, y HTTP directo) |
 
 ## Verificación
 
@@ -188,6 +188,7 @@ Cuando `DocTipo` no es un número fijo (`DocTipo: docTipo`), Parche no puede sab
 
 - JS/TS (ESM y CommonJS) y, para ARCA, PHP. Siguen Python y Java.
 - ARCA: cubre `@afipsdk/afip.js` y `afipsdk/afip.php` (con sus forks). Las integraciones SOAP propias (en cualquier lenguaje) se detectan pero no se reescriben.
+- IA, parámetros de Claude 4.7 y posteriores: avisa solo si el modelo del pedido se lee en el mismo archivo (un literal, una constante asignada una vez o el valor por defecto de una variable de entorno) y el parámetro es un número escrito en el código. Si el modelo llega de otro archivo o de la configuración, no avisa: no se puede saber si el pedido va a fallar.
 - Mercado Pago: migra la creación de pagos con el SDK v2. Las consultas, capturas y reembolsos de pagos existentes se dejan a propósito en Payments API, como indica la guía oficial.
 - Se distribuye como CLI (`npx parche-cli`) + GitHub Action (`Pepo08/parche@v0`). La GitHub App (instalación en un click, PRs automáticos al publicarse un pack nuevo) es el próximo paso.
 - La capa de LLM (redactar packs desde changelogs y resolver casos "falta un dato" leyendo el modelo de datos del cliente) todavía no está incluida; cuando entre, va a pasar por la misma verificación.

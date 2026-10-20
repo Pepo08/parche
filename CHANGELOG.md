@@ -2,6 +2,21 @@
 
 Todas las versiones de `parche-cli` (npm) y de la Action `Pepo08/parche@v0`.
 
+## 0.6.6 — 2026-10-20
+
+Pack de IA con el primer cambio de Anthropic que no es un retiro de modelo: desde Claude 4.7, `temperature`, `top_p` y `top_k` con un valor que no es el de por defecto dan error 400 (página de deprecaciones de Anthropic, sección "API parameter deprecations", verificada el 20/10; los valores aceptados, de la referencia de la API y de las guías de migración). Como siempre, Parche avisa y no toca el código.
+
+### Nuevo
+- **Parámetros de muestreo en Claude 4.7 y posteriores:** en `claude-opus-4-7`, `claude-opus-4-8`, `claude-opus-5`, `claude-opus-5-5`, `claude-sonnet-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-fable-5`, `claude-fable-5-1`, `claude-mythos-5`, `claude-mythos-5-1` y `claude-mythos-preview`, avisa `temperature` distinto de 1, `top_p` por debajo de 0.99 y `top_k` con cualquier valor. En Claude Haiku 5.5, que es más estricto, también `top_p` distinto de 0.99 (incluso 1) y `temperature` y `top_p` juntos. El aviso dice el parámetro, el modelo, qué acepta y la recomendación oficial: sacar el parámetro y guiar el comportamiento del modelo con el prompt. Con `temperature` en 0 aclara que, según Anthropic, eso nunca garantizó respuestas idénticas; en Python, que el SDK 1.0 o posterior ya no tiene esos parámetros (pasarlos tira `TypeError`).
+- **Dónde lo busca:** en lo que recibe `messages.create` y `messages.stream` del SDK de JS/TS y del de Python (también `beta.`, `with_raw_response.` y `create(params)` / `create(**params)` con el objeto en el mismo archivo), en objetos tipados como `MessageCreateParams` y en el cuerpo de las llamadas HTTP directas a `api.anthropic.com/v1/messages` (fetch, axios, requests). El modelo y el parámetro pueden estar en líneas distintas del pedido.
+- **El modelo, sin inventar:** se lee si es un literal, una constante asignada una sola vez en el archivo o el valor por defecto de una variable (`process.env.CLAUDE_MODEL || '…'`, `os.getenv("CLAUDE_MODEL", "…")`), y el aviso dice cuál de los dos es. Si el modelo no se puede saber (llega de otro archivo, de la configuración o se asigna más de una vez), no avisa.
+- **Sin falsos positivos con otros modelos y proveedores:** Claude Sonnet 4.6, Opus 4.6, Haiku 4.5 y anteriores aceptan los tres parámetros; OpenAI, Gemini y la capa de Anthropic compatible con el SDK de OpenAI no se avisan.
+
+### Todavía no cubre
+- La versión instalada del SDK de Python: con la 1.0 o posterior, pasar `temperature`, `top_p` o `top_k` tira `TypeError` con cualquier valor y cualquier modelo, pero hoy solo se dice en los avisos de Claude 4.7 y posteriores.
+- Frameworks que arman el pedido por su cuenta (LangChain, Vercel AI SDK, LiteLLM), la Message Batches API y los IDs de modelo de Amazon Bedrock (`anthropic.claude-…`).
+- Los SDKs de Go, Java, .NET, Ruby y PHP, y los cuerpos de pedido escritos como texto JSON dentro de un string.
+
 ## 0.6.5 — 2026-10-19
 
 Pack de IA con la Videos API de OpenAI, que cerró el 24/9/2026 junto con los modelos Sora 2 (página de deprecaciones verificada el 19/10; los métodos salen de la referencia oficial de la API y del SDK de Python). Hasta ahora solo se avisaban los modelos `sora-2*`; ahora también las llamadas que quedaron en el código sin un ID de modelo cerca (consultar el estado, bajar el video, listar, borrar). Como siempre, Parche avisa y no toca el código.
