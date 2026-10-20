@@ -13,7 +13,12 @@
     { "title": "Anthropic: Model deprecations", "url": "https://platform.claude.com/docs/en/about-claude/model-deprecations" },
     { "title": "OpenAI: Deprecations", "url": "https://developers.openai.com/api/docs/deprecations" },
     { "title": "OpenAI: Supervised fine-tuning (formato de los IDs ft:)", "url": "https://developers.openai.com/api/docs/guides/supervised-fine-tuning" },
-    { "title": "OpenAI: Models (snapshots de cada familia y de cada modelo base)", "url": "https://developers.openai.com/api/docs/models" }
+    { "title": "OpenAI: Models (snapshots de cada familia y de cada modelo base)", "url": "https://developers.openai.com/api/docs/models" },
+    { "title": "OpenAI: Migrate from prompt objects (prompts reutilizables, IDs pmpt_)", "url": "https://developers.openai.com/api/docs/guides/prompting/migrate-from-prompt-object" },
+    { "title": "OpenAI: Moving from OpenAI Evals to Promptfoo", "url": "https://developers.openai.com/cookbook/examples/evaluation/moving-from-openai-evals-to-promptfoo" },
+    { "title": "OpenAI: API reference, Evals (métodos del SDK de Node y de Python)", "url": "https://developers.openai.com/api/reference/resources/evals" },
+    { "title": "OpenAI: Migrate from Agent Builder", "url": "https://developers.openai.com/api/docs/guides/agent-builder/migrate-from-agent-builder" },
+    { "title": "OpenAI: ChatKit (workflow alojado en Agent Builder; sessions.create exige un workflow)", "url": "https://developers.openai.com/api/docs/guides/chatkit" }
   ],
   "detect": {
     "packages": ["@anthropic-ai/sdk", "openai"],
@@ -160,7 +165,13 @@
       { "pattern": ".beta.assistants", "retired": "2026-08-26", "api_es": "Assistants API", "replacement_es": "Responses API + Conversations API", "provider": "openai" },
       { "pattern": ".beta.threads", "retired": "2026-08-26", "api_es": "Assistants API", "replacement_es": "Responses API + Conversations API", "provider": "openai" },
       { "pattern": "/v1/assistants", "retired": "2026-08-26", "api_es": "Assistants API", "replacement_es": "Responses API + Conversations API", "provider": "openai" },
-      { "pattern": "realtime=v1", "retired": "2026-05-12", "api_es": "Realtime API Beta", "replacement_es": "la Realtime API (GA)", "provider": "openai" }
+      { "pattern": "realtime=v1", "retired": "2026-05-12", "api_es": "Realtime API Beta", "replacement_es": "la Realtime API (GA)", "provider": "openai" },
+      { "pattern": "api.openai.com/v1/prompts", "retired": "2026-11-30", "api_es": "API de prompts reutilizables", "replacement_es": "pasar el contenido del prompt a tu código y mandarlo en `input` de la Responses API (guía oficial \"Migrate from prompt objects\")", "provider": "openai" },
+      { "regex": "[\"'`](pmpt_[A-Za-z0-9]+)[\"'`]", "retired": "2026-11-30", "api_es": "API de prompts reutilizables", "replacement_es": "pasar el contenido del prompt a tu código y mandarlo en `input` de la Responses API (guía oficial \"Migrate from prompt objects\")", "provider": "openai" },
+      { "regex": "\\.(evals(?:\\.runs(?:\\.(?:outputItems|output_items))?)?\\.(?:create|retrieve|update|list|delete|cancel))\\s*\\(", "openai_context": true, "retired": "2026-11-30", "milestones": [{ "date": "2026-10-31", "future_es": "las evals existentes pasan a solo lectura", "past_es": "las evals existentes están en solo lectura" }], "api_es": "plataforma de Evals", "replacement_es": "Promptfoo, que recomienda OpenAI (guía oficial \"Moving from OpenAI Evals to Promptfoo\")", "provider": "openai" },
+      { "pattern": "/v1/evals", "openai_context": true, "retired": "2026-11-30", "milestones": [{ "date": "2026-10-31", "future_es": "las evals existentes pasan a solo lectura", "past_es": "las evals existentes están en solo lectura" }], "api_es": "plataforma de Evals", "replacement_es": "Promptfoo, que recomienda OpenAI (guía oficial \"Moving from OpenAI Evals to Promptfoo\")", "provider": "openai" },
+      { "regex": "\\.(chatkit\\.sessions\\.create)\\s*\\(", "openai_context": true, "retired": "2026-11-30", "api_es": "integración de ChatKit con Agent Builder", "replacement_es": "exportar el workflow como código del Agents SDK y conectar ChatKit a tu propio servidor (guía oficial \"Migrate from Agent Builder\")", "note_es": "ChatKit sigue disponible; el workflow alojado en Agent Builder se puede usar solo durante la transición.", "provider": "openai" },
+      { "pattern": "/v1/chatkit/sessions", "openai_context": true, "retired": "2026-11-30", "api_es": "integración de ChatKit con Agent Builder", "replacement_es": "exportar el workflow como código del Agents SDK y conectar ChatKit a tu propio servidor (guía oficial \"Migrate from Agent Builder\")", "note_es": "ChatKit sigue disponible; el workflow alojado en Agent Builder se puede usar solo durante la transición.", "provider": "openai" }
     ]
   },
   "codemod": null,

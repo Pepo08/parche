@@ -2,6 +2,21 @@
 
 Todas las versiones de `parche-cli` (npm) y de la Action `Pepo08/parche@v0`.
 
+## 0.6.4 — 2026-10-18
+
+Pack de IA con los productos que OpenAI cierra y no son modelos (página de deprecaciones verificada el 18/10; cómo se usa cada uno, de la referencia oficial de la API y de los SDKs de Node y Python). Como siempre, Parche avisa con la fecha y el reemplazo oficial, y no toca el código.
+
+### Nuevo
+- **Prompts reutilizables (cierran el 30/11/2026):** los IDs de objetos de prompt entre comillas (`"pmpt_…"`, como en `responses.create({ prompt: { id: "pmpt_…" } })`, en cualquier lenguaje) y las llamadas a `api.openai.com/v1/prompts`. Reemplazo: pasar el contenido del prompt al código y mandarlo en `input` de la Responses API.
+- **Plataforma de Evals (solo lectura el 31/10, cierre el 30/11/2026):** los métodos del SDK (`evals.create`, `evals.retrieve`, `evals.update`, `evals.list`, `evals.delete`, `evals.runs.*` y `evals.runs.outputItems.*` / `output_items.*`) y `/v1/evals`. El aviso dice que las evals existentes pasan a solo lectura el 31/10 (y, desde ese día, que ya lo están). Reemplazo: Promptfoo, el que recomienda OpenAI.
+- **Agent Builder (cierra el 30/11/2026):** no tiene API propia; lo que queda en el código es la sesión de ChatKit que corre un workflow de Agent Builder (`beta.chatkit.sessions.create`, que siempre pide un `workflow`, y `/v1/chatkit/sessions`). Reemplazo: exportar el workflow como código del Agents SDK y conectar ChatKit a un servidor propio. ChatKit sigue.
+- **Menos falsos positivos:** `.evals.…(`, `/v1/evals`, `chatkit.sessions.create` y `/v1/chatkit/sessions` solo cuentan si el archivo importa el SDK oficial de OpenAI (JS o Python) o nombra `api.openai.com`; `/v1/prompts` solo con el host de OpenAI (Portkey usa `/v1/prompts/:id/completions`). En Azure OpenAI no se dan por cerrados con la fecha de OpenAI.
+
+### Todavía no cubre
+- Un ID de prompt o de workflow que llega por variable de entorno o configuración, y `/v1/evals` o ChatKit por HTTP con la URL armada en otro archivo.
+- Los SDKs de Go, Java, .NET y Ruby para Evals y ChatKit (sí se ven los IDs `pmpt_…` y las URLs con `api.openai.com`).
+- La Videos API (cerrada el 24/9/2026; sí se avisan los modelos `sora-2`), las familias de audio y realtime sin IDs en la página y lo que OpenAI apagó antes de 2026.
+
 ## 0.6.3 — 2026-10-18
 
 Pack de IA con el resto de la página de deprecaciones de OpenAI (verificada fila por fila el 18/10): los modelos que se apagan desde 2026. Como siempre, Parche avisa con la fecha y el reemplazo oficial, y no cambia el modelo.
