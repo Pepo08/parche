@@ -101,20 +101,20 @@ test('punto 20: rutas largas en Windows, --author y el aviso de email público',
   assert.deepEqual(gitArgs(['status'], 'win32'), ['-c', 'core.longpaths=true', 'status']);
   assert.deepEqual(gitArgs(['status'], 'linux'), ['status']);
   // --author "Nombre <email>".
-  assert.deepEqual(parseAuthor('Joaquín González <124802690+Pepo08@users.noreply.github.com>'),
-    { PARCHE_GIT_NAME: 'Joaquín González', PARCHE_GIT_EMAIL: '124802690+Pepo08@users.noreply.github.com' });
-  for (const bad of ['', 'Joaquín', 'Joaquín <sin-arroba>', true]) assert.throws(() => parseAuthor(bad), /--author tiene que ser "Nombre <email>"/);
+  assert.deepEqual(parseAuthor('Joaquin Gonzalez Menza <124802690+Pepo08@users.noreply.github.com>'),
+    { PARCHE_GIT_NAME: 'Joaquin Gonzalez Menza', PARCHE_GIT_EMAIL: '124802690+Pepo08@users.noreply.github.com' });
+  for (const bad of ['', 'Joaquin', 'Joaquin <sin-arroba>', true]) assert.throws(() => parseAuthor(bad), /--author tiene que ser "Nombre <email>"/);
   assert.ok(isNoreply('124802690+Pepo08@users.noreply.github.com'));
   assert.ok(!isNoreply('ralph@gmail.com'));
 
   const { root, g, env, cleanup } = repo({ 'src/f.js': PARTIAL });
   // Con --author firma esa identidad, aunque la de git de la máquina sea otra.
-  const out = execFileSync('node', [BIN, 'pr', root, '--pack', pack.id, '--dry-run', '--author', 'Joaquín González <124802690+Pepo08@users.noreply.github.com>'], { encoding: 'utf8', env });
-  assert.match(out, /Firma los commits: Joaquín González <124802690\+Pepo08@users\.noreply\.github\.com>/);
-  assert.equal(g('log', '-1', '--format=%an <%ae>', `parche/${pack.id}`).trim(), 'Joaquín González <124802690+Pepo08@users.noreply.github.com>');
+  const out = execFileSync('node', [BIN, 'pr', root, '--pack', pack.id, '--dry-run', '--author', 'Joaquin Gonzalez Menza <124802690+Pepo08@users.noreply.github.com>'], { encoding: 'utf8', env });
+  assert.match(out, /Firma los commits: Joaquin Gonzalez Menza <124802690\+Pepo08@users\.noreply\.github\.com>/);
+  assert.equal(g('log', '-1', '--format=%an <%ae>', `parche/${pack.id}`).trim(), 'Joaquin Gonzalez Menza <124802690+Pepo08@users.noreply.github.com>');
   g('branch', '-D', `parche/${pack.id}`);
   // --author mal escrito: frena antes de tocar el repo.
-  const bad = spawnSync('node', [BIN, 'pr', root, '--pack', pack.id, '--dry-run', '--author', 'Joaquín'], { encoding: 'utf8', env });
+  const bad = spawnSync('node', [BIN, 'pr', root, '--pack', pack.id, '--dry-run', '--author', 'Joaquin'], { encoding: 'utf8', env });
   assert.notEqual(bad.status, 0);
   assert.match(bad.stderr, /--author tiene que ser/);
   assert.equal(g('status', '--porcelain').trim(), '');

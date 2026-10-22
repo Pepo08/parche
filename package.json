@@ -25,7 +25,7 @@
     "type": "git",
     "url": "git+https://github.com/Pepo08/parche.git"
   },
-  "author": "Joaquín González",
+  "author": "Joaquin Gonzalez Menza",
   "license": "MIT",
   "type": "module",
   "bin": {

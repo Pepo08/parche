@@ -1,6 +1,6 @@
 name: Parche API Changes
 description: Dependabot para APIs. Detecta cambios de APIs de terceros que afectan tu código (ARCA, Mercado Pago, OpenAI, Anthropic) y abre un PR.
-author: Joaquín González
+author: Joaquin Gonzalez Menza
 branding:
   icon: tool
   color: blue
