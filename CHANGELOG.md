@@ -11,6 +11,7 @@ Bases de confianza del repo: qué hace Parche con tu código, cómo reportar una
 - **README:** un bloque en inglés al principio, la sección "Seguridad y datos" y qué puede cambiar dentro de `v0`.
 - **`CONTRIBUTING.md`** (con el proceso para sacar una versión, que sale del README), **código de conducta**, plantillas de issue (falso positivo o aviso que falta, pedido de pack, error) y de PR.
 - **`parche --version`.**
+- **"¿Por qué recibí un PR de Parche?"** ([`docs/por-que-recibi-este-pr.md`](docs/por-que-recibi-este-pr.md)): para quien recibe un PR o un issue de Parche. Explica por qué su repo, cómo se revisó el PR, qué se verificó y qué no, y cómo pedir que no le manden más. El pie de cada PR y de cada issue la enlaza.
 
 ### Cambios
 - **La plantilla del workflow pide solo lectura por defecto** y da `contents: write` y `pull-requests: write` solo al job de Parche. Explica cómo fijar la Action a un commit en vez de `v0`.

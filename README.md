@@ -151,7 +151,7 @@ Parche corre en tu máquina o en tu runner. Tu código no sale de ahí, salvo el
 | **Qué ejecuta** | `git` y, solo con `--verify`, los tests de tu repo (`npm test`, `composer test` o `vendor/bin/phpunit`). |
 | **Qué escribe** | Tu working copy (solo `fix` y `pr`), `.parche/` (se agrega a `.git/info/exclude`) y, para `diff` y `--upgrades`, un caché en `~/.parche/cache`. |
 
-Para reportar una vulnerabilidad, y el detalle de todo esto: [`SECURITY.md`](SECURITY.md).
+Para reportar una vulnerabilidad, y el detalle de todo esto: [`SECURITY.md`](SECURITY.md). Si te llegó un PR de Parche: [por qué lo recibiste](docs/por-que-recibi-este-pr.md).
 
 **Qué puede cambiar dentro de `v0`:** mientras Parche esté en 0.x, `Pepo08/parche@v0` y `npx parche-cli` reciben cada versión nueva. Una versión 0.x puede sumar packs, avisos y opciones. No cambia sin aviso en el CHANGELOG el formato de `.parche/inventory.json` (tiene `schemaVersion`), los nombres de los comandos ni el de los inputs de la Action. Si tu organización exige fijar las Actions, usá el commit de un release: `Pepo08/parche@<sha> # v0.6.7`.
 

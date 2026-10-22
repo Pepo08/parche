@@ -109,6 +109,11 @@ test('sin --verify: la sintaxis se chequea igual y el PR dice dónde se corren l
   assert.match(prBody({ pack, findings, changed, verification: null, ciApproval: true }), approval);
   assert.doesNotMatch(prBody({ pack, findings, changed, verification: null }), approval, 'con otro token (o fuera de Actions) no se dice');
   assert.doesNotMatch(prBody({ pack, findings: [{ ...findings[0], status: 'needs-input' }], changed: [], verification: null, ciApproval: true }), approval, 'un issue no corre workflows');
+  // Quien recibe un PR o un issue de Parche tiene a dónde ir: qué es, cómo se revisó y cómo pedir que no manden más.
+  const why = 'https://github.com/Pepo08/parche/blob/main/docs/por-que-recibi-este-pr.md';
+  assert.ok(prBody({ pack, findings, changed, verification: null }).includes(why));
+  assert.ok(prBody({ pack, findings: [{ ...findings[0], status: 'needs-input' }], changed: [], verification: null }).includes(why));
+  assert.ok(fs.existsSync(path.join(path.dirname(BIN), '..', 'docs', 'por-que-recibi-este-pr.md')));
 });
 
 test('Action: el nombre para el Marketplace es "Parche" y avisa el token por defecto', () => {
