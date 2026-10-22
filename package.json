@@ -50,6 +50,6 @@
     "@babel/parser": "^7.28.0",
     "jscodeshift": "^17.3.0",
     "php-parser": "^3.7.0",
-    "typescript": "~6.0.3"
+    "typescript": "~7.0.2"
   }
 }
