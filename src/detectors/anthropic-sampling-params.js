@@ -16,6 +16,16 @@
 // Se avisa solo si el modelo del pedido se puede leer y es uno de los afectados, y si el parámetro es un número fuera
 // de lo aceptado. El modelo se lee si es un literal, una constante asignada una sola vez en el archivo o el valor por
 // defecto de una variable (`process.env.X || '…'`, `os.getenv("X", "…")`). Si no se puede saber, no se avisa (D64).
+//
+// API version `2026-10-21` (D65): elimina los tres parámetros para cualquier modelo (400 aunque tengan su valor por
+// defecto). La manda el archivo (`anthropic-version: 2026-10-21`) o el SDK desde su versión mayor nueva (TypeScript 1.0.0
+// y Python 2.0.0, del 21/10/2026); los anteriores mandan `2023-06-01`. Corre sobre los mismos pedidos, sin importar el
+// modelo, si el archivo es de Anthropic (importa el SDK, nombra un `claude-…` o va por HTTP a api.anthropic.com), y dice
+// si ya falla (header, SDK instalado o, en Python, `TypeError` desde la 1.0), si falla en una instalación nueva (rango
+// sin tope) o si va a fallar cuando suban el SDK. Lo que ya avisó la regla de Claude 4.7 no se repite. Por HTTP sin el
+// header nuevo no se avisa: la versión la elige el archivo y no cambia sola.
+import { openRange } from '../context.js';
+
 const PACK = 'ai.model-retirements';
 const JS = /\.[cm]?[jt]sx?$/i;
 const PY = /\.py$/i;
@@ -29,6 +39,17 @@ const NAMES = /[A-Za-z_$][\w$]*/g;
 // Antes de una `/` que abre una regex de JS (y no es una división) hay un operador, un separador o una palabra clave.
 const REGEX_BEFORE = /(?:^|[(,=:[!&|?{};+\-*%<>~^]|\b(?:return|typeof|case|in|of|yield|await|void|delete|throw|else|do))\s*$/;
 const CONTROL = /\b(?:if|for|while|switch|catch|with)\s*$/;
+const ANTHROPIC = /@anthropic-ai\/|["'`]claude-|^\s*(?:from\s+anthropic(?:\.\w+)*\s+import|import\s+anthropic)\b/m;
+const TS = /\.[cm]?tsx?$/i;
+const EMPTY = /^(?:undefined|null|None)$/;
+
+// a ≥ b, comparando "mayor.menor.parche".
+const atLeast = (a, b) => {
+  const x = String(a).split('.').map(Number);
+  const y = String(b).split('.').map(Number);
+  for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+  return true;
+};
 
 // Copia del código con los comentarios y el interior de los strings en blanco (mismas posiciones y saltos de línea),
 // para buscar llaves, comas y claves sin tropezar con texto. Los strings quedan aparte, con su valor.
@@ -119,12 +140,15 @@ function separator(code, a, b, sep) {
   return -1;
 }
 
-export default function detectSamplingParams({ source, file, pack }) {
+export default function detectSamplingParams({ source, file, pack, context }) {
   const rules = pack.detect.sampling_params;
   const python = PY.test(file);
   if (!rules || (!python && !JS.test(file))) return { findings: [], usages: [] };
-  // La mayoría de los archivos no tiene ni el parámetro ni un modelo afectado: no hace falta tokenizarlos.
-  if (!PARAMS.some((p) => source.includes(p)) || !rules.models.some((m) => source.includes(m))) return { findings: [], usages: [] };
+  // La mayoría de los archivos no tiene el parámetro, ni un modelo afectado ni nada de Anthropic: no hace falta
+  // tokenizarlos.
+  const api = rules.api_version;
+  const anthropic = Boolean(api) && (ANTHROPIC.test(source) || (/api\.anthropic\.com/.test(source) && /v1\/messages/.test(source)));
+  if (!PARAMS.some((p) => source.includes(p)) || (!anthropic && !rules.models.some((m) => source.includes(m)))) return { findings: [], usages: [] };
 
   const { code, strings } = tokenize(source, python);
   const { nodes, depth } = brackets(code);
@@ -283,12 +307,77 @@ export default function detectSamplingParams({ source, file, pack }) {
     findings.push({ pack: PACK, file, line: lineOf(at), status: 'detect-only', message });
     usages.push({ provider: 'ia', op, line: lineOf(at) });
   };
+  const shownOf = (param, e) => (e.sep === '=' ? `${param}=${e.value.text}` : e.sep ? `${param}: ${e.value.text}` : param);
+
+  // API version `2026-10-21`: la que manda el archivo (`new`, `old` o null si no la nombra) y el SDK instalado.
+  const header = (() => {
+    if (!anthropic || !strings.some((s) => s.value.toLowerCase() === 'anthropic-version')) return null;
+    if (strings.some((s) => s.value === api.version)) return 'new';
+    return strings.some((s) => /^2023-0[16]-01$/.test(s.value)) ? 'old' : null;
+  })();
+  const sdk = api?.sdks[python ? 'pypi' : 'npm'];
+  const installed = sdk ? context?.versions?.[python ? 'pypi' : 'npm']?.[sdk.package] || null : null;
+  const whereOf = (v) => (v.source === 'declarada' ? `declarado como \`${v.range}\`` : v.source === 'node_modules' ? 'instalado en node_modules' : `según ${v.source}`);
+  const cap = (s) => s[0].toUpperCase() + s.slice(1);
+  const apiVersion = (via, byKey, model, flagged) => {
+    // Un archivo que fija `2023-06-01` eligió quedarse; por HTTP, la versión la elige el archivo.
+    if (!anthropic || header === 'old' || (via === 'http' && header !== 'new')) return;
+    const usable = (e) => !EMPTY.test(e.value.text);
+    const candidates = PARAMS.filter((p) => byKey.has(p) && !flagged.has(p) && usable(byKey.get(p))).map((param) => ({ param, e: byKey.get(param), extra: false }));
+    // Python: lo que va en `extra_body={...}` llega a la API sin pasar por la firma del método.
+    const xb = python && byKey.get('extra_body');
+    const xn = xb && code[xb.value.at] === '{' ? nodeAt(xb.value.at) : null;
+    if (xn) for (const e of entriesOf(xn)) if (PARAMS.includes(e.key) && !flagged.has(e.key) && usable(e)) candidates.push({ param: e.key, e, extra: true });
+    const older = model && api.older_models.some((m) => model.id.startsWith(m)) ? model.id : null;
+    const pkg = `\`${sdk.package}\``;
+    for (const { param, e, extra } of candidates) {
+      // En Python, un parámetro directo falla antes de llegar a la API: el SDK 1.0 lo sacó de la firma.
+      const direct = python && !extra && via === 'sdk';
+      const target = direct ? sdk.typeerror_from : sdk.first;
+      const reason = direct
+        ? `desde la ${sdk.typeerror_from}, el SDK de Python ya no tiene \`temperature\`, \`top_p\` ni \`top_k\` y pasarlos tira \`TypeError\` con cualquier modelo`
+        : `desde la ${sdk.first}, el SDK usa la API version \`${api.version}\`, y ${api.removed_es}`;
+      const rec = api.recommendation_es.replace('{param}', `\`${param}\``);
+      const shown = `\`${shownOf(param, e)}\`${extra ? ' (en `extra_body`)' : ''}`;
+      let message;
+      if (header === 'new') {
+        message = `${shown} ya no funciona: el archivo manda \`anthropic-version: ${api.version}\`, y ${api.removed_es}. ${cap(rec)}.`;
+      } else if (installed && atLeast(installed.version, target)) {
+        message = `${shown} ya no funciona con ${pkg} ${installed.version} (${whereOf(installed)}): ${reason}.`
+          + (direct && !atLeast(installed.version, sdk.first) ? ` Tampoco sirve pasarlo por \`extra_body\`: con la ${sdk.first} (del ${api.released_es}) devuelve un error 400.` : '')
+          + ` ${cap(rec)}.`;
+      } else if (installed?.source === 'declarada' && openRange(installed.range)) {
+        message = `${shown} falla en una instalación nueva: ${pkg} está declarado como \`${installed.range}\`, que ya deja instalar la ${sdk.first} (del ${api.released_es}). ${cap(reason)}. ${cap(rec)}, o fijá el SDK debajo de la ${target}.`;
+      } else {
+        const when = `${target}${target === sdk.first ? ` (del ${api.released_es})` : ''}`;
+        const alsoExtra = direct ? ` Y desde la ${sdk.first} (del ${api.released_es}) tampoco sirve pasarlo por \`extra_body\`: la API version \`${api.version}\` lo rechaza.` : '';
+        // Sin la versión no se puede decir que hoy funciona: puede que ya falle.
+        message = installed
+          ? `${shown} funciona con ${pkg} ${installed.version} (${whereOf(installed)}), pero va a fallar cuando lo subas a la ${when}: ${reason}.${alsoExtra} Antes de aceptar esa suba, ${rec}.`
+          : `${shown} falla con ${pkg} ${target} o posterior: ${reason}.${alsoExtra} Parche no encontró qué versión del SDK usa este repo: si ya es la ${target} o una posterior, el pedido ya falla. ${cap(rec)}.`;
+      }
+      if (!python && via === 'sdk' && header !== 'new' && TS.test(file)) message += ` ${api.typescript_es}`;
+      if (param === 'temperature' && NUMBER.test(e.value.text) && Number(e.value.text) === 0) message += ` ${rules.temperature_zero_es}`;
+      if (older) message += ` ${api.older_model_es.replace('{model}', `\`${older}\``)}`;
+      report(e.keyAt, message, `Anthropic ${param} (API version ${api.version})`);
+    }
+  };
+
   for (const [node, via] of requests) {
     if (!node) continue;
     const byKey = new Map(entriesOf(node).map((e) => [e.key, e]));
     if (via === 'http' && !byKey.has('messages') && !byKey.has('max_tokens')) continue;
     const model = byKey.has('model') ? modelOf(byKey.get('model').value) : null;
-    if (!model || !rules.models.includes(model.id)) continue;
+    const flagged = new Set(); // lo que ya avisó la regla de Claude 4.7: no se repite
+    if (model && rules.models.includes(model.id)) claude47(byKey, via, model, flagged);
+    apiVersion(via, byKey, model, flagged);
+  }
+  // Los pedidos salen en el orden del árbol (de afuera hacia adentro); el reporte va en el orden del archivo.
+  const byLine = (a, b) => a.line - b.line;
+  return { findings: findings.sort(byLine), usages: usages.sort(byLine) };
+
+  // Claude 4.7 y posteriores: el parámetro con un valor fuera de lo aceptado (y, en Haiku 5.5, los dos juntos).
+  function claude47(byKey, via, model, flagged) {
     const override = rules.overrides?.[model.id] || {};
     const scope = override.scope_es || rules.scope_es;
     const accepted = { ...rules.accepted, ...override.accepted };
@@ -296,7 +385,6 @@ export default function detectSamplingParams({ source, file, pack }) {
     const tail = (params, zero) => `Recomendación oficial de Anthropic: ${rules.recommendation_es.replace('{params}', params.map((p) => `\`${p}\``).join(' y '))}.`
       + (zero ? ` ${rules.temperature_zero_es}` : '') + (python && via === 'sdk' ? ` ${rules.python_sdk_es}` : '');
     const present = [];
-    let flagged = 0;
     for (const param of PARAMS) {
       const e = byKey.get(param);
       const num = e && numberOf(e.value);
@@ -304,19 +392,17 @@ export default function detectSamplingParams({ source, file, pack }) {
       present.push({ param, e });
       const ok = accepted[param];
       if (ok.min !== undefined && num.value >= ok.min && num.value <= ok.max) continue;
-      flagged++;
-      const shown = (e.sep === '=' ? `${param}=${e.value.text}` : e.sep ? `${param}: ${e.value.text}` : param) + (num.via ? ` (${num.value})` : '');
+      flagged.add(param);
+      const shown = shownOf(param, e) + (num.via ? ` (${num.value})` : '');
       report(e.keyAt, `\`${shown}\` con el modelo ${modelText} da un error 400: ${scope}, \`${param}\` ${ok.es}. ${tail([param], param === 'temperature' && num.value === 0)}`,
         `Anthropic ${param} (Claude 4.7+)`);
     }
     const together = override.exclusive || [];
-    if (together.length && !flagged && together.every((p) => present.some((x) => x.param === p))) {
+    if (together.length && !flagged.size && together.every((p) => present.some((x) => x.param === p))) {
       const last = present.filter((x) => together.includes(x.param)).at(-1);
       report(last.e.keyAt, `${together.map((p) => `\`${p}\``).join(' y ')} juntos con el modelo ${modelText} dan un error 400: ${override.exclusive_es}. ${tail(together, false)}`,
         `Anthropic ${together.join(' + ')} (Claude 4.7+)`);
+      for (const p of together) flagged.add(p);
     }
   }
-  // Los pedidos salen en el orden del árbol (de afuera hacia adentro); el reporte va en el orden del archivo.
-  const byLine = (a, b) => a.line - b.line;
-  return { findings: findings.sort(byLine), usages: usages.sort(byLine) };
 }

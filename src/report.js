@@ -102,7 +102,9 @@ export function partialCovers(findings) {
   return [...new Set(findings.filter((f) => f.partial).map((f) => f.partial.covers))];
 }
 
-export function prBody({ pack, findings, changed, verification }, today = new Date()) {
+// `ciApproval`: el PR lo abre GitHub Actions con el GITHUB_TOKEN por defecto. GitHub deja los workflows de ese PR
+// esperando aprobación (docs de GitHub, "GITHUB_TOKEN"): sin avisarlo, el PR parece roto.
+export function prBody({ pack, findings, changed, verification, ciApproval = false }, today = new Date()) {
   const fs = findings.filter((f) => f.pack === pack.id);
   const c = counts(fs);
   const out = [];
@@ -151,6 +153,9 @@ export function prBody({ pack, findings, changed, verification }, today = new Da
       }
     } else {
       out.push('- Sin verificar (corré `parche pr --verify`).');
+    }
+    if (ciApproval) {
+      out.push('- CI de este PR: lo abrió GitHub Actions con el `GITHUB_TOKEN`, así que GitHub deja sus workflows esperando aprobación. Alguien con permiso de escritura tiene que tocar **Approve workflows to run**. Para que corran solos, pasale a la Action un token de una GitHub App o un token personal (input `token`).');
     }
   }
   out.push('', asIssue ? '### Checklist' : '### Checklist antes de mergear', '', ...pack.review_checklist_es.map((x) => `- [ ] ${x}`), '');

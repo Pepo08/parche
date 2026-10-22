@@ -2,6 +2,28 @@
 
 Todas las versiones de `parche-cli` (npm) y de la Action `Pepo08/parche@v0`.
 
+## 0.6.7 — 2026-10-21
+
+Pack de IA con la API version `2026-10-21` de Anthropic, que salió el 21/10 junto con el SDK de TypeScript 1.0.0 y el de Python 2.0.0: elimina `temperature`, `top_p` y `top_k` para cualquier modelo, y un pedido que los manda devuelve un error 400 aunque tengan su valor por defecto (guía "Migrating to API version 2026-10-21" y página de deprecaciones, verificadas el 21/10). Los SDK anteriores siguen mandando `2023-06-01`, así que hoy casi nada se rompe: se rompe con la próxima suba del SDK. Como siempre, Parche avisa y no toca el código.
+
+### Nuevo
+- **Los tres parámetros con cualquier modelo,** también Claude Sonnet 4.6, Opus 4.6 y Haiku 4.5, que en `2023-06-01` los aceptan. El aviso dice en cuál de tres casos está el pedido:
+  - **ya falla:** el archivo manda `anthropic-version: 2026-10-21`, o el SDK instalado ya es el nuevo (`@anthropic-ai/sdk` 1.0.0 o posterior; `anthropic` 2.0.0 o posterior por `extra_body`). En Python, el parámetro directo ya tira `TypeError` desde la 1.0.0 (MIGRATION.md del SDK);
+  - **falla en una instalación nueva:** el rango declarado no tiene tope (`>=0.30.0`, `>=0.40`) y ya deja instalar la versión nueva;
+  - **va a fallar con la suba:** el SDK instalado es anterior; el aviso pide sacar el parámetro antes de aceptar esa suba.
+- **Sin repetir avisos:** lo que ya marca la regla de Claude 4.7 (un valor fuera de lo aceptado) sale una sola vez. En un modelo que todavía acepta otros valores, el aviso aclara que sacarlo cambia cómo responde y que la alternativa es dejar ese pedido en `2023-06-01`. Un archivo que fija `anthropic-version: 2023-06-01` no se avisa.
+- **Versión de Python desde `requirements.txt`:** el contexto del repo ahora también trae las versiones declaradas de Python y el rango tal como está escrito.
+- **PRs abiertos con el `GITHUB_TOKEN`:** GitHub deja sus workflows esperando aprobación. Cuando la Action corre con el token por defecto, el cuerpo del PR lo dice y explica cómo usar un token de GitHub App o uno personal para que la CI corra sola (README, "En GitHub Actions").
+- **La Action se llama "Parche API Changes"** (antes, "Parche — Dependabot para APIs"), para publicarla en el GitHub Marketplace. Sus reglas no aceptan un nombre igual a una función de GitHub (Dependabot, que queda solo en la descripción) ni a un usuario de GitHub (existe la cuenta `parche`).
+
+### Cambios
+- La fuente del `TypeError` del SDK de Python pasa a ser su MIGRATION.md de la 1.0.0: la guía de migración a Opus 5.5 ya no lo menciona.
+
+### Todavía no cubre
+- La versión del SDK de Python desde `pyproject.toml`, `poetry.lock` o `uv.lock`, y los rangos sin número (`latest`, `*`), que cuentan como versión desconocida.
+- Los SDKs de Go (v2), Java (3.0.0), .NET (13.0.0), Ruby (2.0.0) y PHP (1.0.0), que también pasan a `2026-10-21`.
+- Los otros cambios de esa API version: bloques `document` en mensajes de `assistant`, `citations` en mensajes de `user` y los campos renombrados de la Admin API.
+
 ## 0.6.6 — 2026-10-20
 
 Pack de IA con el primer cambio de Anthropic que no es un retiro de modelo: desde Claude 4.7, `temperature`, `top_p` y `top_k` con un valor que no es el de por defecto dan error 400 (página de deprecaciones de Anthropic, sección "API parameter deprecations", verificada el 20/10; los valores aceptados, de la referencia de la API y de las guías de migración). Como siempre, Parche avisa y no toca el código.

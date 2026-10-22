@@ -104,4 +104,15 @@ test('sin --verify: la sintaxis se chequea igual y el PR dice dónde se corren l
     /- Tests del repo: Parche no los corrió \(sin `--verify` no ejecuta código del repo\)\. Corrélos antes de mergear\./);
   // Un issue (sin cambios de código) no lleva sección de verificación.
   assert.doesNotMatch(prBody({ pack, findings: [{ ...findings[0], status: 'needs-input' }], changed: [], verification: null }), /### Verificación|Sin verificar/);
+  // Abierto por GitHub Actions con el GITHUB_TOKEN: los workflows del PR esperan aprobación, y el PR lo dice.
+  const approval = /CI de este PR: lo abrió GitHub Actions con el `GITHUB_TOKEN`, así que GitHub deja sus workflows esperando aprobación\. .*\*\*Approve workflows to run\*\*/;
+  assert.match(prBody({ pack, findings, changed, verification: null, ciApproval: true }), approval);
+  assert.doesNotMatch(prBody({ pack, findings, changed, verification: null }), approval, 'con otro token (o fuera de Actions) no se dice');
+  assert.doesNotMatch(prBody({ pack, findings: [{ ...findings[0], status: 'needs-input' }], changed: [], verification: null, ciApproval: true }), approval, 'un issue no corre workflows');
+});
+
+test('Action: el nombre para el Marketplace es "Parche API Changes" y avisa el token por defecto', () => {
+  const action = fs.readFileSync(path.join(path.dirname(BIN), '..', 'action.yml'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(action, /^name: Parche API Changes$/m, 'sin "Dependabot" (función de GitHub) ni "Parche" a secas (usuario de GitHub): las reglas del Marketplace no los dejan');
+  assert.match(action, /PARCHE_DEFAULT_TOKEN: \$\{\{ inputs\.token == github\.token \}\}/);
 });

@@ -87,6 +87,14 @@ Para que corra todas las semanas, copiá [`templates/github-workflow.yml`](templ
 
 El workflow necesita `permissions: contents: write` y `pull-requests: write`.
 
+Con el `GITHUB_TOKEN` por defecto, GitHub deja los workflows del PR que abre Parche esperando aprobación: alguien con permiso de escritura tiene que tocar **Approve workflows to run** (el cuerpo del PR lo avisa). Para que tu CI corra sola sobre esos PRs, pasale a la Action un token de una GitHub App o un token personal con permiso de escritura en `contents` y `pull-requests`:
+
+```yaml
+- uses: Pepo08/parche@v0
+  with:
+    token: ${{ secrets.PARCHE_TOKEN }}
+```
+
 ### Desarrollo
 
 ```bash
@@ -131,7 +139,7 @@ Con el tag, el workflow corre los tests, controla que la versión de `package.js
 |---|---|---|---|---|
 | `arca.wsfe.condicion-iva-receptor` | ARCA | rompe | 2026-12-01 | sí, en JS (`afip.js`) y PHP (`afipsdk/afip.php` y forks): consumidor final y DNI B/C; con `DocTipo` en una variable, consumidor final al ejecutarse (PR parcial) |
 | `mercadopago.payments-to-orders` | Mercado Pago | migración | — | sí (creación de pagos en SDK Node v2) |
-| `ai.model-retirements` | Anthropic, OpenAI | retiro | varias | solo detección (también modelos fine-tuned de OpenAI, `ft:…`). De OpenAI, los modelos que su página de deprecaciones apaga desde 2026: texto, código, imagen, video, voz, transcripción y realtime; y los productos que cierran: Assistants API, prompts reutilizables (`pmpt_…`, `v1/prompts`), la plataforma de Evals, ChatKit con un workflow de Agent Builder y la Videos API (cerrada el 24/9/2026). De Anthropic, los modelos retirados y `temperature`, `top_p` y `top_k` con un valor que no es el de por defecto en Claude 4.7 y posteriores, que dan error 400 (SDK de JS/TS y de Python, y HTTP directo) |
+| `ai.model-retirements` | Anthropic, OpenAI | retiro | varias | solo detección (también modelos fine-tuned de OpenAI, `ft:…`). De OpenAI, los modelos que su página de deprecaciones apaga desde 2026: texto, código, imagen, video, voz, transcripción y realtime; y los productos que cierran: Assistants API, prompts reutilizables (`pmpt_…`, `v1/prompts`), la plataforma de Evals, ChatKit con un workflow de Agent Builder y la Videos API (cerrada el 24/9/2026). De Anthropic, los modelos retirados, `temperature`, `top_p` y `top_k` con un valor que no es el de por defecto en Claude 4.7 y posteriores, que dan error 400 (SDK de JS/TS y de Python, y HTTP directo), y los mismos tres parámetros con cualquier modelo en la API version `2026-10-21`, que usan el SDK de TypeScript 1.0.0 y el de Python 2.0.0 (del 21/10/2026): dice si el pedido ya falla, si falla en una instalación nueva o si va a fallar cuando suban el SDK |
 
 ## Verificación
 
@@ -189,6 +197,7 @@ Cuando `DocTipo` no es un número fijo (`DocTipo: docTipo`), Parche no puede sab
 - JS/TS (ESM y CommonJS) y, para ARCA, PHP. Siguen Python y Java.
 - ARCA: cubre `@afipsdk/afip.js` y `afipsdk/afip.php` (con sus forks). Las integraciones SOAP propias (en cualquier lenguaje) se detectan pero no se reescriben.
 - IA, parámetros de Claude 4.7 y posteriores: avisa solo si el modelo del pedido se lee en el mismo archivo (un literal, una constante asignada una vez o el valor por defecto de una variable de entorno) y el parámetro es un número escrito en el código. Si el modelo llega de otro archivo o de la configuración, no avisa: no se puede saber si el pedido va a fallar.
+- IA, API version `2026-10-21` de Anthropic: la versión del SDK sale de `package-lock.json`, `node_modules` o el rango de `package.json`, y en Python solo de `requirements.txt` (todavía no de `pyproject.toml`, `poetry.lock` ni `uv.lock`). Un rango sin número (`latest`, `*`) cuenta como versión desconocida. Por HTTP directo avisa solo si el archivo manda `anthropic-version: 2026-10-21`. Los SDKs de Go, Java, .NET, Ruby y PHP no se leen.
 - Mercado Pago: migra la creación de pagos con el SDK v2. Las consultas, capturas y reembolsos de pagos existentes se dejan a propósito en Payments API, como indica la guía oficial.
 - Se distribuye como CLI (`npx parche-cli`) + GitHub Action (`Pepo08/parche@v0`). La GitHub App (instalación en un click, PRs automáticos al publicarse un pack nuevo) es el próximo paso.
 - La capa de LLM (redactar packs desde changelogs y resolver casos "falta un dato" leyendo el modelo de datos del cliente) todavía no está incluida; cuando entre, va a pasar por la misma verificación.

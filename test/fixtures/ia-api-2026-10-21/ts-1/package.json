@@ -1,0 +1,7 @@
+{
+  "name": "ia-api-ts-1",
+  "private": true,
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.0.0"
+  }
+}

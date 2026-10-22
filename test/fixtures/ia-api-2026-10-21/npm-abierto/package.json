@@ -1,0 +1,7 @@
+{
+  "name": "ia-api-npm-abierto",
+  "private": true,
+  "dependencies": {
+    "@anthropic-ai/sdk": ">=0.30.0"
+  }
+}
