@@ -1,0 +1,12 @@
+# Mantiene al día las Actions fijadas por SHA en los workflows y las dependencias de npm.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3

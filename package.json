@@ -1,7 +1,7 @@
 {
   "name": "parche-cli",
   "version": "0.6.7",
-  "description": "Dependabot para APIs: detecta cambios de APIs de terceros en tu código y abre el PR con el arreglo.",
+  "description": "Dependabot para APIs: detecta cambios de cualquier API de terceros en tu código (ARCA, Mercado Pago, OpenAI, Anthropic) y abre el PR con el arreglo.",
   "keywords": [
     "api",
     "migration",
@@ -11,9 +11,15 @@
     "afip",
     "wsfe",
     "mercadopago",
-    "github-action"
+    "github-action",
+    "openai",
+    "anthropic",
+    "claude",
+    "api-migration",
+    "deprecation",
+    "breaking-changes"
   ],
-  "homepage": "https://github.com/Pepo08/parche#readme",
+  "homepage": "https://getparche.com",
   "bugs": "https://github.com/Pepo08/parche/issues",
   "repository": {
     "type": "git",

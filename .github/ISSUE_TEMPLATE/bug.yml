@@ -1,0 +1,23 @@
+name: Error de la CLI o de la Action
+description: Parche falló, se colgó o dejó algo distinto de lo que dice.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: que
+    attributes:
+      label: Qué pasó
+      description: El comando que corriste y la salida (sin tokens ni datos privados).
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versión de Parche
+    validations:
+      required: true
+  - type: input
+    id: entorno
+    attributes:
+      label: Sistema y Node
+      description: Por ejemplo, "Windows 11, Node 24" o "GitHub Actions, ubuntu-latest".

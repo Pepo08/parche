@@ -160,7 +160,7 @@ export function prBody({ pack, findings, changed, verification, ciApproval = fal
   }
   out.push('', asIssue ? '### Checklist' : '### Checklist antes de mergear', '', ...pack.review_checklist_es.map((x) => `- [ ] ${x}`), '');
   out.push('### Fuentes', '', ...pack.sources.map((s) => `- [${s.title}](${s.url})`), '');
-  out.push(`<sub>Pack \`${pack.id}\` v${pack.version}, verificado el ${pack.last_verified}. Resumen: ${Object.entries(c).map(([k, v]) => `${LABEL[k]} ${v}`).join(' · ')}. ¿Este PR te sirvió? Mergealo, editalo o cerralo: Parche aprende de cada resultado.</sub>`, '');
+  out.push(`<sub>Pack \`${pack.id}\` v${pack.version}, verificado el ${pack.last_verified}. Resumen: ${Object.entries(c).map(([k, v]) => `${LABEL[k]} ${v}`).join(' · ')}. ¿Este PR te sirvió? Mergealo, editalo o cerralo: Parche aprende de cada resultado. [¿Qué es Parche y por qué recibiste esto?](https://github.com/Pepo08/parche/blob/main/docs/por-que-recibi-este-pr.md)</sub>`, '');
   return out.join('\n');
 }
 

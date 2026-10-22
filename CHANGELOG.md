@@ -1,10 +1,10 @@
 # Cambios
 
-Todas las versiones de `parche-cli` (npm) y de la Action `Pepo08/parche@v0`.
+Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1 y de la 0.6.0 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
 
 ## 0.6.7 — 2026-10-21
 
-Pack de IA con la API version `2026-10-21` de Anthropic, que salió el 21/10 junto con el SDK de TypeScript 1.0.0 y el de Python 2.0.0: elimina `temperature`, `top_p` y `top_k` para cualquier modelo, y un pedido que los manda devuelve un error 400 aunque tengan su valor por defecto (guía "Migrating to API version 2026-10-21" y página de deprecaciones, verificadas el 21/10). Los SDK anteriores siguen mandando `2023-06-01`, así que hoy casi nada se rompe: se rompe con la próxima suba del SDK. Como siempre, Parche avisa y no toca el código.
+Pack de IA con la API version `2026-10-21` de Anthropic, que salió el 21/10 junto con el SDK de TypeScript 1.0.0 y el de Python 2.0.0: elimina `temperature`, `top_p` y `top_k` para cualquier modelo, y un pedido que los manda devuelve un error 400 aunque tengan su valor por defecto (guía "Migrating to API version 2026-10-21" y página de deprecaciones, verificadas el 21/10). Los SDK anteriores siguen mandando `2023-06-01`, así que hoy casi nada se rompe: se rompe con la próxima suba del SDK. Como siempre, Parche avisa y no toca el código. Esta versión trae además las bases de confianza del repo (al final).
 
 ### Nuevo
 - **Los tres parámetros con cualquier modelo,** también Claude Sonnet 4.6, Opus 4.6 y Haiku 4.5, que en `2023-06-01` los aceptan. El aviso dice en cuál de tres casos está el pedido:
@@ -23,6 +23,19 @@ Pack de IA con la API version `2026-10-21` de Anthropic, que salió el 21/10 jun
 - La versión del SDK de Python desde `pyproject.toml`, `poetry.lock` o `uv.lock`, y los rangos sin número (`latest`, `*`), que cuentan como versión desconocida.
 - Los SDKs de Go (v2), Java (3.0.0), .NET (13.0.0), Ruby (2.0.0) y PHP (1.0.0), que también pasan a `2026-10-21`.
 - Los otros cambios de esa API version: bloques `document` en mensajes de `assistant`, `citations` en mensajes de `user` y los campos renombrados de la Admin API.
+
+### Bases de confianza del repo
+
+Qué hace Parche con tu código, cómo reportar una vulnerabilidad y cómo contribuir.
+
+- **`SECURITY.md`:** cómo reportar una vulnerabilidad (en privado, primera respuesta en 14 días como máximo) y qué hace Parche en tu máquina o en tu runner: a qué hosts se conecta y con qué comando, que no tiene telemetría, qué ejecuta (tus tests, solo con `--verify`) y qué archivos escribe.
+- **README:** un bloque en inglés al principio, la sección "Seguridad y datos" y qué puede cambiar dentro de `v0`.
+- **`CONTRIBUTING.md`** (con el proceso para sacar una versión, que sale del README), **código de conducta**, plantillas de issue (falso positivo o aviso que falta, pedido de pack, error) y de PR.
+- **`parche --version`.**
+- **"¿Por qué recibí un PR de Parche?"** ([`docs/por-que-recibi-este-pr.md`](docs/por-que-recibi-este-pr.md)): para quien recibe un PR o un issue de Parche. Explica por qué su repo, cómo se revisó el PR, qué se verificó y qué no, y cómo pedir que no le manden más. El pie de cada PR y de cada issue la enlaza.
+- **La plantilla del workflow pide solo lectura por defecto** y da `contents: write` y `pull-requests: write` solo al job de Parche. Explica cómo fijar la Action a un commit en vez de `v0`.
+- **Las Actions de la CI, del release y de la plantilla quedan fijadas por SHA** (`actions/checkout` v7.0.1, `actions/setup-node` v7.1.0), con `dependabot.yml` para mantenerlas al día.
+- `package.json`: la descripción dice "cualquier API", la página es getparche.com y suma keywords de IA.
 
 ## 0.6.6 — 2026-10-20
 

@@ -1,6 +1,12 @@
 # Parche — Dependabot para APIs
 
 [![CI](https://github.com/Pepo08/parche/actions/workflows/ci.yml/badge.svg)](https://github.com/Pepo08/parche/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/parche-cli)](https://www.npmjs.com/package/parche-cli)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+> **In English.** Parche reads your code and inventories every third-party API it uses: SDKs, direct HTTP calls and AI model IDs. When a provider ships a dated change that affects you, it tells you the file and the line, or opens a small PR with a deterministic fix. Every changed file is parsed before the PR, and with `--verify` your own tests run too. What can't be inferred is never made up: the PR asks for it. Today's packs cover Argentina's ARCA e-invoicing change (due December 1, 2026), Mercado Pago Payments → Orders, and OpenAI and Anthropic model and parameter deprecations.
+>
+> Try it with `npx parche-cli scan .` (Node 22+): it runs locally, with no account and no telemetry ([security and data](SECURITY.md)). GitHub Action: `uses: Pepo08/parche@v0`. The rest of this README is in Spanish for now · [getparche.com](https://getparche.com) · hola@getparche.com
 
 Parche lee tu código y arma el inventario de **todas** las APIs de terceros que usás: SDKs (Stripe, Twilio, OpenAI, AWS, Mercado Pago, ARCA…), llamadas HTTP directas y modelos de IA. Lo cruza contra una base de **cambios de API verificados** y, cuando un proveedor cambia algo que te afecta, te avisa o abre un PR con el arreglo, explica qué cambió y por qué, y marca lo que necesita una persona. Ningún PR sale sin pasar la verificación. Las APIs de pagos y facturación de Latinoamérica son el fuerte, pero el inventario cubre cualquier API.
 
@@ -106,22 +112,7 @@ node bin/parche.js scan examples/saas-demo    # SaaS con Stripe, Twilio, OpenAI 
 node bin/parche.js scan examples/legacy-ia --upgrades   # OpenAI v3: qué se rompe al actualizar (usa la red)
 ```
 
-#### Sacar una versión
-
-Las versiones se publican solas desde GitHub Actions ([`release.yml`](.github/workflows/release.yml)) con [trusted publishing](https://docs.npmjs.com/trusted-publishers): npm confía en este repo y en ese workflow, sin tokens ni 2FA a mano. Desde `main` actualizado:
-
-```bash
-npm version 0.1.2 --no-git-tag-version            # cambia package.json y package-lock.json
-git commit -am "Parche 0.1.2"
-git tag -a v0.1.2 -m "Parche 0.1.2: qué cambió"   # el mensaje del tag es el texto del GitHub Release
-git push origin main v0.1.2
-```
-
-Con el tag, el workflow corre los tests, controla que la versión de `package.json` coincida con el tag y que el commit esté en `main`, publica `parche-cli` en npm (con provenance), mueve `v0` a esta versión (es la que usan los workflows con `Pepo08/parche@v0`) y crea el GitHub Release. Para notas largas, `git tag -a v0.1.2 -F notas.md`.
-
-- Solo dispara con versiones estables (`vX.Y.Z`); un tag como `v0.2.0-beta.1` no hace nada.
-- Si falla un paso después de publicar, "Re-run failed jobs" retoma: lo que ya está hecho se saltea.
-- Requiere, una sola vez, el Trusted Publisher en npmjs.com: `parche-cli` → Settings → Trusted publishing → GitHub Actions, con `Pepo08` / `parche` / `release.yml` y permiso para `npm publish`.
+Cómo contribuir, las reglas para el código y cómo se saca una versión: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Estados de cada hallazgo
 
@@ -148,6 +139,21 @@ Antes de commitear, Parche parsea **siempre** cada archivo modificado (JS/TS o P
 **Quién firma el commit:** `--author "Nombre <email>"` si lo pasás; si no, `PARCHE_GIT_NAME` y `PARCHE_GIT_EMAIL` si están; si no, tu identidad de git (`user.name` y `user.email`, también la que configure tu workflow); en GitHub Actions sin identidad, `github-actions[bot]`, el mismo que abre el PR. Si no hay ninguna, `parche pr` frena antes de tocar el repo. Antes de pushear, si el email no es un noreply de GitHub, avisa: va a quedar público en el commit del PR.
 
 **Copias de respaldo:** Parche no lee ni edita carpetas `BAK/`, `backup/`, `old/`, `_old/` y `deprecated/`, ni archivos como `factura copy.php`, `factura - Copy.js`, `factura.bak.php` o `factura-old.php`. El scan dice cuáles saltó, por si alguno es código que corre.
+
+## Seguridad y datos
+
+Parche corre en tu máquina o en tu runner. Tu código no sale de ahí, salvo el PR que abre en tu propio repo.
+
+| | |
+|---|---|
+| **Red** | `scan`, `fix` y `packs` no usan la red. `pr` llama a `api.github.com` para abrir el PR en tu repo y pushea su rama `parche/<pack>` (con `--force`, así solo reemplaza su propio PR anterior). `diff` y `scan --upgrades` bajan metadatos y paquetes de `registry.npmjs.org`, que ve qué paquetes y versiones consultás. Nada más. |
+| **Telemetría** | Ninguna. `parche feedback` escribe en `.parche/ledger.jsonl` de tu repo y queda ahí. |
+| **Qué ejecuta** | `git` y, solo con `--verify`, los tests de tu repo (`npm test`, `composer test` o `vendor/bin/phpunit`). |
+| **Qué escribe** | Tu working copy (solo `fix` y `pr`), `.parche/` (se agrega a `.git/info/exclude`) y, para `diff` y `--upgrades`, un caché en `~/.parche/cache`. |
+
+Para reportar una vulnerabilidad, y el detalle de todo esto: [`SECURITY.md`](SECURITY.md). Si te llegó un PR de Parche: [por qué lo recibiste](docs/por-que-recibi-este-pr.md).
+
+**Qué puede cambiar dentro de `v0`:** mientras Parche esté en 0.x, `Pepo08/parche@v0` y `npx parche-cli` reciben cada versión nueva. Una versión 0.x puede sumar packs, avisos y opciones. No cambia sin aviso en el CHANGELOG el formato de `.parche/inventory.json` (tiene `schemaVersion`), los nombres de los comandos ni el de los inputs de la Action. Si tu organización exige fijar las Actions, usá el commit de un release: `Pepo08/parche@<sha> # v0.6.7`.
 
 ## ARCA en PHP
 

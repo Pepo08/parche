@@ -109,10 +109,28 @@ test('sin --verify: la sintaxis se chequea igual y el PR dice dónde se corren l
   assert.match(prBody({ pack, findings, changed, verification: null, ciApproval: true }), approval);
   assert.doesNotMatch(prBody({ pack, findings, changed, verification: null }), approval, 'con otro token (o fuera de Actions) no se dice');
   assert.doesNotMatch(prBody({ pack, findings: [{ ...findings[0], status: 'needs-input' }], changed: [], verification: null, ciApproval: true }), approval, 'un issue no corre workflows');
+  // Quien recibe un PR o un issue de Parche tiene a dónde ir: qué es, cómo se revisó y cómo pedir que no manden más.
+  const why = 'https://github.com/Pepo08/parche/blob/main/docs/por-que-recibi-este-pr.md';
+  assert.ok(prBody({ pack, findings, changed, verification: null }).includes(why));
+  assert.ok(prBody({ pack, findings: [{ ...findings[0], status: 'needs-input' }], changed: [], verification: null }).includes(why));
+  assert.ok(fs.existsSync(path.join(path.dirname(BIN), '..', 'docs', 'por-que-recibi-este-pr.md')));
 });
 
 test('Action: el nombre para el Marketplace es "Parche API Changes" y avisa el token por defecto', () => {
   const action = fs.readFileSync(path.join(path.dirname(BIN), '..', 'action.yml'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(action, /^name: Parche API Changes$/m, 'sin "Dependabot" (función de GitHub) ni "Parche" a secas (usuario de GitHub): las reglas del Marketplace no los dejan');
   assert.match(action, /PARCHE_DEFAULT_TOKEN: \$\{\{ inputs\.token == github\.token \}\}/);
+});
+
+test('Confianza: plantilla con permisos por job, Actions fijadas por SHA y --version', () => {
+  const root = path.join(path.dirname(BIN), '..');
+  const template = fs.readFileSync(path.join(root, 'templates', 'github-workflow.yml'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(template, /^permissions:\n {2}contents: read$/m, 'a nivel workflow, solo lectura');
+  assert.match(template, /^ {4}permissions:\n {6}contents: write.*\n {6}pull-requests: write/m, 'la escritura, solo en el job');
+  for (const f of ['.github/workflows/ci.yml', '.github/workflows/release.yml', 'templates/github-workflow.yml']) {
+    const text = fs.readFileSync(path.join(root, f), 'utf8').replace(/\r\n/g, '\n');
+    for (const [, ref] of text.matchAll(/uses: (actions\/[\w-]+@\S+)/g)) assert.match(ref, /@[0-9a-f]{40}$/, `${f}: ${ref} fijada por SHA`);
+  }
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  assert.equal(execFileSync('node', [BIN, '--version'], { encoding: 'utf8' }).trim(), pkg.version);
 });

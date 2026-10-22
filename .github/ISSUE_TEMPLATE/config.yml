@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Reportar una vulnerabilidad
+    url: https://github.com/Pepo08/parche/security
+    about: No abras un issue público; ver SECURITY.md.
+  - name: Recibí un PR de Parche y tengo una pregunta
+    url: https://getparche.com
+    about: Qué es Parche y cómo se revisó el PR. También podés contestar en el mismo PR.
