@@ -111,8 +111,8 @@ test('sin --verify: la sintaxis se chequea igual y el PR dice dónde se corren l
   assert.doesNotMatch(prBody({ pack, findings: [{ ...findings[0], status: 'needs-input' }], changed: [], verification: null, ciApproval: true }), approval, 'un issue no corre workflows');
 });
 
-test('Action: el nombre para el Marketplace es "Parche" y avisa el token por defecto', () => {
-  const action = fs.readFileSync(path.join(path.dirname(BIN), '..', 'action.yml'), 'utf8');
-  assert.match(action, /^name: Parche$/m, 'sin "Dependabot" en el nombre: es una marca de GitHub');
+test('Action: el nombre para el Marketplace es "Parche API Changes" y avisa el token por defecto', () => {
+  const action = fs.readFileSync(path.join(path.dirname(BIN), '..', 'action.yml'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(action, /^name: Parche API Changes$/m, 'sin "Dependabot" (función de GitHub) ni "Parche" a secas (usuario de GitHub): las reglas del Marketplace no los dejan');
   assert.match(action, /PARCHE_DEFAULT_TOKEN: \$\{\{ inputs\.token == github\.token \}\}/);
 });

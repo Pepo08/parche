@@ -14,7 +14,7 @@ Pack de IA con la API version `2026-10-21` de Anthropic, que salió el 21/10 jun
 - **Sin repetir avisos:** lo que ya marca la regla de Claude 4.7 (un valor fuera de lo aceptado) sale una sola vez. En un modelo que todavía acepta otros valores, el aviso aclara que sacarlo cambia cómo responde y que la alternativa es dejar ese pedido en `2023-06-01`. Un archivo que fija `anthropic-version: 2023-06-01` no se avisa.
 - **Versión de Python desde `requirements.txt`:** el contexto del repo ahora también trae las versiones declaradas de Python y el rango tal como está escrito.
 - **PRs abiertos con el `GITHUB_TOKEN`:** GitHub deja sus workflows esperando aprobación. Cuando la Action corre con el token por defecto, el cuerpo del PR lo dice y explica cómo usar un token de GitHub App o uno personal para que la CI corra sola (README, "En GitHub Actions").
-- **La Action se llama "Parche"** (antes, "Parche — Dependabot para APIs"), para publicarla en el GitHub Marketplace: Dependabot es una marca de GitHub y queda solo en la descripción.
+- **La Action se llama "Parche API Changes"** (antes, "Parche — Dependabot para APIs"), para publicarla en el GitHub Marketplace. Sus reglas no aceptan un nombre igual a una función de GitHub (Dependabot, que queda solo en la descripción) ni a un usuario de GitHub (existe la cuenta `parche`).
 
 ### Cambios
 - La fuente del `TypeError` del SDK de Python pasa a ser su MIGRATION.md de la 1.0.0: la guía de migración a Opus 5.5 ya no lo menciona.
