@@ -27,6 +27,7 @@ Uso:
                                        pushea a ese remote (tu fork) y abre el PR contra origin.
                                        Con --author, firma con esa identidad y no con la de git
   parche feedback <dir> --pack <id> --outcome merged|edited|rejected [--note "..."]
+  parche --version                     La versión instalada (para reportar un error)
 `;
 
 function parseArgs(argv) {
@@ -140,6 +141,11 @@ function printFindings(result) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const [cmd, dirArg] = args._;
+  if (args.version || cmd === '-v') {
+    const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+    console.log(pkg.version);
+    return 0;
+  }
   if (!cmd || args.help) { console.log(HELP); return 0; }
 
   if (cmd === 'packs') {

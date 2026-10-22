@@ -1,6 +1,21 @@
 # Cambios
 
-Todas las versiones de `parche-cli` (npm) y de la Action `Pepo08/parche@v0`.
+Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1 y de la 0.6.0 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
+
+## Sin publicar
+
+Bases de confianza del repo: qué hace Parche con tu código, cómo reportar una vulnerabilidad y cómo contribuir.
+
+### Nuevo
+- **`SECURITY.md`:** cómo reportar una vulnerabilidad (en privado, primera respuesta en 14 días como máximo) y qué hace Parche en tu máquina o en tu runner: a qué hosts se conecta y con qué comando, que no tiene telemetría, qué ejecuta (tus tests, solo con `--verify`) y qué archivos escribe.
+- **README:** un bloque en inglés al principio, la sección "Seguridad y datos" y qué puede cambiar dentro de `v0`.
+- **`CONTRIBUTING.md`** (con el proceso para sacar una versión, que sale del README), **código de conducta**, plantillas de issue (falso positivo o aviso que falta, pedido de pack, error) y de PR.
+- **`parche --version`.**
+
+### Cambios
+- **La plantilla del workflow pide solo lectura por defecto** y da `contents: write` y `pull-requests: write` solo al job de Parche. Explica cómo fijar la Action a un commit en vez de `v0`.
+- **Las Actions de la CI, del release y de la plantilla quedan fijadas por SHA** (`actions/checkout` v7.0.1, `actions/setup-node` v7.1.0), con `dependabot.yml` para mantenerlas al día.
+- `package.json`: la descripción dice "cualquier API", la página es getparche.com y suma keywords de IA.
 
 ## 0.6.7 — 2026-10-21
 

@@ -1,0 +1,30 @@
+name: Pedido de pack
+description: Un cambio de API con fecha que Parche todavía no conoce.
+labels: ["pedido de pack"]
+body:
+  - type: input
+    id: proveedor
+    attributes:
+      label: Proveedor y API
+      description: Por ejemplo, "Stripe, API de pagos" o "ARCA, WSFEv1".
+    validations:
+      required: true
+  - type: textarea
+    id: cambio
+    attributes:
+      label: Qué cambia y desde cuándo
+    validations:
+      required: true
+  - type: input
+    id: fuente
+    attributes:
+      label: Fuente oficial
+      description: Link al changelog, la página de deprecaciones o la norma. Sin fuente oficial no hay pack.
+    validations:
+      required: true
+  - type: textarea
+    id: ejemplo
+    attributes:
+      label: Cómo se ve en el código (opcional)
+      description: Un fragmento inventado de una llamada afectada.
+      render: text

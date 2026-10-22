@@ -112,7 +112,20 @@ test('sin --verify: la sintaxis se chequea igual y el PR dice dónde se corren l
 });
 
 test('Action: el nombre para el Marketplace es "Parche" y avisa el token por defecto', () => {
-  const action = fs.readFileSync(path.join(path.dirname(BIN), '..', 'action.yml'), 'utf8');
+  const action = fs.readFileSync(path.join(path.dirname(BIN), '..', 'action.yml'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(action, /^name: Parche$/m, 'sin "Dependabot" en el nombre: es una marca de GitHub');
   assert.match(action, /PARCHE_DEFAULT_TOKEN: \$\{\{ inputs\.token == github\.token \}\}/);
+});
+
+test('Confianza: plantilla con permisos por job, Actions fijadas por SHA y --version', () => {
+  const root = path.join(path.dirname(BIN), '..');
+  const template = fs.readFileSync(path.join(root, 'templates', 'github-workflow.yml'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(template, /^permissions:\n {2}contents: read$/m, 'a nivel workflow, solo lectura');
+  assert.match(template, /^ {4}permissions:\n {6}contents: write.*\n {6}pull-requests: write/m, 'la escritura, solo en el job');
+  for (const f of ['.github/workflows/ci.yml', '.github/workflows/release.yml', 'templates/github-workflow.yml']) {
+    const text = fs.readFileSync(path.join(root, f), 'utf8').replace(/\r\n/g, '\n');
+    for (const [, ref] of text.matchAll(/uses: (actions\/[\w-]+@\S+)/g)) assert.match(ref, /@[0-9a-f]{40}$/, `${f}: ${ref} fijada por SHA`);
+  }
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  assert.equal(execFileSync('node', [BIN, '--version'], { encoding: 'utf8' }).trim(), pkg.version);
 });

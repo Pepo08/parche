@@ -1,0 +1,38 @@
+name: Falso positivo o aviso que falta
+description: Parche avisó algo que no aplica, o no avisó algo que sí.
+labels: ["pack"]
+body:
+  - type: input
+    id: pack
+    attributes:
+      label: Pack
+      description: El ID que aparece en el reporte o en el PR (por ejemplo, ai.model-retirements).
+    validations:
+      required: true
+  - type: dropdown
+    id: tipo
+    attributes:
+      label: Qué pasó
+      options:
+        - Avisó algo que no aplica (falso positivo)
+        - No avisó algo que sí aplica
+        - El arreglo del PR está mal
+    validations:
+      required: true
+  - type: textarea
+    id: codigo
+    attributes:
+      label: Código mínimo que lo reproduce
+      description: Un fragmento inventado alcanza. No pegues datos reales (CUIT, claves, tokens).
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: salida
+    attributes:
+      label: Qué dijo Parche y qué esperabas
+  - type: input
+    id: version
+    attributes:
+      label: Versión
+      description: La de `npx parche-cli --version` o la del release de la Action.

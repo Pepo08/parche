@@ -8,20 +8,25 @@ on:
     - cron: "17 11 * * 1" # lunes 8:17 (hora de Argentina)
   workflow_dispatch:
 
+# Por defecto, solo lectura. La escritura la pide el único job que la necesita.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   parche:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # pushear la rama parche/<pack>
+      pull-requests: write # abrir el PR
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
       - name: Instalar dependencias del proyecto (para correr sus tests antes de cada PR)
         run: npm ci
+      # v0 se mueve con cada release 0.x. Para fijar una versión, cambiá v0 por el commit de ese release
+      # (https://github.com/Pepo08/parche/releases), por ejemplo: Pepo08/parche@<sha> # v0.6.7
       - uses: Pepo08/parche@v0
