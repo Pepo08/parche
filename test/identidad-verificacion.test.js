@@ -116,9 +116,9 @@ test('sin --verify: la sintaxis se chequea igual y el PR dice dónde se corren l
   assert.ok(fs.existsSync(path.join(path.dirname(BIN), '..', 'docs', 'por-que-recibi-este-pr.md')));
 });
 
-test('Action: el nombre para el Marketplace es "Parche" y avisa el token por defecto', () => {
+test('Action: el nombre para el Marketplace es "Parche API Changes" y avisa el token por defecto', () => {
   const action = fs.readFileSync(path.join(path.dirname(BIN), '..', 'action.yml'), 'utf8').replace(/\r\n/g, '\n');
-  assert.match(action, /^name: Parche$/m, 'sin "Dependabot" en el nombre: es una marca de GitHub');
+  assert.match(action, /^name: Parche API Changes$/m, 'sin "Dependabot" (función de GitHub) ni "Parche" a secas (usuario de GitHub): las reglas del Marketplace no los dejan');
   assert.match(action, /PARCHE_DEFAULT_TOKEN: \$\{\{ inputs\.token == github\.token \}\}/);
 });
 
