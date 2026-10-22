@@ -10,3 +10,7 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
+    ignore:
+      # TypeScript 7 es nativo y no trae la API de JavaScript que usa el diff de SDKs (decisión D27): se queda en 6.x.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
