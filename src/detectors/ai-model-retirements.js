@@ -28,6 +28,17 @@ const entry = (v) => (typeof v === 'string' ? { date: v, replacement: null } : v
 const quoted = (line, id) => line.includes(`'${id}'`) || line.includes(`"${id}"`) || line.includes(`\`${id}\``);
 const replacementText = ({ replacement, replacement_es: prose, note_es: note }) =>
   (replacement ? ` Reemplazo recomendado: \`${replacement}\`.` : prose ? ` Reemplazo recomendado: ${prose}.` : '') + (note ? ` ${note}` : '');
+// `aliasOf`: el snapshot al que apunta un alias de Anthropic (`model_aliases` del pack). Sin alias, el texto es el de siempre.
+const retiredMessage = (model, e, inCall, today, aliasOf) => {
+  const past = e.date <= today;
+  const repl = replacementText(e);
+  const when = past ? `fue retirado el ${e.date}` : `se retira el ${e.date}`;
+  return inCall
+    ? `El modelo \`${model}\`${aliasOf ? ` (alias de \`${aliasOf}\`)` : ''} ${when}${past ? ': las llamadas ya fallan' : ''}.${repl} Corré tus pruebas de prompts antes de cambiarlo.`
+    : `Aparece \`${model}\` (${aliasOf ? `alias de \`${aliasOf}\`, ` : ''}${when}) fuera de una llamada: si es una lista o un catálogo de modelos, actualizalo.${repl}`;
+};
+const floorMessage = (model, date, aliasOf) =>
+  `El modelo \`${model}\`${aliasOf ? ` (alias de \`${aliasOf}\`)` : ''} puede retirarse a partir del ${date} (fecha mínima publicada; hay 60 días de aviso). Planificá el reemplazo.`;
 const endpointHit = (ep, l) => {
   if (ep.pattern) return l.includes(ep.pattern) ? ep.pattern : null;
   const m = l.match(ep.re);
@@ -41,7 +52,7 @@ const milestonesText = (ep, today) => (ep.milestones || [])
 export default function detect({ source, file, pack, today = new Date().toISOString().slice(0, 10), context }) {
   const findings = [];
   const usages = [];
-  const { retired_models: retired, retirement_floors: floors, retired_endpoints: endpoints } = pack.detect;
+  const { retired_models: retired, retirement_floors: floors, retired_endpoints: endpoints, model_aliases: aliases = {} } = pack.detect;
   const fineTunes = new Map();
   for (const [name, e] of Object.entries(pack.detect.retired_fine_tunes || {})) for (const b of e.bases) fineTunes.set(b, { name, ...e });
   const azure = AZURE.test(source);
@@ -53,16 +64,21 @@ export default function detect({ source, file, pack, today = new Date().toISOStr
     const inCall = MODEL_CONTEXT.test(l);
     for (const [model, raw] of Object.entries(retired)) {
       if (!quoted(l, model)) continue;
-      const e = entry(raw);
-      const { date } = e;
-      const past = date <= today;
-      const repl = replacementText(e);
-      const when = past ? `fue retirado el ${date}` : `se retira el ${date}`;
-      const message = inCall
-        ? `El modelo \`${model}\` ${when}${past ? ': las llamadas ya fallan' : ''}.${repl} Corré tus pruebas de prompts antes de cambiarlo.`
-        : `Aparece \`${model}\` (${when}) fuera de una llamada: si es una lista o un catálogo de modelos, actualizalo.${repl}`;
-      findings.push({ pack: PACK, file, line, status: 'detect-only', message });
+      findings.push({ pack: PACK, file, line, status: 'detect-only', message: retiredMessage(model, entry(raw), inCall, today) });
       usages.push({ provider: 'ia', op: `modelo ${model}`, line });
+    }
+    // Alias de Anthropic de antes de la generación 4.6 (`claude-sonnet-4-5`): apuntan al snapshot fechado más reciente y
+    // tienen su fecha (Model IDs and versioning). Se comparan enteros entre comillas: `'claude-sonnet-4-5'` no es
+    // `'claude-sonnet-4-5-20250929'` (ese ya se avisa arriba), ni el ID de Bedrock (`anthropic.claude-…`) o el de Google
+    // Cloud (`claude-sonnet-4-5@20250929`), que tienen su propio calendario.
+    for (const [alias, target] of Object.entries(aliases)) {
+      if (!quoted(l, alias)) continue;
+      let message;
+      if (retired[target]) message = retiredMessage(alias, entry(retired[target]), inCall, today, target);
+      else if (floors[target]) message = floorMessage(alias, floors[target], target);
+      else continue;
+      findings.push({ pack: PACK, file, line, status: 'detect-only', message });
+      usages.push({ provider: 'ia', op: `modelo ${alias}`, line });
     }
     for (const [, base] of l.matchAll(FINE_TUNE)) {
       const ft = fineTunes.get(base);
@@ -78,8 +94,7 @@ export default function detect({ source, file, pack, today = new Date().toISOStr
     }
     for (const [model, date] of Object.entries(floors)) {
       if (!l.includes(model)) continue;
-      findings.push({ pack: PACK, file, line, status: 'detect-only',
-        message: `El modelo \`${model}\` puede retirarse a partir del ${date} (fecha mínima publicada; hay 60 días de aviso). Planificá el reemplazo.` });
+      findings.push({ pack: PACK, file, line, status: 'detect-only', message: floorMessage(model, date) });
       usages.push({ provider: 'ia', op: `modelo ${model}`, line });
     }
     for (const ep of eps) {
