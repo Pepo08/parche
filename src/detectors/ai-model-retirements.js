@@ -38,7 +38,7 @@ const endpointHit = (ep, l) => {
 const milestonesText = (ep, today) => (ep.milestones || [])
   .map((m) => (m.date <= today ? ` Desde el ${m.date} ${m.past_es}.` : ` El ${m.date} ${m.future_es}.`)).join('');
 
-export default function detect({ source, file, pack, today = new Date().toISOString().slice(0, 10) }) {
+export default function detect({ source, file, pack, today = new Date().toISOString().slice(0, 10), context }) {
   const findings = [];
   const usages = [];
   const { retired_models: retired, retirement_floors: floors, retired_endpoints: endpoints } = pack.detect;
@@ -94,9 +94,9 @@ export default function detect({ source, file, pack, today = new Date().toISOStr
       usages.push({ provider: 'ia', op: `OpenAI ${ep.api_es}`, line });
     }
   });
-  // `temperature`, `top_p` y `top_k` en Claude 4.7 y posteriores: el modelo y el parámetro pueden estar en líneas
+  // `temperature`, `top_p` y `top_k` (Claude 4.7 y posteriores, API version 2026-10-21): el modelo y el parámetro pueden estar en líneas
   // distintas del pedido, así que va aparte (anthropic-sampling-params.js).
-  const sampling = samplingParams({ source, file, pack });
+  const sampling = samplingParams({ source, file, pack, context });
   findings.push(...sampling.findings);
   usages.push(...sampling.usages);
   return { output: null, findings, usages };

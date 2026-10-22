@@ -1,6 +1,6 @@
 {
   "id": "ai.model-retirements",
-  "version": "2026.10.20",
+  "version": "2026.10.21",
   "provider": "Modelos de IA",
   "title": "Modelos, endpoints y parámetros de IA retirados o por retirarse",
   "kind": "retirement",
@@ -14,7 +14,12 @@
     { "title": "Anthropic: Model deprecations, API parameter deprecations (temperature, top_p y top_k en Claude 4.7 y posteriores)", "url": "https://platform.claude.com/docs/en/about-claude/model-deprecations#api-parameter-deprecations" },
     { "title": "Anthropic: API reference, Messages (valores que se aceptan: temperature 1, top_p desde 0.99, top_k ninguno)", "url": "https://platform.claude.com/docs/en/api/messages/create" },
     { "title": "Anthropic: Claude Haiku 5.5 migration guide (top_p solo 0.99; temperature y top_p juntos dan 400)", "url": "https://platform.claude.com/docs/en/models/haiku-5-5/migration-guide#remove-sampling-parameters" },
-    { "title": "Anthropic: Claude Opus 5.5 migration guide (Opus 4.7 y posteriores, Sonnet 5; SDK de Python 1.0 y TypeError)", "url": "https://platform.claude.com/docs/en/models/opus-5-5/migration-guide" },
+    { "title": "Anthropic: Claude Opus 5.5 migration guide (Opus 4.7 y posteriores, Sonnet 5)", "url": "https://platform.claude.com/docs/en/models/opus-5-5/migration-guide" },
+    { "title": "Anthropic: Migrating to API version 2026-10-21 (temperature, top_p y top_k dan 400 con cualquier modelo; primera versión de cada SDK que la usa)", "url": "https://platform.claude.com/docs/en/api/migration-2026-10-21" },
+    { "title": "Anthropic: Versions (anthropic-version; historial de la API version 2026-10-21)", "url": "https://platform.claude.com/docs/en/api/versioning" },
+    { "title": "anthropic-sdk-python: MIGRATION.md de la 1.0.0 (temperature, top_p y top_k salen de los métodos: TypeError)", "url": "https://github.com/anthropics/anthropic-sdk-python/blob/v1.0.0/MIGRATION.md" },
+    { "title": "anthropic-sdk-python: release v2.0.0 del 21/10/2026 (API version 2026-10-21)", "url": "https://github.com/anthropics/anthropic-sdk-python/releases/tag/v2.0.0" },
+    { "title": "anthropic-sdk-typescript: release sdk-v1.0.0 del 21/10/2026 (API version 2026-10-21)", "url": "https://github.com/anthropics/anthropic-sdk-typescript/releases/tag/sdk-v1.0.0" },
     { "title": "Anthropic: Claude Sonnet 5.5 migration guide (Sonnet 4.6 y anteriores y Haiku 4.5 aceptan los tres)", "url": "https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide" },
     { "title": "Anthropic: Claude Fable 5.1 and Claude Mythos 5.1 migration guide (la restricción de muestreo se mantiene)", "url": "https://platform.claude.com/docs/en/models/fable-5-1/migration-guide" },
     { "title": "OpenAI: Deprecations", "url": "https://developers.openai.com/api/docs/deprecations" },
@@ -189,7 +194,21 @@
       },
       "recommendation_es": "sacar {params} del pedido y guiar el comportamiento del modelo con el prompt",
       "temperature_zero_es": "Si estaba en 0 para tener respuestas determinísticas: según Anthropic, eso nunca garantizó respuestas idénticas.",
-      "python_sdk_es": "Además, el SDK de Python 1.0 o posterior ya no tiene `temperature`, `top_p` ni `top_k`: pasarlos tira `TypeError`."
+      "python_sdk_es": "Además, el SDK de Python 1.0 o posterior ya no tiene `temperature`, `top_p` ni `top_k`: pasarlos tira `TypeError`.",
+      "api_version": {
+        "version": "2026-10-21",
+        "last_verified": "2026-10-21",
+        "released_es": "21/10/2026",
+        "sdks": {
+          "npm": { "package": "@anthropic-ai/sdk", "first": "1.0.0" },
+          "pypi": { "package": "anthropic", "first": "2.0.0", "typeerror_from": "1.0.0" }
+        },
+        "removed_es": "esa versión de la API eliminó `temperature`, `top_p` y `top_k`: con cualquier modelo devuelven un error 400, aunque tengan su valor por defecto",
+        "recommendation_es": "sacá {param} del pedido y guiá el comportamiento del modelo con el prompt",
+        "typescript_es": "En TypeScript, además, el SDK 1.0 ya no tiene el parámetro en sus tipos.",
+        "older_models": ["claude-sonnet-4-6", "claude-sonnet-4-5", "claude-sonnet-4-2", "claude-opus-4-6", "claude-opus-4-5", "claude-opus-4-1", "claude-opus-4-2", "claude-haiku-4-5", "claude-3"],
+        "older_model_es": "Con {model}, que todavía acepta otros valores, sacarlo cambia cómo responde y ningún otro ajuste lo reemplaza: si dependés de ese valor, ese pedido tiene que quedarse en la API version `2023-06-01`."
+      }
     },
     "retired_endpoints": [
       { "pattern": ".beta.assistants", "retired": "2026-08-26", "api_es": "Assistants API", "replacement_es": "Responses API + Conversations API", "provider": "openai" },

@@ -1,5 +1,5 @@
-name: Parche — Dependabot para APIs
-description: Detecta cambios de APIs de terceros (ARCA, Mercado Pago, modelos de IA) que afectan tu código y abre un PR con el arreglo.
+name: Parche
+description: Dependabot para APIs. Detecta cambios de APIs de terceros que afectan tu código (ARCA, Mercado Pago, OpenAI, Anthropic) y abre un PR.
 author: Joaquín González
 branding:
   icon: tool
@@ -19,7 +19,7 @@ inputs:
     description: Armar las ramas y los cuerpos de los PRs sin abrirlos ('true' o 'false').
     default: 'false'
   token:
-    description: Token con permiso para pushear ramas y abrir PRs.
+    description: Token con permiso para pushear ramas y abrir PRs. Con el GITHUB_TOKEN por defecto, los workflows del PR esperan aprobación; con un token de GitHub App o uno personal, corren solos.
     default: ${{ github.token }}
 
 runs:
@@ -33,6 +33,7 @@ runs:
       working-directory: ${{ inputs.path }}
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
+        PARCHE_DEFAULT_TOKEN: ${{ inputs.token == github.token }}
         PARCHE_PACK: ${{ inputs.pack }}
         PARCHE_VERIFY: ${{ inputs.verify }}
         PARCHE_DRY_RUN: ${{ inputs.dry-run }}

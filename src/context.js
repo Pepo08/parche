@@ -1,7 +1,8 @@
 // Contexto del repo para los packs: lo que un archivo solo no puede saber.
 // Lo arma el motor una vez, antes de correr los packs, y cada transform lo recibe como `context`.
 //
-//   versions:   versión instalada de cada dependencia (de los lockfiles, de node_modules o del rango declarado)
+//   versions:   versión instalada de cada dependencia (de los lockfiles, de node_modules o del rango declarado;
+//               en Python, solo el rango de requirements.txt). Si sale del rango, `range` trae el texto declarado.
 //   fieldFiles: archivos que ya usan CondicionIVAReceptorId (el repo ya empezó a migrar)
 //   staleWsdl:  WSDL de WSFEv1 del repo que no tienen CondicionIVAReceptorId
 //   arcaLibs:   librerías de ARCA del repo con lo que se sabe de si el campo llega a viajar
@@ -20,8 +21,10 @@ const clean = (v) => String(v || '').replace(/^v/, '');
 
 // Versiones instaladas por ecosistema: lockfiles (en cualquier carpeta) → node_modules de la raíz → rango declarado.
 export function readVersions(root, manifests) {
-  const out = { npm: {}, composer: {} };
-  const set = (eco, name, version, source) => { if (name && version && !out[eco][name]) out[eco][name] = { version: clean(version), source }; };
+  const out = { npm: {}, composer: {}, pypi: {} };
+  const set = (eco, name, version, source, range) => {
+    if (name && version && !out[eco][name]) out[eco][name] = { version: clean(version), source, ...(range ? { range } : {}) };
+  };
   for (const rel of findFiles(root, (n) => n === 'package-lock.json' || n === 'composer.lock')) {
     const lock = readJson(path.join(root, rel));
     if (!lock) continue;
@@ -39,14 +42,18 @@ export function readVersions(root, manifests) {
     const pkg = readJson(path.join(root, 'node_modules', name, 'package.json'));
     if (pkg?.version) set('npm', name, pkg.version, 'node_modules');
   }
-  for (const eco of ['npm', 'composer']) {
+  for (const eco of ['npm', 'composer', 'pypi']) {
     for (const [name, range] of Object.entries(manifests?.[eco] || {})) {
       const m = String(range).match(/(\d+)(?:\.(\d+))?(?:\.(\d+))?/);
-      if (m) set(eco, name, `${m[1]}.${m[2] || 0}.${m[3] || 0}`, 'declarada');
+      if (m) set(eco, name, `${m[1]}.${m[2] || 0}.${m[3] || 0}`, 'declarada', String(range));
     }
   }
   return out;
 }
+
+// ¿Un rango declarado deja instalar versiones mayores nuevas? `>=0.40`, `>0.3`, `*`, `x` o `latest` sin tope (`<`):
+// una instalación nueva trae la última versión. `^0.137.0`, `~1.2`, `==1.4.0` o `~=1.2` no.
+export const openRange = (range) => /^\s*(?:>=?|\*|x|latest)/i.test(range || '') && !/</.test(range || '');
 
 // Qué se sabe, por librería, de si CondicionIVAReceptorId llega a ARCA (verificado en su código el 16/10/2026):
 //   afip.js / afip.php ≥ 1.0: mandan JSON a la API de Afip SDK → sí.
@@ -90,4 +97,4 @@ export function buildContext(root, files, manifests) {
   return { versions, fieldFiles, staleWsdl, arcaLibs: arcaLibraries(versions) };
 }
 
-export const emptyContext = () => ({ versions: { npm: {}, composer: {} }, fieldFiles: [], staleWsdl: [], arcaLibs: [] });
+export const emptyContext = () => ({ versions: { npm: {}, composer: {}, pypi: {} }, fieldFiles: [], staleWsdl: [], arcaLibs: [] });
