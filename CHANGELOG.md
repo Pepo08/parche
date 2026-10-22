@@ -2,6 +2,21 @@
 
 Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1 y de la 0.6.0 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
 
+## 0.6.8 — 2026-10-22
+
+Pack de IA: los alias de Claude que apuntan a un modelo con fecha. Antes de la generación 4.6, la API de Claude acepta alias cortos que apuntan al snapshot fechado más reciente de cada versión (página "Model IDs and versioning", verificada el 22/10/2026). La 0.6.7 avisaba `claude-sonnet-4-5-20250929`, que se retira el 30/11/2026, pero no `claude-sonnet-4-5`, que es el mismo modelo.
+
+### Nuevo
+- **`claude-sonnet-4-5`:** se avisa como su snapshot, con la fecha (30/11/2026) y el reemplazo que recomienda Anthropic (`claude-sonnet-5-5`). El aviso nombra el snapshot: "El modelo `claude-sonnet-4-5` (alias de `claude-sonnet-4-5-20250929`) se retira el 2026-11-30".
+- **`claude-opus-4-5` y `claude-haiku-4-5`:** se avisan con la fecha mínima de retiro de su snapshot, igual que los IDs fechados.
+- Los alias viven en el pack (`model_aliases`), cada uno con la página del modelo como fuente: sumar otro es agregar una línea.
+
+### Sin cambios
+- Los IDs de Amazon Bedrock (`anthropic.claude-…`) y de Google Cloud (`claude-sonnet-4-5@20250929`) no se marcan: esas plataformas tienen su propio calendario de retiros.
+
+### Todavía no cubre
+- Los alias de modelos ya retirados (`claude-3-5-sonnet-latest`, `claude-3-7-sonnet-latest` y otros): la documentación actual de Anthropic ya no los nombra, y sin fuente no se avisan.
+
 ## 0.6.7 — 2026-10-21
 
 Pack de IA con la API version `2026-10-21` de Anthropic, que salió el 21/10 junto con el SDK de TypeScript 1.0.0 y el de Python 2.0.0: elimina `temperature`, `top_p` y `top_k` para cualquier modelo, y un pedido que los manda devuelve un error 400 aunque tengan su valor por defecto (guía "Migrating to API version 2026-10-21" y página de deprecaciones, verificadas el 21/10). Los SDK anteriores siguen mandando `2023-06-01`, así que hoy casi nada se rompe: se rompe con la próxima suba del SDK. Como siempre, Parche avisa y no toca el código. Esta versión trae además las bases de confianza del repo (al final).

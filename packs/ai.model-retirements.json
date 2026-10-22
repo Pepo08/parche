@@ -1,6 +1,6 @@
 {
   "id": "ai.model-retirements",
-  "version": "2026.10.21",
+  "version": "2026.10.22",
   "provider": "Modelos de IA",
   "title": "Modelos, endpoints y parámetros de IA retirados o por retirarse",
   "kind": "retirement",
@@ -11,6 +11,10 @@
   "why_es": "Los proveedores de modelos retiran IDs de modelo y endpoints con algunas semanas o meses de aviso. Después de la fecha, las llamadas fallan. Parche no reemplaza el modelo automáticamente porque cambiar de modelo cambia el comportamiento: te avisa, te dice la fecha y el reemplazo que recomienda el proveedor. También avisa los parámetros que los modelos nuevos rechazan, como `temperature`, `top_p` y `top_k` en Claude 4.7 y posteriores.",
   "sources": [
     { "title": "Anthropic: Model deprecations", "url": "https://platform.claude.com/docs/en/about-claude/model-deprecations" },
+    { "title": "Anthropic: Model IDs and versioning (antes de la generación 4.6, el alias apunta al snapshot fechado más reciente)", "url": "https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions" },
+    { "title": "Anthropic: Claude Sonnet 4.5 (alias claude-sonnet-4-5; se retira el 30/11/2026)", "url": "https://platform.claude.com/docs/en/models/sonnet-4-5/overview" },
+    { "title": "Anthropic: Claude Opus 4.5 (alias claude-opus-4-5)", "url": "https://platform.claude.com/docs/en/models/opus-4-5/overview" },
+    { "title": "Anthropic: Claude Haiku 4.5 (alias claude-haiku-4-5)", "url": "https://platform.claude.com/docs/en/models/haiku-4-5/overview" },
     { "title": "Anthropic: Model deprecations, API parameter deprecations (temperature, top_p y top_k en Claude 4.7 y posteriores)", "url": "https://platform.claude.com/docs/en/about-claude/model-deprecations#api-parameter-deprecations" },
     { "title": "Anthropic: API reference, Messages (valores que se aceptan: temperature 1, top_p desde 0.99, top_k ninguno)", "url": "https://platform.claude.com/docs/en/api/messages/create" },
     { "title": "Anthropic: Claude Haiku 5.5 migration guide (top_p solo 0.99; temperature y top_p juntos dan 400)", "url": "https://platform.claude.com/docs/en/models/haiku-5-5/migration-guide#remove-sampling-parameters" },
@@ -169,6 +173,11 @@
       "ft-o4-mini-2025-04-16": { "date": "2026-10-23", "replacement": "gpt-5.6-terra", "bases": ["o4-mini-2025-04-16", "o4-mini"] },
       "ft-babbage-002": { "date": "2026-10-23", "replacement": "gpt-5.6-terra", "bases": ["babbage-002"] },
       "ft-davinci-002": { "date": "2026-10-23", "replacement": "gpt-5.6-terra", "bases": ["davinci-002"] }
+    },
+    "model_aliases": {
+      "claude-sonnet-4-5": "claude-sonnet-4-5-20250929",
+      "claude-opus-4-5": "claude-opus-4-5-20251101",
+      "claude-haiku-4-5": "claude-haiku-4-5-20251001"
     },
     "retirement_floors": {
       "claude-haiku-4-5-20251001": "2026-10-15",
