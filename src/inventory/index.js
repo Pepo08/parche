@@ -126,6 +126,14 @@ export function buildInventory({ repo, manifests, fileScans, packs }) {
 }
 
 // Nombre corto para mostrar una API en el reporte y en la CLI.
+// Qué decir de un SDK sin operaciones: en JS/TS se buscaron los usos y no aparecieron; en PHP y Python los usos todavía
+// no se buscan (solo se lee el manifiesto), y "sin usos encontrados" sonaba a que no se usa (sesión del 23/10).
+const NOT_SCANNED = { composer: ['composer.json', 'PHP'], pypi: ['requirements.txt', 'Python'] };
+export function noUsesLabel(api) {
+  const ns = api.kind === 'sdk' && NOT_SCANNED[api.ecosystem];
+  return ns ? `declarada en ${ns[0]}; los usos en ${ns[1]} todavía no se analizan` : 'declarada, sin usos encontrados';
+}
+
 export function apiLabel(api) {
   if (api.kind === 'sdk') return api.provider ? `${api.provider} · ${api.package}` : api.package;
   if (api.kind === 'http') return api.provider ? `${api.provider} · ${api.host}` : api.host;

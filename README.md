@@ -91,7 +91,9 @@ Para que corra todas las semanas, copiá [`templates/github-workflow.yml`](templ
     # dry-run: 'true'                          # opcional: armar las ramas sin abrir PRs
 ```
 
-El workflow necesita `permissions: contents: write` y `pull-requests: write`.
+El workflow necesita `permissions: contents: write` y `pull-requests: write`. Antes de Parche, la plantilla instala las dependencias de tu proyecto para que corran sus tests: `npm ci` si hay `package-lock.json` y `composer install` si hay `composer.json` (Composer viene en los runners de Ubuntu de GitHub). Así anda igual en un repo de Node y en uno de PHP.
+
+Lo que no abre un PR también se ve en la corrida: los avisos de solo detección (modelos de IA que se retiran, por ejemplo) y lo que quedó sin PR porque falta un dato de tu negocio aparecen en el **resumen del job** y como **anotaciones** con el archivo y la línea (GitHub muestra las primeras 10; el resumen las tiene todas).
 
 Con el `GITHUB_TOKEN` por defecto, GitHub deja los workflows del PR que abre Parche esperando aprobación: alguien con permiso de escritura tiene que tocar **Approve workflows to run** (el cuerpo del PR lo avisa). Para que tu CI corra sola sobre esos PRs, pasale a la Action un token de una GitHub App o un token personal con permiso de escritura en `contents` y `pull-requests`:
 

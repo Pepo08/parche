@@ -1,5 +1,5 @@
 // Reporte del scan y cuerpo del PR, en castellano.
-import { apiLabel } from './inventory/index.js';
+import { apiLabel, noUsesLabel } from './inventory/index.js';
 
 const LABEL ={
   auto: '✅ automático',
@@ -62,7 +62,7 @@ export function scanReport({ inventory, findings, packs, changed, upgrades = nul
     const KIND = { sdk: 'SDK', http: 'HTTP directo', 'ai-model': 'Modelos de IA' };
     out.push('| Tipo | API | Rubro | Confianza | Operaciones (usos) | Pack |', '|---|---|---|---|---|---|');
     for (const api of inventory.apis) {
-      const ops = api.operations.map((o) => `\`${o.op}\` ×${o.count}`).join(', ') || 'declarada, sin usos encontrados';
+      const ops = api.operations.map((o) => `\`${o.op}\` ×${o.count}`).join(', ') || noUsesLabel(api);
       out.push(`| ${KIND[api.kind]} | ${apiLabel(api)} | ${api.category || '—'} | ${api.confidence} | ${ops} | ${api.packs.length ? 'sí' : '—'} |`);
     }
     out.push('');
