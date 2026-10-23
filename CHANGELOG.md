@@ -2,6 +2,19 @@
 
 Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1 y de la 0.6.0 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
 
+## 0.6.9 — 2026-10-23
+
+La Action muestra lo que no abre un PR, y la plantilla del workflow anda en repos PHP. Salió de probar cada comando sobre los ejemplos antes de mandar los primeros mensajes de venta.
+
+### Nuevo
+- **Resumen del job y anotaciones en GitHub Actions:** `parche pr` escribe en el resumen de la corrida (`$GITHUB_STEP_SUMMARY`) los PRs que abrió, lo que quedó sin PR (por ejemplo, una factura A a un CUIT, donde falta la condición frente al IVA del cliente) y los avisos de los packs de solo detección, como un modelo de IA que se retira. Las primeras 10 también salen como anotaciones con el archivo y la línea. Hasta la 0.6.8, `pr` salteaba los packs sin arreglo y la Action no mostraba los avisos de IA.
+- **Fuera de GitHub Actions,** `parche pr` imprime al final los avisos de solo detección ("Avisos sin PR").
+
+### Cambios
+- **Plantilla del workflow (`templates/github-workflow.yml`):** `npm ci` corre solo si hay `package-lock.json`, y `composer install` solo si hay `composer.json`. Antes, en un repo PHP el workflow fallaba en el primer paso.
+- **Inventario en PHP y Python:** un SDK declarado en `composer.json` o `requirements.txt` dice "los usos en PHP (o Python) todavía no se analizan", en vez de "sin usos encontrados", que sonaba a que no se usa.
+- La CI prueba la Action también sobre un repo PHP (copia de `examples/tienda-php`).
+
 ## 0.6.8 — 2026-10-22
 
 Pack de IA: los alias de Claude que apuntan a un modelo con fecha. Antes de la generación 4.6, la API de Claude acepta alias cortos que apuntan al snapshot fechado más reciente de cada versión (página "Model IDs and versioning", verificada el 22/10/2026). La 0.6.7 avisaba `claude-sonnet-4-5-20250929`, que se retira el 30/11/2026, pero no `claude-sonnet-4-5`, que es el mismo modelo.

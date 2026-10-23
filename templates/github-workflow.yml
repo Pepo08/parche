@@ -25,8 +25,16 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-      - name: Instalar dependencias del proyecto (para correr sus tests antes de cada PR)
+      # Las dependencias del proyecto, para correr sus tests antes de cada PR. Cada paso corre solo si el repo tiene
+      # ese archivo: en un repo PHP no hay package-lock.json y `npm ci` fallaría.
+      - name: Instalar dependencias de Node
+        if: hashFiles('package-lock.json') != ''
         run: npm ci
+      # Composer viene instalado en los runners de Ubuntu de GitHub. Si tu proyecto pide otra versión de PHP,
+      # agregá antes un paso que la instale.
+      - name: Instalar dependencias de PHP
+        if: hashFiles('composer.json') != ''
+        run: composer install --no-interaction --no-progress
       # v0 se mueve con cada release 0.x. Para fijar una versión, cambiá v0 por el commit de ese release
       # (https://github.com/Pepo08/parche/releases), por ejemplo: Pepo08/parche@<sha> # v0.6.7
       - uses: Pepo08/parche@v0

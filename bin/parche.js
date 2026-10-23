@@ -9,8 +9,9 @@ import { verify } from '../src/verify.js';
 import * as git from '../src/git.js';
 import { parseGithubRemote, openPullRequest } from '../src/github.js';
 import { record } from '../src/ledger.js';
-import { apiLabel } from '../src/inventory/index.js';
+import { apiLabel, noUsesLabel } from '../src/inventory/index.js';
 import { isTestFile } from '../src/paths.js';
+import { stepSummary, annotations, byPack, workspacePrefix } from '../src/actions.js';
 
 const HELP = `parche — Dependabot para APIs
 
@@ -67,7 +68,7 @@ function printInventory(inventory) {
     const ops = api.operations.map((o) => (o.count > 1 ? `${o.op} ×${o.count}` : o.op));
     const shown = ops.length > 4 ? [...ops.slice(0, 4), `+${ops.length - 4} más`] : ops;
     const packs = api.packs.length ? '  · con pack' : '';
-    console.log(`  ${KIND[api.kind]}  ${apiLabel(api).padEnd(38)} ${api.confidence.padEnd(5)}  ${shown.join(', ') || '(declarada, sin usos encontrados)'}${packs}`);
+    console.log(`  ${KIND[api.kind]}  ${apiLabel(api).padEnd(38)} ${api.confidence.padEnd(5)}  ${shown.join(', ') || `(${noUsesLabel(api)})`}${packs}`);
   }
   if (inventory.unresolved.length) {
     console.log(`  + ${inventory.unresolved.length} llamada(s) HTTP con URL dinámica (no se sabe a qué host van; detalle en el reporte)`);
@@ -225,6 +226,9 @@ async function main() {
     const packs = loadPacks().filter((p) => p.codemod && (!packIds || packIds.includes(p.id)));
     // A dónde se pushea: origin, o el fork de quien abre el PR (--push-remote fork). El PR se abre contra origin.
     const pushRemote = typeof args['push-remote'] === 'string' ? args['push-remote'] : 'origin';
+    // Para el resumen del job en GitHub Actions: los PRs de esta corrida y lo que quedó sin PR.
+    const opened = [];
+    const withoutPr = [];
     for (const pack of packs) {
       const preview = run(root, { write: false, packIds: [pack.id] });
       if (!preview.findings.length) continue;
@@ -258,6 +262,7 @@ async function main() {
           console.log(`  ${summary(result.findings)}`);
           console.log(`  ${why[0].toUpperCase()}${why.slice(1)}; queda como issue o reporte: ${bodyPath}`);
           record(root, { type: 'report-only', pack: pack.id, findings: c, reason: why });
+          withoutPr.push({ pack, findings: result.findings });
           continue;
         }
         const draft = !!(c['needs-review'] || c['needs-input'] || c.blocked);
@@ -277,6 +282,7 @@ async function main() {
         } else {
           console.log(`  Modo prueba: no se abrió el PR${draft ? ' (iría como borrador por tener ítems para revisar)' : ''}.`);
         }
+        opened.push({ title, url, draft });
         record(root, { type: 'pr', pack: pack.id, packVersion: pack.version, branch, sha, url, draft, files: changedFiles, findings: c,
           partial: result.findings.filter((f) => f.partial).length });
       } finally {
@@ -284,6 +290,19 @@ async function main() {
         git.checkout(root, base);
         if (!keepBranch) git.deleteBranch(root, branch);
       }
+    }
+    // Los packs de solo detección (IA) no abren PR: sus avisos se muestran acá y, en GitHub Actions, en el resumen del
+    // job y como anotaciones, junto con lo que quedó sin PR. Antes `pr` los salteaba y en la Action no se veían (D67).
+    const detectPacks = loadPacks().filter((p) => !p.codemod && (!packIds || packIds.includes(p.id)));
+    const detected = detectPacks.length ? run(root, { write: false, packIds: detectPacks.map((p) => p.id) }) : { packs: [], findings: [] };
+    const notices = byPack(detected);
+    if (notices.length) {
+      console.log('\nAvisos sin PR (solo detección):');
+      printFindings(detected);
+    }
+    if (process.env.GITHUB_ACTIONS === 'true') {
+      if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, stepSummary({ opened, reportOnly: withoutPr, notices }));
+      for (const line of annotations([...notices, ...withoutPr], workspacePrefix(root, process.env.GITHUB_WORKSPACE))) console.log(line);
     }
     return 0;
   }
