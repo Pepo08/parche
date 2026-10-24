@@ -2,6 +2,17 @@
 
 Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1 y de la 0.6.0 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
 
+## 0.7.1 — 2026-10-24
+
+La Action, lista para el GitHub Marketplace como "Parche API Changes". No cambia nada de lo que hace Parche.
+
+### Cambios
+- **Ícono de la Action:** `git-pull-request`. El que tenía, `tool`, está en la lista de íconos que el Marketplace no acepta y el panel de publicación lo marcaba como error.
+- **Descripción de la Action en inglés y en menos de 125 caracteres:** es la tarjeta del Marketplace, que ve gente de cualquier país. "Dependabot para APIs" queda como frase de presentación.
+- **README:** un "GitHub Action quick start" en inglés al principio (la página de la Action en el Marketplace es el README): qué hace la plantilla, los permisos y los inputs.
+- **Input `verify`:** la descripción nombra todos los tests que puede correr (`npm test`, `composer test` o `vendor/bin/phpunit`), no solo `npm test`.
+- Un test controla lo que revisa el Marketplace: el nombre, el largo de la descripción, el ícono y el color.
+
 ## 0.7.0 — 2026-10-24
 
 ARCA: Parche encuentra a los repos que creen estar migrados y no lo están, reconoce `@arcasdk/core` (la segunda librería de ARCA más descargada en npm) y avisa de la librería vieja en más casos. Salió de los pendientes del escaneo de 174 repos públicos (frente B, puntos 12 a 14).
