@@ -1,6 +1,15 @@
 # Cambios
 
-Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1 y de la 0.6.0 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
+Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1, de la 0.6.0 a la 0.7.0 y de la 0.7.2 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La 0.7.1 tampoco: salió junto con la 0.7.2. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
+
+## 0.7.2 — 2026-10-24
+
+ARCA: lo que pidió el re-escaneo de repos públicos con la 0.7.0. Un PR preparado quedaba parcial sin decirlo, y dos casos podían sacar un PR que no anda.
+
+### Cambios
+- **Clave casi bien escrita en una asignación aparte:** `det.CondicionIVAReceptor = x`, `det['CondicionIVAReceptor'] = x` (JS y TS) y `$det['CondicionIVAReceptor'] = $x` (PHP) se renombran a `CondicionIVAReceptorId` cuando `det` es, en la misma función, un objeto o array con claves de WSFEv1. En un repo real, el informe de comprobantes con CAEA lo hacía así, y la 0.7.0 renombraba las otras tres apariciones y esta ni la nombraba: el PR quedaba parcial en silencio. Si no se puede confirmar que `det` sea el comprobante (por ejemplo, si llega como parámetro), Parche lo avisa para revisar y no lo toca.
+- **El renombre ya no rompe el tipado:** si un `interface` o un `type` del repo declara la clave mal escrita (`CondicionIvaReceptorId?: number`), renombrarla solo en el objeto hacía que TypeScript no compilara, y el chequeo de sintaxis no lo veía. Ahora no se renombra, y el aviso dice en qué archivo y línea está el tipo para cambiar los dos.
+- **Archivos con saltos de línea `\r` sueltos (`\r\r\n`):** en JS y TS, Parche no los edita. El parser cuenta cada `\r` como una línea y la edición caía en otra parte del archivo; en un repo real, dentro de un comentario y con "Sintaxis OK". Ahora el hallazgo pasa a "revisar", con lo que hay que cambiar a mano y la línea que muestra git.
 
 ## 0.7.1 — 2026-10-24
 

@@ -98,6 +98,27 @@ export function nearMissBothMessage(key) {
   return `El comprobante tiene \`${key}\` y también \`${FIELD}\`. \`${key}\` no es un campo de WSFEv1: se puede borrar. Revisá que \`${FIELD}\` lleve el valor correcto.`;
 }
 
+// Frente B, punto 25: una asignación aparte (`det.CondicionIVAReceptor = x`) a un objeto que no se puede confirmar
+// como el detalle del comprobante. No se toca, pero se dice: un arreglo parcial nunca queda en silencio.
+export function nearMissUnsureMessage(target, key) {
+  return `\`${target}\`: si es el detalle del comprobante, \`${key}\` no es un campo de WSFEv1 y ARCA espera \`${FIELD}\`. `
+    + 'No lo cambié porque no pude confirmar que sea el comprobante: revisalo a mano.';
+}
+
+// Frente B, punto 23: el tipo del repo declara la clave mal escrita. Renombrar solo el objeto rompe el tipado.
+export function nearMissTypedMessage(key, decl, pack) {
+  return `\`${key}\` no es un campo de WSFEv1: ARCA espera \`${FIELD}\`, así que hoy el dato no llega y desde el ${dmy(pack.deadline)} ARCA rechaza el CAE. `
+    + `No lo renombré porque el tipo de \`${decl.file}:${decl.line}\` declara \`${key}\` y TypeScript dejaría de compilar: renombralo en los dos lugares (y en los tests que lo usen).`;
+}
+
+// Frente B, punto 22: con un \r suelto (\r\r\n) el parser cuenta una línea más que el archivo y la edición caía en
+// otra línea. En esos archivos no se edita: se dice qué cambio hacer a mano.
+export const LOOSE_EOL = /\r(?!\n)|[\u2028\u2029]/;
+export function looseEolMessage(manual) {
+  return 'No edité este archivo: tiene saltos de línea `\\r` sueltos (por ejemplo `\\r\\r\\n`) y Parche no puede ubicar el cambio con certeza. '
+    + `Hacelo a mano: ${manual}.`;
+}
+
 // "El repo ya usa CondicionIVAReceptorId en otro lado": prefijo para bajar a "revisar" lo que no se pudo leer
 // (en repos ya migrados, el objeto suele salir de un builder que sí pone el campo).
 export function alreadyMigratedPrefix(context) {

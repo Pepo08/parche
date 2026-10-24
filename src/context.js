@@ -6,9 +6,12 @@
 //   fieldFiles: archivos que ya usan CondicionIVAReceptorId (el repo ya empezó a migrar)
 //   staleWsdl:  WSDL de WSFEv1 del repo que no tienen CondicionIVAReceptorId
 //   arcaLibs:   librerías de ARCA del repo con lo que se sabe de si el campo llega a viajar
+//   nearMissTypes: interfaces y types de TypeScript que declaran la clave casi bien escrita (CondicionIvaReceptorId?: number)
 import fs from 'node:fs';
 import path from 'node:path';
+import { parse as babelParse } from '@babel/parser';
 import { findFiles } from './paths.js';
+import { NEAR_HINT, isNearMissKey } from './codemods/arca-rules.js';
 
 const readJson = (p) => {
   try {
@@ -104,7 +107,33 @@ export function buildContext(root, files, manifests) {
     const text = fs.readFileSync(path.join(root, rel), 'utf8');
     return /FECAESolicitar|FECAEDetRequest/.test(text) && !text.includes('CondicionIVAReceptorId');
   });
-  return { versions, fieldFiles, staleWsdl, arcaLibs: arcaLibraries(versions) };
+  return { versions, fieldFiles, staleWsdl, arcaLibs: arcaLibraries(versions), nearMissTypes: nearMissTypes(root, files) };
 }
 
-export const emptyContext = () => ({ versions: { npm: {}, composer: {}, pypi: {} }, fieldFiles: [], staleWsdl: [], arcaLibs: [] });
+// Frente B, punto 23: si un tipo declara la clave mal escrita, renombrarla solo en el objeto rompe el tipado
+// (TS2353) y el chequeo de sintaxis no lo ve. El codemod de JS no renombra cuando la encuentra acá.
+export function nearMissTypes(root, files) {
+  const out = [];
+  for (const rel of files.filter((f) => /\.[cm]?tsx?$/.test(f))) {
+    let text;
+    try { text = fs.readFileSync(path.join(root, rel), 'utf8'); } catch { continue; }
+    if (!NEAR_HINT.test(text)) continue;
+    let ast;
+    try {
+      ast = babelParse(text, { sourceType: 'unambiguous', plugins: ['typescript', 'decorators-legacy', ...(/x$/.test(rel) ? ['jsx'] : [])], errorRecovery: true });
+    } catch { continue; }
+    const walk = (n) => {
+      if (!n || typeof n !== 'object') return;
+      if (Array.isArray(n)) { n.forEach(walk); return; }
+      if (n.type === 'TSPropertySignature') {
+        const key = n.key && (n.key.type === 'Identifier' ? n.key.name : n.key.type === 'StringLiteral' ? n.key.value : null);
+        if (isNearMissKey(key)) out.push({ file: rel, line: n.loc.start.line, key });
+      }
+      for (const k of Object.keys(n)) if (k !== 'loc' && k !== 'start' && k !== 'end') walk(n[k]);
+    };
+    walk(ast.program);
+  }
+  return out;
+}
+
+export const emptyContext = () => ({ versions: { npm: {}, composer: {}, pypi: {} }, fieldFiles: [], staleWsdl: [], arcaLibs: [], nearMissTypes: [] });
