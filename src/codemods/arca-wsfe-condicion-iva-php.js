@@ -8,7 +8,7 @@ import { parsePhp, walkPhp, phpLiteral, phpKey } from '../php.js';
 import {
   PACK, decideCondition, validCodesText, missingMessage, appliedMessage, soapDetection, ARCA_HINT, libraryCaveat, alreadyMigratedPrefix,
   canApplyAtRuntime, PARTIAL_COMMENT, partialAppliedMessage, partialPending, partialLeftMessage,
-  NEAR_HINT, isNearMissKey, isVoucherDetail, nearMissMessage, nearMissBothMessage,
+  NEAR_HINT, isNearMissKey, isVoucherDetail, nearMissMessage, nearMissBothMessage, nearMissUnsureMessage,
 } from './arca-rules.js';
 import { emptyContext } from '../context.js';
 import { isTestFile } from '../paths.js';
@@ -134,7 +134,7 @@ export default function transform({ source, file, pack, context = emptyContext()
 
   // Punto 13 del frente B: 'CondicionIVAReceptor' => $x (sin Id) se renombra, como en JS. Solo cambia el texto
   // entre las comillas de la clave; el array queda marcado para que la llamada no reciba un campo nuevo.
-  let renamed = false;
+  let nearMiss = false; // el archivo ya tiene un aviso de la clave: el de SOAP sin el campo sobra
   if (!isTestFile(file)) {
     walkPhp(ast, (node) => {
       if (node.kind !== 'array') return;
@@ -142,15 +142,45 @@ export default function transform({ source, file, pack, context = emptyContext()
       const near = entries.find((e) => isNearMissKey(phpKey(e)));
       if (!near || !isVoucherDetail(entries.map(phpKey))) return;
       edited.add(node);
+      nearMiss = true;
       if (entries.some((e) => phpKey(e) === FIELD)) {
         findings.push(finding(PACK, file, near, 'needs-review', nearMissBothMessage(phpKey(near))));
         return;
       }
       const { start, end } = near.key.loc;
       edits.push({ offset: start.offset + 1, remove: end.offset - start.offset - 2, text: FIELD });
-      renamed = true;
       findings.push(finding(PACK, file, near, 'needs-review', nearMissMessage(phpKey(near), pack) + (caveat ? ` ${caveat}` : '')));
     });
+
+    // Punto 25: $det['CondicionIVAReceptor'] = $x; en una asignación aparte. Se renombra si $det es, en la misma
+    // función, un array literal con claves de WSFEv1 definido una sola vez; si no se puede confirmar, se avisa.
+    for (const s of scopes.values()) {
+      for (const [name, offsets] of s.offsets) {
+        for (const o of offsets) {
+          if (!isNearMissKey(o.key) || o.node.left.offset.kind !== 'string') continue;
+          const defs = s.assigns.get(name) || [];
+          const arr = defs.length === 1 && defs[0].operator === '=' && defs[0].right.kind === 'array' ? defs[0].right : null;
+          const entries = arr ? arr.items.filter((it) => it && it.kind === 'entry') : [];
+          if (!arr || !isVoucherDetail(entries.map(phpKey))) {
+            // Solo con la grafía de WSFEv1 (con mayúscula): $cliente['condicionIvaReceptor'] es un campo propio.
+            if (ARCA_HINT.test(source) && /^Condicion/.test(o.key)) {
+              findings.push(finding(PACK, file, o.node, 'needs-review', nearMissUnsureMessage(`$${name}['${o.key}']`, o.key)));
+              nearMiss = true;
+            }
+            continue;
+          }
+          edited.add(arr);
+          nearMiss = true;
+          if (entries.some((e) => phpKey(e) === FIELD) || offsets.some((x) => x.key === FIELD)) {
+            findings.push(finding(PACK, file, o.node, 'needs-review', nearMissBothMessage(o.key)));
+            continue;
+          }
+          const { start, end } = o.node.left.offset.loc;
+          edits.push({ offset: start.offset + 1, remove: end.offset - start.offset - 2, text: FIELD });
+          findings.push(finding(PACK, file, o.node, 'needs-review', nearMissMessage(o.key, pack) + (caveat ? ` ${caveat}` : '')));
+        }
+      }
+    }
   }
 
   for (const { node: call, scope, method } of calls) {
@@ -199,7 +229,7 @@ export default function transform({ source, file, pack, context = emptyContext()
     findings.push(finding(PACK, file, call, status, appliedMessage(d.status) + (caveat ? ` ${caveat}` : '')));
   }
 
-  const soap = renamed ? null : soapDetection(source, file, context); // ya manda el campo (ver el codemod de JS)
+  const soap = nearMiss ? null : soapDetection(source, file, context); // ya tiene su aviso (ver el codemod de JS)
   if (soap) { findings.push(soap.finding); usages.push(soap.usage); }
 
   return { output: edits.length ? applyEdits(source, edits) : null, findings, usages };

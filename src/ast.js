@@ -91,6 +91,15 @@ export function lineOf(node) {
   return node && node.loc ? node.loc.start.line : null;
 }
 
+// La línea del archivo (contando \n, como git y GitHub) de una línea del parser, que también cuenta cada \r suelto.
+// Solo difieren en archivos con \r\r\n o \r solos (frente B, punto 22).
+export function fileLine(source, line) {
+  const breaks = /\r\n|[\n\r]/g;
+  let offset = 0;
+  for (let i = 1; i < line && breaks.exec(source); i++) offset = breaks.lastIndex;
+  return source.slice(0, offset).split('\n').length;
+}
+
 // Copia profunda de un nodo sin metadatos de posición, para poder usarlo dos veces.
 export function cloneNode(node) {
   if (Array.isArray(node)) return node.map(cloneNode);

@@ -2,12 +2,13 @@
 // Agrega CondicionIVAReceptorId a cada pedido de CAE hecho con afip.js cuando se puede inferir
 // sin datos del negocio, y marca el resto para que una persona complete el dato.
 import {
-  jFor, detectQuote, eolOf, offsetAt, applyEdits, getProp, isQuotedKey, isPlainProp, keyName, literalValue, resolveBinding, finding,
+  jFor, detectQuote, eolOf, offsetAt, applyEdits, getProp, isQuotedKey, isPlainProp, keyName, literalValue, resolveBinding, finding, fileLine,
 } from '../ast.js';
 import {
   PACK, decideCondition, validCodesText, missingMessage, appliedMessage, soapDetection, ARCA_HINT, libraryCaveat, alreadyMigratedPrefix,
   canApplyAtRuntime, PARTIAL_COMMENT, partialAppliedMessage, partialPending, partialLeftMessage,
-  NEAR_HINT, isNearMissKey, isVoucherDetail, nearMissMessage, nearMissBothMessage,
+  NEAR_HINT, isNearMissKey, isVoucherDetail, nearMissMessage, nearMissBothMessage, nearMissUnsureMessage, nearMissTypedMessage,
+  LOOSE_EOL, looseEolMessage,
 } from './arca-rules.js';
 import { emptyContext } from '../context.js';
 import { isTestFile } from '../paths.js';
@@ -152,10 +153,15 @@ export default function transform({ source, file, pack, context = emptyContext()
   // Objetos ya editados: el mismo `payload` puede ir a dos llamadas (lo vimos en un repo real). Como se edita
   // texto y el árbol no se entera, sin esto se insertaba dos veces → clave duplicada y TypeScript no compila.
   const edited = new Set();
+  // Cada cambio, con cómo hacerlo a mano: si el archivo tiene \r sueltos no se edita y se dice eso (punto 22).
+  const applied = [];
+  const apply = (f, manual) => { findings.push(f); applied.push({ f, manual }); };
+  // Punto 23: si un tipo del repo declara la clave mal escrita, renombrarla solo acá rompe el tipado.
+  const typedConflict = (key) => (/\.[cm]?tsx?$/.test(file) ? (context.nearMissTypes || []).find((t) => t.key === key) : null);
 
   // Punto 13 del frente B: la clave casi bien escrita se renombra; el nombre correcto lo fija el WSDL.
   // Va antes que las llamadas, así el comprobante renombrado no recibe además un CondicionIVAReceptorId nuevo.
-  let renamed = false;
+  let nearMiss = false; // el archivo ya tiene un aviso de la clave: el de SOAP sin el campo sobra
   if (!isTestFile(file)) {
     root.find(j.ObjectExpression).forEach((p) => {
       const obj = p.node;
@@ -163,14 +169,57 @@ export default function transform({ source, file, pack, context = emptyContext()
       const near = props.find((pr) => isNearMissKey(keyName(pr)));
       if (!near || !isVoucherDetail(props.map(keyName))) return;
       edited.add(obj);
+      nearMiss = true;
       if (getProp(obj, 'CondicionIVAReceptorId')) {
         findings.push(finding(PACK, file, near, 'needs-review', nearMissBothMessage(keyName(near))));
         return;
       }
+      const typed = typedConflict(keyName(near));
+      if (typed) {
+        findings.push(finding(PACK, file, near, 'needs-review', nearMissTypedMessage(keyName(near), typed, pack)));
+        return;
+      }
       edits.push(renameKey(source, near));
-      renamed = true;
       changed = true;
-      findings.push(finding(PACK, file, near, 'needs-review', nearMissMessage(keyName(near), pack) + (caveat ? ` ${caveat}` : '')));
+      apply(finding(PACK, file, near, 'needs-review', nearMissMessage(keyName(near), pack) + (caveat ? ` ${caveat}` : '')),
+        `renombrá \`${keyName(near)}\` a \`CondicionIVAReceptorId\``);
+    });
+
+    // Punto 25: la misma clave en una asignación aparte (det.CondicionIVAReceptor = x, det['CondicionIVAReceptor'] = x),
+    // como en el informe de CAEA de un repo real. Se renombra si `det` es, en el mismo scope, un objeto literal con
+    // claves de WSFEv1. Si no se puede confirmar que sea el comprobante, se avisa sin tocar nada.
+    root.find(j.AssignmentExpression).forEach((p) => {
+      const left = unwrap(p.node.left);
+      if (!left || left.type !== 'MemberExpression') return;
+      const key = memberName(left);
+      if (!isNearMissKey(key)) return;
+      const target = unwrap(left.object);
+      const decl = target && target.type === 'Identifier' ? resolveBinding(p, target.name) : null;
+      const obj = unwrap(decl && decl.node.init);
+      if (!obj || obj.type !== 'ObjectExpression' || !isVoucherDetail(obj.properties.filter(isPlainProp).map(keyName))) {
+        // Solo con la grafía de WSFEv1 (con mayúscula): `cliente.condicionIvaReceptor = …` es un campo propio.
+        if (arcaFile && /^Condicion/.test(key)) {
+          const shown = target && target.type === 'Identifier' ? `${target.name}.${key}` : textOf(source, left);
+          findings.push(finding(PACK, file, p.node, 'needs-review', nearMissUnsureMessage(shown, key)));
+          nearMiss = true;
+        }
+        return;
+      }
+      edited.add(obj);
+      nearMiss = true;
+      if (getProp(obj, 'CondicionIVAReceptorId') || fieldAssignedLater(j, root, decl, target.name)) {
+        findings.push(finding(PACK, file, p.node, 'needs-review', nearMissBothMessage(key)));
+        return;
+      }
+      const typed = typedConflict(key);
+      if (typed) {
+        findings.push(finding(PACK, file, p.node, 'needs-review', nearMissTypedMessage(key, typed, pack)));
+        return;
+      }
+      edits.push(renameMember(source, left));
+      changed = true;
+      apply(finding(PACK, file, p.node, 'needs-review', nearMissMessage(key, pack) + (caveat ? ` ${caveat}` : '')),
+        `renombrá \`${target.name}.${key}\` a \`${target.name}.CondicionIVAReceptorId\``);
     });
   }
 
@@ -218,8 +267,9 @@ export default function transform({ source, file, pack, context = emptyContext()
         edits.push(...insertAfterProp(source, anchor, `...(Number(${expr}) === 99 ? { ${keyText}: 5 } : {})`, PARTIAL_COMMENT, { isLast }));
         edited.add(obj);
         changed = true;
-        findings.push(finding(PACK, file, call, 'needs-review', partialAppliedMessage(expr) + (caveat ? ` ${caveat}` : ''),
-          { partial: partialPending(d, pack, suggestionFor(d, pack)) }));
+        apply(finding(PACK, file, call, 'needs-review', partialAppliedMessage(expr) + (caveat ? ` ${caveat}` : ''),
+          { partial: partialPending(d, pack, suggestionFor(d, pack)) }),
+          'agregá `CondicionIVAReceptorId: 5` al comprobante cuando DocTipo es 99 (consumidor final); con otro DocTipo falta la condición frente al IVA del cliente');
         return;
       }
       findings.push(finding(PACK, file, call, 'needs-input', missingMessage(d) + (caveat ? ` ${caveat}` : ''),
@@ -232,14 +282,38 @@ export default function transform({ source, file, pack, context = emptyContext()
     changed = true;
     // Con librería vieja o WSDL viejo el arreglo no alcanza solo: deja de ser "automático".
     const status = caveat && d.status === 'auto' ? 'needs-review' : d.status;
-    findings.push(finding(PACK, file, call, status, appliedMessage(d.status) + (caveat ? ` ${caveat}` : '')));
+    apply(finding(PACK, file, call, status, appliedMessage(d.status) + (caveat ? ` ${caveat}` : '')),
+      `agregá \`CondicionIVAReceptorId: ${d.code}\` al comprobante`);
   });
 
-  // Con la clave renombrada el archivo ya manda el campo: el aviso de SOAP sin CondicionIVAReceptorId sobra.
-  const soap = renamed ? null : soapDetection(source, file, context);
+  // Punto 22: con \r sueltos (\r\r\n) las líneas del parser no son las del archivo: se informan las de git.
+  const looseEol = LOOSE_EOL.test(source);
+  if (looseEol) for (const x of [...findings, ...usages]) if (x.line) x.line = fileLine(source, x.line);
+
+  // Con la clave renombrada (o avisada) el archivo ya tiene su aviso: el de SOAP sin CondicionIVAReceptorId sobra.
+  const soap = nearMiss ? null : soapDetection(source, file, context);
   if (soap) { findings.push(soap.finding); usages.push(soap.usage); }
 
+  // Y la edición caía en otro lado (una vez, dentro de un comentario y con "Sintaxis OK"). No se edita: cada cambio
+  // pasa a "revisar" con lo que hay que hacer a mano.
+  if (changed && looseEol) {
+    for (const { f, manual } of applied) {
+      f.status = 'needs-review';
+      f.message = looseEolMessage(manual);
+      delete f.partial;
+    }
+    return { output: null, findings, usages };
+  }
+
   return { output: changed ? applyEdits(source, edits) : null, findings, usages };
+}
+
+// det.CondicionIVAReceptor → det.CondicionIVAReceptorId; det['CondicionIVAReceptor'] → det['CondicionIVAReceptorId'] (mismas comillas).
+function renameMember(source, member) {
+  const start = offsetAt(source, member.property.loc.start);
+  const end = offsetAt(source, member.property.loc.end);
+  return member.computed ? { offset: start + 1, remove: end - start - 2, text: 'CondicionIVAReceptorId' }
+    : { offset: start, remove: end - start, text: 'CondicionIVAReceptorId' };
 }
 
 // `CondicionIVAReceptor: x` → `CondicionIVAReceptorId: x`, con las mismas comillas y sin tocar el valor.
