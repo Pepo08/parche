@@ -26,7 +26,7 @@ Copy [`templates/github-workflow.yml`](templates/github-workflow.yml) to `.githu
 | `dry-run` | `'false'` | Build the branches and PR bodies without opening any PR. |
 | `token` | `github.token` | Pushes the branches and opens the PRs. With the default `GITHUB_TOKEN`, GitHub holds the PR's workflows until someone approves them; with a GitHub App token or a personal token they run on their own. |
 
-`@v0` follows every 0.x release; to pin one, use its release commit: `Pepo08/parche@<sha> # v0.7.1`. PR bodies and the job output are in Spanish for now.
+`@v0` follows every 0.x release; to pin one, use its release commit: `Pepo08/parche@<sha> # v0.7.2`. PR bodies and the job output are in Spanish for now.
 
 Parche lee tu código y arma el inventario de **todas** las APIs de terceros que usás: SDKs (Stripe, Twilio, OpenAI, AWS, Mercado Pago, ARCA…), llamadas HTTP directas y modelos de IA. Lo cruza contra una base de **cambios de API verificados** y, cuando un proveedor cambia algo que te afecta, te avisa o abre un PR con el arreglo, explica qué cambió y por qué, y marca lo que necesita una persona. Ningún PR sale sin pasar la verificación. Las APIs de pagos y facturación de Latinoamérica son el fuerte, pero el inventario cubre cualquier API.
 
