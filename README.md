@@ -159,6 +159,8 @@ Para reportar una vulnerabilidad, y el detalle de todo esto: [`SECURITY.md`](SEC
 
 ## ARCA en PHP
 
+**¿Tenés que agregar el campo a mano?** La guía paso a paso, para afip.js, afip.php, @arcasdk/core y SOAP propio: [Cómo agregar `CondicionIVAReceptorId` antes del 1/12/2026](docs/guia-condicion-iva-receptor.md).
+
 Para `afipsdk/afip.php` y sus forks (`fertandil87/afip.php`, `ivanalemunioz/afip.php`, `eesnaola/afip.php`), Parche busca `$afip->ElectronicBilling->CreateVoucher($data)` y `CreateNextVoucher($data)` (también en minúsculas: PHP no distingue) y agrega una línea por factura:
 
 ```php
