@@ -55,6 +55,7 @@ jobs:
         with:
           path: ${{ runner.temp }}/tienda-demo
           dry-run: 'true'
+          snapshot-name: parche-${{ matrix.os }}-tienda-demo # cada uso de la Action en la misma corrida, con su nombre
       - name: Quedaron armadas las ramas de ARCA y Mercado Pago
         shell: bash
         working-directory: ${{ runner.temp }}/tienda-demo
@@ -62,6 +63,19 @@ jobs:
           git branch --list 'parche/*'
           test "$(git branch --list 'parche/*' | wc -l)" -eq 2
           git diff --stat main..parche/arca.wsfe.condicion-iva-receptor | grep -q 'src/facturacion.js | 4 ++++'
+      - name: La foto de la corrida tiene el inventario, los avisos y los PRs
+        shell: bash
+        run: |
+          dir="$RUNNER_TEMP/parche-snapshot/parche-${{ matrix.os }}-tienda-demo"
+          node -e '
+            const fs = require("fs"); const [dir] = process.argv.slice(1);
+            const scan = JSON.parse(fs.readFileSync(dir + "/scan.json", "utf8"));
+            if (!scan.parcheVersion || !scan.inventory.apis.length) throw new Error("falta el inventario");
+            if (!scan.findings.length || !scan.findings.every((f) => /^[0-9a-f]{16}$/.test(f.fingerprint))) throw new Error("faltan los fingerprints");
+            const prs = fs.readFileSync(dir + "/ledger.jsonl", "utf8").trim().split("\n").map(JSON.parse).filter((e) => e.type === "pr");
+            if (prs.length !== 2) throw new Error("el registro tiene " + prs.length + " PRs");
+            console.log("foto OK:", scan.inventory.apis.length, "APIs,", scan.findings.length, "avisos,", prs.length, "PRs");
+          ' "$dir"
       # Un repo PHP, sin package.json: la Action tiene que andar igual (antes, la plantilla corría `npm ci` y fallaba).
       - name: Repo PHP de prueba (copia de examples/tienda-php)
         shell: bash
@@ -76,6 +90,7 @@ jobs:
         with:
           path: ${{ runner.temp }}/tienda-php
           dry-run: 'true'
+          snapshot-name: parche-${{ matrix.os }}-tienda-php
       - name: Quedó armada la rama de ARCA en PHP
         shell: bash
         working-directory: ${{ runner.temp }}/tienda-php

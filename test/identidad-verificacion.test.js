@@ -135,7 +135,7 @@ test('Confianza: plantilla con permisos por job, Actions fijadas por SHA y --ver
   const template = fs.readFileSync(path.join(root, 'templates', 'github-workflow.yml'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(template, /^permissions:\n {2}contents: read$/m, 'a nivel workflow, solo lectura');
   assert.match(template, /^ {4}permissions:\n {6}contents: write.*\n {6}pull-requests: write/m, 'la escritura, solo en el job');
-  for (const f of ['.github/workflows/ci.yml', '.github/workflows/release.yml', 'templates/github-workflow.yml']) {
+  for (const f of ['.github/workflows/ci.yml', '.github/workflows/release.yml', 'templates/github-workflow.yml', 'action.yml']) {
     const text = fs.readFileSync(path.join(root, f), 'utf8').replace(/\r\n/g, '\n');
     for (const [, ref] of text.matchAll(/uses: (actions\/[\w-]+@\S+)/g)) assert.match(ref, /@[0-9a-f]{40}$/, `${f}: ${ref} fijada por SHA`);
   }

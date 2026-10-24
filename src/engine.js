@@ -1,4 +1,5 @@
 // Motor: recorre el repo, arma el inventario de APIs y corre los packs.
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadPacks, transformFor, languageOf } from './packs.js';
@@ -33,6 +34,18 @@ export function listFiles(dir, skipped = []) {
   return out.sort((a, b) => (toPosix(a) < toPosix(b) ? -1 : 1));
 }
 
+// Identificador estable de un aviso (P5 de docs/app-vigilancia.md): el pack, el archivo y el texto de la línea, sin el
+// número de línea ni el mensaje. Así una corrida reconoce el mismo aviso de la anterior aunque se muevan las líneas o
+// cambie el texto del pack, y "nuevo", "sigue" y "resuelto" no dependen de la posición. Los espacios y el \r no cuentan
+// (una reindentación o pasar a CRLF no es otro aviso). Si el mismo texto se repite en el archivo, cuenta el orden.
+export function fingerprint(finding, source, seen) {
+  const text = finding.line ? (source.split('\n')[finding.line - 1] ?? '').replace(/\s+/g, ' ').trim() : '';
+  const key = [finding.pack, finding.file, text].join('\u0000');
+  const n = (seen.get(key) || 0) + 1;
+  seen.set(key, n);
+  return crypto.createHash('sha256').update(`${key}\u0000${n}`).digest('hex').slice(0, 16);
+}
+
 export function run(dir, { write = false, packIds = null, today } = {}) {
   const root = path.resolve(dir);
   const packs = loadPacks().filter((p) => !packIds || packIds.includes(p.id));
@@ -47,6 +60,7 @@ export function run(dir, { write = false, packIds = null, today } = {}) {
   const usages = [];
   const fileScans = []; // inventario de cualquier API (nivel 1), por archivo
   const changed = new Map(); // archivo relativo → [packs]
+  const seen = new Map(); // para fingerprint(): cuántas veces apareció cada pack + archivo + texto
 
   files.forEach((abs, i) => {
     const rel = rels[i];
@@ -60,10 +74,12 @@ export function run(dir, { write = false, packIds = null, today } = {}) {
       try {
         res = t({ source, file: rel, pack, today, context });
       } catch (err) {
-        findings.push({ pack: pack.id, file: rel, line: null, status: 'needs-input', message: `Parche no pudo procesar este archivo: ${err.message}` });
+        const f = { pack: pack.id, file: rel, line: null, status: 'needs-input', message: `Parche no pudo procesar este archivo: ${err.message}` };
+        findings.push({ ...f, fingerprint: fingerprint(f, source, seen) });
         continue;
       }
-      findings.push(...res.findings);
+      // El texto de la línea, del archivo tal como lo leyó este pack (antes de su propio cambio).
+      findings.push(...res.findings.map((f) => ({ ...f, fingerprint: fingerprint(f, source, seen) })));
       usages.push(...res.usages.map((u) => ({ ...u, file: rel, pack: pack.id })));
       if (res.output !== null && res.output !== source) {
         source = res.output;

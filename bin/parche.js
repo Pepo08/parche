@@ -139,12 +139,13 @@ function printFindings(result) {
   }
 }
 
+const VERSION = () => JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const [cmd, dirArg] = args._;
   if (args.version || cmd === '-v') {
-    const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-    console.log(pkg.version);
+    console.log(VERSION());
     return 0;
   }
   if (!cmd || args.help) { console.log(HELP); return 0; }
@@ -187,7 +188,8 @@ async function main() {
     fs.writeFileSync(path.join(root, '.parche', 'inventory.json'), JSON.stringify(result.inventory, null, 2));
     fs.writeFileSync(path.join(root, '.parche', 'report.md'), scanReport({ ...result, changed: [], upgrades }));
     record(root, { type: 'scan', findings: counts(result.findings) });
-    if (args.json) { console.log(JSON.stringify({ inventory: result.inventory, findings: result.findings, skipped: result.skipped }, null, 2)); return 0; }
+    // parcheVersion: qué versión (y por lo tanto qué reglas) generó este JSON; la foto de cada corrida de la Action lo guarda.
+    if (args.json) { console.log(JSON.stringify({ parcheVersion: VERSION(), inventory: result.inventory, findings: result.findings, skipped: result.skipped }, null, 2)); return 0; }
     console.log(`Parche · scan de ${path.basename(root)}\n`);
     printInventory(result.inventory);
     if (upgrades) printUpgrades(upgrades);

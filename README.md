@@ -25,6 +25,8 @@ Copy [`templates/github-workflow.yml`](templates/github-workflow.yml) to `.githu
 | `verify` | `'true'` | Run the repo's tests (`npm test`, `composer test` or `vendor/bin/phpunit`) before opening each PR. |
 | `dry-run` | `'false'` | Build the branches and PR bodies without opening any PR. |
 | `token` | `github.token` | Pushes the branches and opens the PRs. With the default `GITHUB_TOKEN`, GitHub holds the PR's workflows until someone approves them; with a GitHub App token or a personal token they run on their own. |
+| `snapshot` | `'true'` | Save a snapshot of the run (API inventory, findings and the PRs it opened, as JSON; no source code) as a workflow artifact. |
+| `snapshot-name` | `parche` | Artifact name. Use a different one for each step if you call the Action more than once in a workflow. |
 
 `@v0` follows every 0.x release; to pin one, use its release commit: `Pepo08/parche@<sha> # v0.7.2`. PR bodies and the job output are in Spanish for now.
 
@@ -115,6 +117,8 @@ El workflow necesita `permissions: contents: write` y `pull-requests: write`. An
 
 Lo que no abre un PR también se ve en la corrida: los avisos de solo detección (modelos de IA que se retiran, por ejemplo) y lo que quedó sin PR porque falta un dato de tu negocio aparecen en el **resumen del job** y como **anotaciones** con el archivo y la línea (GitHub muestra las primeras 10; el resumen las tiene todas).
 
+**La foto de la corrida:** además, la Action guarda un artifact del workflow (`parche`, salvo que le pongas otro nombre con `snapshot-name`) con dos archivos. `scan.json` es la salida de `parche scan --json`: el inventario de APIs y los avisos, cada uno con su `fingerprint`, un identificador que no cambia aunque se muevan las líneas, para comparar una semana con la anterior. `ledger.jsonl` es el registro de esa corrida: los PRs que abrió y lo que quedó sin PR. Lleva rutas, números de línea, paquetes, versiones, operaciones y los mensajes de Parche; no lleva código. Lo baja quien puede ver las corridas de Actions del repo (`gh run download <id> -n parche`), y dura lo que diga la retención de artifacts del repo. Si no lo querés: `snapshot: 'false'`. Si la foto falla, la corrida no falla: queda un aviso.
+
 Con el `GITHUB_TOKEN` por defecto, GitHub deja los workflows del PR que abre Parche esperando aprobación: alguien con permiso de escritura tiene que tocar **Approve workflows to run** (el cuerpo del PR lo avisa). Para que tu CI corra sola sobre esos PRs, pasale a la Action un token de una GitHub App o un token personal con permiso de escritura en `contents` y `pull-requests`:
 
 ```yaml
@@ -171,7 +175,7 @@ Parche corre en tu máquina o en tu runner. Tu código no sale de ahí, salvo el
 | **Red** | `scan`, `fix` y `packs` no usan la red. `pr` llama a `api.github.com` para abrir el PR en tu repo y pushea su rama `parche/<pack>` (con `--force`, así solo reemplaza su propio PR anterior). `diff` y `scan --upgrades` bajan metadatos y paquetes de `registry.npmjs.org`, que ve qué paquetes y versiones consultás. Nada más. |
 | **Telemetría** | Ninguna. `parche feedback` escribe en `.parche/ledger.jsonl` de tu repo y queda ahí. |
 | **Qué ejecuta** | `git` y, solo con `--verify`, los tests de tu repo (`npm test`, `composer test` o `vendor/bin/phpunit`). |
-| **Qué escribe** | Tu working copy (solo `fix` y `pr`), `.parche/` (se agrega a `.git/info/exclude`) y, para `diff` y `--upgrades`, un caché en `~/.parche/cache`. |
+| **Qué escribe** | Tu working copy (solo `fix` y `pr`), `.parche/` (se agrega a `.git/info/exclude`) y, para `diff` y `--upgrades`, un caché en `~/.parche/cache`. En GitHub Actions, además, la foto de la corrida como artifact de tu workflow (inventario y avisos en JSON, sin código; se apaga con `snapshot: 'false'`). |
 
 Para reportar una vulnerabilidad, y el detalle de todo esto: [`SECURITY.md`](SECURITY.md). Si te llegó un PR de Parche: [por qué lo recibiste](docs/por-que-recibi-este-pr.md).
 
