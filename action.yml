@@ -1,8 +1,11 @@
 name: Parche API Changes
-description: Dependabot para APIs. Detecta cambios de APIs de terceros que afectan tu código (ARCA, Mercado Pago, OpenAI, Anthropic) y abre un PR.
+# En inglés: es la tarjeta del GitHub Marketplace. Menos de 125 caracteres: el Marketplace marcó como larga una más extensa
+# (matlab-actions/run-command#12; la documentación no da el número).
+description: Dependabot para APIs. Finds API changes that affect your code (ARCA, Mercado Pago, OpenAI, Anthropic) and opens a PR.
 author: Joaquin Gonzalez Menza
+# Un ícono de Feather que el Marketplace acepta (no acepta `tool`, `key`, `hexagon` y otros).
 branding:
-  icon: tool
+  icon: git-pull-request
   color: blue
 
 inputs:
@@ -13,7 +16,7 @@ inputs:
     description: ID de un solo pack (vacío = todos). Ver `parche packs`.
     default: ''
   verify:
-    description: Correr el `npm test` del repo antes de abrir cada PR ('true' o 'false').
+    description: Correr los tests del repo (`npm test`, `composer test` o `vendor/bin/phpunit`) antes de abrir cada PR ('true' o 'false').
     default: 'true'
   dry-run:
     description: Armar las ramas y los cuerpos de los PRs sin abrirlos ('true' o 'false').

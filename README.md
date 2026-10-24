@@ -6,7 +6,27 @@
 
 > **In English.** Parche reads your code and inventories every third-party API it uses: SDKs, direct HTTP calls and AI model IDs. When a provider ships a dated change that affects you, it tells you the file and the line, or opens a small PR with a deterministic fix. Every changed file is parsed before the PR, and with `--verify` your own tests run too. What can't be inferred is never made up: the PR asks for it. Today's packs cover Argentina's ARCA e-invoicing change (due December 1, 2026), Mercado Pago Payments → Orders, and OpenAI and Anthropic model and parameter deprecations.
 >
-> Try it with `npx parche-cli scan .` (Node 22+): it runs locally, with no account and no telemetry ([security and data](SECURITY.md)). GitHub Action: `uses: Pepo08/parche@v0`. The rest of this README is in Spanish for now · [getparche.com](https://getparche.com) · hola@getparche.com
+> Try it with `npx parche-cli scan .` (Node 22+): it runs locally, with no account and no telemetry ([security and data](SECURITY.md)). GitHub Action: [quick start below](#github-action-quick-start). The rest of this README is in Spanish for now · [getparche.com](https://getparche.com) · hola@getparche.com
+
+### GitHub Action quick start
+
+Copy [`templates/github-workflow.yml`](templates/github-workflow.yml) to `.github/workflows/parche.yml`. Every Monday it installs your dependencies (so your tests can run) and runs Parche, which opens one PR per API change that affects the repo, as a draft if something needs a human, and lists everything else in the job summary. The job needs `contents: write` and `pull-requests: write`. The key step:
+
+```yaml
+- uses: Pepo08/parche@v0
+  with:
+    verify: 'true'   # run your tests before opening each PR
+```
+
+| Input | Default | What it does |
+|---|---|---|
+| `path` | `.` | Folder to scan. |
+| `pack` | all packs | Run a single pack (list them with `npx parche-cli packs`). |
+| `verify` | `'true'` | Run the repo's tests (`npm test`, `composer test` or `vendor/bin/phpunit`) before opening each PR. |
+| `dry-run` | `'false'` | Build the branches and PR bodies without opening any PR. |
+| `token` | `github.token` | Pushes the branches and opens the PRs. With the default `GITHUB_TOKEN`, GitHub holds the PR's workflows until someone approves them; with a GitHub App token or a personal token they run on their own. |
+
+`@v0` follows every 0.x release; to pin one, use its release commit: `Pepo08/parche@<sha> # v0.7.1`. PR bodies and the job output are in Spanish for now.
 
 Parche lee tu código y arma el inventario de **todas** las APIs de terceros que usás: SDKs (Stripe, Twilio, OpenAI, AWS, Mercado Pago, ARCA…), llamadas HTTP directas y modelos de IA. Lo cruza contra una base de **cambios de API verificados** y, cuando un proveedor cambia algo que te afecta, te avisa o abre un PR con el arreglo, explica qué cambió y por qué, y marca lo que necesita una persona. Ningún PR sale sin pasar la verificación. Las APIs de pagos y facturación de Latinoamérica son el fuerte, pero el inventario cubre cualquier API.
 

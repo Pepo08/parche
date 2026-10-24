@@ -116,10 +116,18 @@ test('sin --verify: la sintaxis se chequea igual y el PR dice dónde se corren l
   assert.ok(fs.existsSync(path.join(path.dirname(BIN), '..', 'docs', 'por-que-recibi-este-pr.md')));
 });
 
-test('Action: el nombre para el Marketplace es "Parche API Changes" y avisa el token por defecto', () => {
+test('Action: lista para el Marketplace ("Parche API Changes", descripción e ícono válidos) y avisa el token por defecto', () => {
   const action = fs.readFileSync(path.join(path.dirname(BIN), '..', 'action.yml'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(action, /^name: Parche API Changes$/m, 'sin "Dependabot" (función de GitHub) ni "Parche" a secas (usuario de GitHub): las reglas del Marketplace no los dejan');
   assert.match(action, /PARCHE_DEFAULT_TOKEN: \$\{\{ inputs\.token == github\.token \}\}/);
+  // Lo que el panel "Release Action" del Marketplace controla antes de publicar. Íconos y colores: metadata syntax,
+  // leída el 24/10/2026. El largo no está documentado: menos de 125 es lo que el Marketplace le pidió a otra Action.
+  const description = action.match(/^description: (.+)$/m)[1];
+  assert.ok(description.length < 125, `la descripción tiene ${description.length} caracteres: para el Marketplace, menos de 125`);
+  const icon = action.match(/^ {2}icon: (\S+)$/m)[1];
+  const omitted = ['coffee', 'columns', 'divide-circle', 'divide-square', 'divide', 'frown', 'hexagon', 'key', 'meh', 'mouse-pointer', 'smile', 'tool', 'x-octagon'];
+  assert.ok(!omitted.includes(icon), `el Marketplace no acepta el ícono ${icon}`);
+  assert.ok(['white', 'black', 'yellow', 'blue', 'green', 'orange', 'red', 'purple', 'gray-dark'].includes(action.match(/^ {2}color: (\S+)$/m)[1]));
 });
 
 test('Confianza: plantilla con permisos por job, Actions fijadas por SHA y --version', () => {
