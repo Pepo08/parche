@@ -2,6 +2,18 @@
 
 Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1, de la 0.6.0 a la 0.7.0 y de la 0.7.2 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La 0.7.1 tampoco: salió junto con la 0.7.2. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
 
+## 0.7.3 — 2026-10-24
+
+La foto de cada corrida de la Action. Hasta la 0.7.2, el inventario de APIs, los avisos y el registro se escribían dentro del runner y se perdían al terminar el job: de una corrida quedaban solo el resumen del job y los PRs, y el resumen no se puede leer por la API de GitHub.
+
+### Nuevo
+- **La Action guarda la foto de la corrida** como artifact del workflow (`parche`): `scan.json`, que es la salida de `parche scan --json` (el inventario y los avisos), y `ledger.jsonl`, el registro de esa corrida (los PRs que abrió y lo que quedó sin PR). Lleva rutas, números de línea, paquetes, versiones, operaciones y los mensajes de Parche; no lleva código. Se baja con `gh run download <id> -n parche`. Inputs nuevos: `snapshot` (`'true'` por defecto; `'false'` la apaga) y `snapshot-name`, para usar la Action más de una vez en el mismo workflow. Corre aunque `parche pr` haya fallado, y si la foto falla, la corrida no falla: queda un aviso.
+- **Cada aviso tiene un `fingerprint`**, un identificador que sale del pack, el archivo y el texto de la línea, sin el número de línea ni el mensaje. No cambia si se mueven las líneas, se reindenta el código o el archivo pasa a CRLF; sí cambia si cambia el código de esa línea. Sirve para comparar una corrida con la anterior: qué es nuevo, qué sigue y qué se resolvió.
+- **`parche scan --json` dice qué versión de Parche lo generó** (`parcheVersion`).
+
+### Cambios
+- `actions/upload-artifact` (v7.0.2) fijada por SHA, como las demás Actions; un test controla que `action.yml` también las fije.
+
 ## 0.7.2 — 2026-10-24
 
 ARCA: lo que pidió el re-escaneo de repos públicos con la 0.7.0. Un PR preparado quedaba parcial sin decirlo, y dos casos podían sacar un PR que no anda.

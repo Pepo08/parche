@@ -24,6 +24,12 @@ inputs:
   token:
     description: Token con permiso para pushear ramas y abrir PRs. Con el GITHUB_TOKEN por defecto, los workflows del PR esperan aprobación; con un token de GitHub App o uno personal, corren solos.
     default: ${{ github.token }}
+  snapshot:
+    description: Guardar la foto de la corrida (inventario de APIs, avisos y registro, en JSON; sin código) como artifact del workflow ('true' o 'false').
+    default: 'true'
+  snapshot-name:
+    description: Nombre del artifact de la foto. Si usás la Action más de una vez en el mismo workflow, poné un nombre distinto en cada una.
+    default: parche
 
 runs:
   using: composite
@@ -46,3 +52,31 @@ runs:
         if [ "$PARCHE_VERIFY" = "true" ]; then args+=(--verify); fi
         if [ "$PARCHE_DRY_RUN" = "true" ]; then args+=(--dry-run); fi
         node "$GITHUB_ACTION_PATH/bin/parche.js" "${args[@]}"
+    # La foto de la corrida (P1 de la vigilancia): `scan --json` (inventario y avisos, cada uno con su fingerprint) y el
+    # registro de esta corrida (los PRs que abrió y lo que quedó sin PR). Sin esto, todo eso se perdía con el runner.
+    # También corre si `parche pr` falló (por ejemplo, en la verificación), y si la foto falla no hace fallar la corrida.
+    - name: Foto de la corrida
+      if: ${{ !cancelled() && inputs.snapshot == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.path }}
+      env:
+        PARCHE_PACK: ${{ inputs.pack }}
+        PARCHE_SNAPSHOT_NAME: ${{ inputs.snapshot-name }}
+      run: |
+        dir="$RUNNER_TEMP/parche-snapshot/$PARCHE_SNAPSHOT_NAME"
+        mkdir -p "$dir"
+        args=(scan . --json)
+        if [ -n "$PARCHE_PACK" ]; then args+=(--pack "$PARCHE_PACK"); fi
+        if node "$GITHUB_ACTION_PATH/bin/parche.js" "${args[@]}" > "$dir/scan.json"; then
+          if [ -f .parche/ledger.jsonl ]; then cp .parche/ledger.jsonl "$dir/ledger.jsonl"; fi
+        else
+          rm -f "$dir/scan.json"
+          echo "::warning title=Parche::No se pudo armar la foto de la corrida; los PRs y el resumen del job no cambian."
+        fi
+    - name: Guardar la foto como artifact
+      if: ${{ !cancelled() && inputs.snapshot == 'true' }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: ${{ inputs.snapshot-name }}
+        path: ${{ runner.temp }}/parche-snapshot/${{ inputs.snapshot-name }}
+        if-no-files-found: warn
