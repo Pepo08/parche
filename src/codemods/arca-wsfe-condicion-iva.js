@@ -2,13 +2,15 @@
 // Agrega CondicionIVAReceptorId a cada pedido de CAE hecho con afip.js cuando se puede inferir
 // sin datos del negocio, y marca el resto para que una persona complete el dato.
 import {
-  jFor, detectQuote, eolOf, offsetAt, applyEdits, getProp, isQuotedKey, isPlainProp, literalValue, resolveBinding, finding,
+  jFor, detectQuote, eolOf, offsetAt, applyEdits, getProp, isQuotedKey, isPlainProp, keyName, literalValue, resolveBinding, finding,
 } from '../ast.js';
 import {
   PACK, decideCondition, validCodesText, missingMessage, appliedMessage, soapDetection, ARCA_HINT, libraryCaveat, alreadyMigratedPrefix,
   canApplyAtRuntime, PARTIAL_COMMENT, partialAppliedMessage, partialPending, partialLeftMessage,
+  NEAR_HINT, isNearMissKey, isVoucherDetail, nearMissMessage, nearMissBothMessage,
 } from './arca-rules.js';
 import { emptyContext } from '../context.js';
+import { isTestFile } from '../paths.js';
 
 const VOUCHER_METHODS = new Set(['createVoucher', 'createNextVoucher']);
 const WRAPPERS = new Set(['TSAsExpression', 'TSNonNullExpression', 'TSTypeAssertion', 'TSSatisfiesExpression', 'ParenthesizedExpression']);
@@ -18,7 +20,10 @@ const unwrap = (n) => {
   while (n && WRAPPERS.has(n.type)) n = n.expression;
   return n;
 };
-const isEBMember = (n) => !!(n && n.type === 'MemberExpression' && !n.computed && n.property.type === 'Identifier' && n.property.name === 'ElectronicBilling');
+// afip.ElectronicBilling (afip.js) o arca.electronicBillingService (@arcasdk/core): las dos reciben el mismo
+// comprobante, con las claves de WSFEv1 (tipos de @arcasdk/core 2.0.2, leídos en su paquete de npm el 24/10/2026).
+const BILLING_MEMBERS = new Set(['ElectronicBilling', 'electronicBillingService']);
+const isEBMember = (n) => !!(n && n.type === 'MemberExpression' && !n.computed && n.property.type === 'Identifier' && BILLING_MEMBERS.has(n.property.name));
 
 // ¿`node` es `<algo>.ElectronicBilling`? También con casts de TS y con un alias en el mismo scope
 // (`const eb = afip.ElectronicBilling; eb.createVoucher(...)`): los dos aparecieron en repos reales.
@@ -30,6 +35,13 @@ function isElectronicBilling(node, p) {
     return isEBMember(unwrap(decl && decl.node.init));
   }
   return false;
+}
+
+// Para el inventario: `ElectronicBilling` o `electronicBillingService`, también si la llamada pasa por un alias.
+function billingName(node, p) {
+  let n = unwrap(node);
+  if (n && n.type === 'Identifier') n = unwrap(resolveBinding(p, n.name)?.node.init);
+  return isEBMember(n) ? n.property.name : 'ElectronicBilling';
 }
 
 function voucherCallee(p) {
@@ -119,7 +131,8 @@ const suggestionFor = (d, pack) => `'CondicionIVAReceptorId': <condición del cl
 export default function transform({ source, file, pack, context = emptyContext() }) {
   const findings = [];
   const usages = [];
-  if (!ARCA_HINT.test(source)) return { output: null, findings, usages };
+  const arcaFile = ARCA_HINT.test(source);
+  if (!arcaFile && !NEAR_HINT.test(source)) return { output: null, findings, usages };
   const caveat = libraryCaveat(context, 'npm');
   const migrated = alreadyMigratedPrefix(context);
   const j = jFor(file);
@@ -128,8 +141,10 @@ export default function transform({ source, file, pack, context = emptyContext()
     root = j(source);
   } catch (err) {
     // Antes se descartaba en silencio: un archivo de ARCA que no parsea es justo el que hay que mirar.
-    findings.push({ pack: PACK, file, line: err.loc?.line || null, status: 'needs-input',
-      message: `No pude analizar este archivo (${err.message.split('\n')[0]}). Revisá a mano las llamadas a ElectronicBilling.` });
+    if (arcaFile) {
+      findings.push({ pack: PACK, file, line: err.loc?.line || null, status: 'needs-input',
+        message: `No pude analizar este archivo (${err.message.split('\n')[0]}). Revisá a mano las llamadas a ElectronicBilling.` });
+    }
     return { output: null, findings, usages };
   }
   let changed = false;
@@ -138,9 +153,31 @@ export default function transform({ source, file, pack, context = emptyContext()
   // texto y el árbol no se entera, sin esto se insertaba dos veces → clave duplicada y TypeScript no compila.
   const edited = new Set();
 
+  // Punto 13 del frente B: la clave casi bien escrita se renombra; el nombre correcto lo fija el WSDL.
+  // Va antes que las llamadas, así el comprobante renombrado no recibe además un CondicionIVAReceptorId nuevo.
+  let renamed = false;
+  if (!isTestFile(file)) {
+    root.find(j.ObjectExpression).forEach((p) => {
+      const obj = p.node;
+      const props = obj.properties.filter(isPlainProp);
+      const near = props.find((pr) => isNearMissKey(keyName(pr)));
+      if (!near || !isVoucherDetail(props.map(keyName))) return;
+      edited.add(obj);
+      if (getProp(obj, 'CondicionIVAReceptorId')) {
+        findings.push(finding(PACK, file, near, 'needs-review', nearMissBothMessage(keyName(near))));
+        return;
+      }
+      edits.push(renameKey(source, near));
+      renamed = true;
+      changed = true;
+      findings.push(finding(PACK, file, near, 'needs-review', nearMissMessage(keyName(near), pack) + (caveat ? ` ${caveat}` : '')));
+    });
+  }
+
   root.find(j.CallExpression).filter((p) => voucherCallee(p) !== null).forEach((p) => {
     const call = p.node;
-    usages.push({ provider: 'arca', op: `ElectronicBilling.${voucherCallee(p).property.name}`, line: call.loc?.start.line });
+    const callee = voucherCallee(p);
+    usages.push({ provider: 'arca', op: `${billingName(callee.object, p)}.${callee.property.name}`, line: call.loc?.start.line });
     const arg = call.arguments[0];
     let obj = null;
     let binding = null;
@@ -151,7 +188,9 @@ export default function transform({ source, file, pack, context = emptyContext()
     }
     if (!obj || otherSpread(obj)) {
       // Si el repo ya usa el campo en otro lado, lo más probable es que el builder ya lo ponga: "revisar".
-      findings.push(finding(PACK, file, call, migrated ? 'needs-review' : 'needs-input', (migrated || '') + unreadableMessage(j, root, p, arg, obj)));
+      // El aviso de librería vieja también va acá (frente B, punto 14: en los repos de jretondo los datos llegan de afuera).
+      findings.push(finding(PACK, file, call, migrated ? 'needs-review' : 'needs-input',
+        (migrated || '') + unreadableMessage(j, root, p, arg, obj) + (caveat ? ` ${caveat}` : '')));
       return;
     }
     if (getProp(obj, 'CondicionIVAReceptorId') || edited.has(obj)) return; // ya está migrado (o ya lo editamos)
@@ -196,10 +235,21 @@ export default function transform({ source, file, pack, context = emptyContext()
     findings.push(finding(PACK, file, call, status, appliedMessage(d.status) + (caveat ? ` ${caveat}` : '')));
   });
 
-  const soap = soapDetection(source, file, context);
+  // Con la clave renombrada el archivo ya manda el campo: el aviso de SOAP sin CondicionIVAReceptorId sobra.
+  const soap = renamed ? null : soapDetection(source, file, context);
   if (soap) { findings.push(soap.finding); usages.push(soap.usage); }
 
   return { output: changed ? applyEdits(source, edits) : null, findings, usages };
+}
+
+// `CondicionIVAReceptor: x` → `CondicionIVAReceptorId: x`, con las mismas comillas y sin tocar el valor.
+// Si era abreviada (`{ CondicionIVAReceptor }`), queda `CondicionIVAReceptorId: CondicionIVAReceptor`.
+function renameKey(source, prop) {
+  const start = offsetAt(source, prop.key.loc.start);
+  const end = offsetAt(source, prop.key.loc.end);
+  if (prop.shorthand) return { offset: start, remove: end - start, text: `CondicionIVAReceptorId: ${keyName(prop)}` };
+  const q = isQuotedKey(prop) ? source[start] : '';
+  return { offset: start, remove: end - start, text: `${q}CondicionIVAReceptorId${q}` };
 }
 
 // Cuando no se puede leer el comprobante, decir DÓNDE hay que agregar el dato: la función que lo arma

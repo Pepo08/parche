@@ -79,6 +79,25 @@ export function partialLeftMessage(pending) {
   return `Tiene el arreglo parcial de Parche (solo DocTipo 99 → 5). ${pending.message}`;
 }
 
+// Clave casi igual al campo (frente B, punto 13): `CondicionIVAReceptor` sin Id, `CondicionIvaReceptorId`,
+// `condicionIVAReceptorId`. Ese elemento no existe en el WSDL de WSFEv1, así que el dato nunca viaja y el repo
+// parece migrado (pablocla/erpia lo tenía en cuatro archivos). Solo se toca dentro del detalle de un comprobante
+// (dos o más claves de WSFEv1), para no renombrar modelos o DTOs propios que se llamen parecido.
+const FIELD = 'CondicionIVAReceptorId';
+export const NEAR_HINT = /condicion_?iva_?receptor/i;
+const DETAIL_KEYS = new Set(['Concepto', 'DocTipo', 'DocNro', 'CbteDesde', 'CbteHasta', 'CbteFch', 'ImpTotal', 'ImpNeto', 'ImpIVA', 'MonId', 'MonCotiz']);
+export const isNearMissKey = (key) => typeof key === 'string' && key !== FIELD && /^condicion_?iva_?receptor(?:_?id)?$/i.test(key);
+export const isVoucherDetail = (keys) => keys.filter((k) => DETAIL_KEYS.has(k)).length >= 2;
+
+export function nearMissMessage(key, pack) {
+  return `\`${key}\` no es un campo de WSFEv1: ARCA espera \`${FIELD}\`, así que hoy el dato no llega y desde el ${dmy(pack.deadline)} ARCA rechaza el CAE. `
+    + 'Lo renombré sin tocar el valor: revisá que sea un código de FEParamGetCondicionIvaReceptor.';
+}
+
+export function nearMissBothMessage(key) {
+  return `El comprobante tiene \`${key}\` y también \`${FIELD}\`. \`${key}\` no es un campo de WSFEv1: se puede borrar. Revisá que \`${FIELD}\` lleve el valor correcto.`;
+}
+
 // "El repo ya usa CondicionIVAReceptorId en otro lado": prefijo para bajar a "revisar" lo que no se pudo leer
 // (en repos ya migrados, el objeto suele salir de un builder que sí pone el campo).
 export function alreadyMigratedPrefix(context) {
@@ -92,7 +111,7 @@ export function libraryCaveat(context, ecosystem) {
   const lib = (context?.arcaLibs || []).find((l) => l.ecosystem === ecosystem && l.travels !== 'si');
   if (lib) {
     return `Ojo: con ${lib.name} ${lib.version} el pedido se arma con un WSDL de 2021 que no tiene este campo`
-      + `${lib.travels === 'no' ? '' : ' (en JS falta confirmarlo)'}: para que llegue a ARCA hay que actualizar la librería a 1.x.`;
+      + `${lib.travels === 'no' ? '' : ' (en JS falta confirmarlo)'}: para que llegue a ARCA hay que ${lib.fix || 'actualizar la librería a 1.x'}.`;
   }
   const wsdl = context?.staleWsdl?.[0];
   if (wsdl) return `Ojo: el repo tiene un WSDL de WSFEv1 sin este campo (\`${wsdl}\`): si el cliente SOAP lo usa, el campo no viaja hasta actualizarlo.`;

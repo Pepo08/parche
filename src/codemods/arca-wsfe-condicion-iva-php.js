@@ -8,8 +8,10 @@ import { parsePhp, walkPhp, phpLiteral, phpKey } from '../php.js';
 import {
   PACK, decideCondition, validCodesText, missingMessage, appliedMessage, soapDetection, ARCA_HINT, libraryCaveat, alreadyMigratedPrefix,
   canApplyAtRuntime, PARTIAL_COMMENT, partialAppliedMessage, partialPending, partialLeftMessage,
+  NEAR_HINT, isNearMissKey, isVoucherDetail, nearMissMessage, nearMissBothMessage,
 } from './arca-rules.js';
 import { emptyContext } from '../context.js';
+import { isTestFile } from '../paths.js';
 
 // En PHP los nombres de método no distinguen mayúsculas: createVoucher también es válido.
 // El inventario usa el nombre oficial, así un mismo método no aparece dos veces.
@@ -112,7 +114,7 @@ function resolveData(arg, scope, call, scopes) {
 export default function transform({ source, file, pack, context = emptyContext() }) {
   const findings = [];
   const usages = [];
-  if (!ARCA_HINT.test(source)) return { output: null, findings, usages }; // prefiltro (ver el codemod de JS)
+  if (!ARCA_HINT.test(source) && !NEAR_HINT.test(source)) return { output: null, findings, usages }; // prefiltro (ver el codemod de JS)
   const caveat = libraryCaveat(context, 'composer');
   const migrated = alreadyMigratedPrefix(context);
   let ast;
@@ -129,6 +131,28 @@ export default function transform({ source, file, pack, context = emptyContext()
   const { scopes, calls } = collect(ast);
   const edits = [];
   const edited = new Set(); // el mismo $data en dos llamadas: se inserta una sola vez (ver el codemod de JS)
+
+  // Punto 13 del frente B: 'CondicionIVAReceptor' => $x (sin Id) se renombra, como en JS. Solo cambia el texto
+  // entre las comillas de la clave; el array queda marcado para que la llamada no reciba un campo nuevo.
+  let renamed = false;
+  if (!isTestFile(file)) {
+    walkPhp(ast, (node) => {
+      if (node.kind !== 'array') return;
+      const entries = node.items.filter((it) => it && it.kind === 'entry');
+      const near = entries.find((e) => isNearMissKey(phpKey(e)));
+      if (!near || !isVoucherDetail(entries.map(phpKey))) return;
+      edited.add(node);
+      if (entries.some((e) => phpKey(e) === FIELD)) {
+        findings.push(finding(PACK, file, near, 'needs-review', nearMissBothMessage(phpKey(near))));
+        return;
+      }
+      const { start, end } = near.key.loc;
+      edits.push({ offset: start.offset + 1, remove: end.offset - start.offset - 2, text: FIELD });
+      renamed = true;
+      findings.push(finding(PACK, file, near, 'needs-review', nearMissMessage(phpKey(near), pack) + (caveat ? ` ${caveat}` : '')));
+    });
+  }
+
   for (const { node: call, scope, method } of calls) {
     usages.push({ provider: 'arca', op: `ElectronicBilling->${method}`, line: call.loc.start.line });
     const data = resolveData(call.arguments[0], scope, call, scopes);
@@ -136,7 +160,7 @@ export default function transform({ source, file, pack, context = emptyContext()
     const entries = data.arr ? data.arr.items.filter((it) => it && it.kind === 'entry') : null;
     if (!entries || entries.some((e) => e.unpack || e.byRef)) {
       const msg = data.hint || `No pude leer los datos del comprobante (${data.reason || 'el array usa ...$otro o referencias'}). Agregá ${FIELD} a mano, ${HINT_TAIL}`;
-      findings.push(finding(PACK, file, call, migrated ? 'needs-review' : 'needs-input', (migrated || '') + msg));
+      findings.push(finding(PACK, file, call, migrated ? 'needs-review' : 'needs-input', (migrated || '') + msg + (caveat ? ` ${caveat}` : '')));
       continue;
     }
     const byKey = (k) => entries.find((e) => phpKey(e) === k);
@@ -175,7 +199,7 @@ export default function transform({ source, file, pack, context = emptyContext()
     findings.push(finding(PACK, file, call, status, appliedMessage(d.status) + (caveat ? ` ${caveat}` : '')));
   }
 
-  const soap = soapDetection(source, file, context);
+  const soap = renamed ? null : soapDetection(source, file, context); // ya manda el campo (ver el codemod de JS)
   if (soap) { findings.push(soap.finding); usages.push(soap.usage); }
 
   return { output: edits.length ? applyEdits(source, edits) : null, findings, usages };
