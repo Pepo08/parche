@@ -59,8 +59,13 @@ export const openRange = (range) => /^\s*(?:>=?|\*|x|latest)/i.test(range || '')
 //   afip.js / afip.php ≥ 1.0: mandan JSON a la API de Afip SDK → sí.
 //   0.x: arman el SOAP con un WSDL de 2021 incluido en la librería, sin el campo → no (PHP) o sin confirmar (JS).
 //   fertandil87/afip.php: actualizó su WSDL (lo incluye) → sí.  eesnaola/afip.php: WSDL de 2021 → igual que 0.x.
+//   ts-afip-ws: fork de afip.js 0.x (frente B, punto 14: los repos de jretondo). Su última versión, la 1.3.2 de 2023,
+//   trae wsfe.wsdl y wsfe-production.wsdl sin el campo (leído en el paquete de npm el 24/10/2026) → sin confirmar.
 const ARCA_LIBS = {
-  npm: { '@afipsdk/afip.js': (v) => (major(v) >= 1 ? 'si' : 'sin-confirmar') },
+  npm: {
+    '@afipsdk/afip.js': (v) => (major(v) >= 1 ? 'si' : 'sin-confirmar'),
+    'ts-afip-ws': () => 'sin-confirmar',
+  },
   composer: {
     'afipsdk/afip.php': (v) => (major(v) >= 1 ? 'si' : 'no'),
     'ivanalemunioz/afip.php': (v) => (major(v) >= 1 ? 'si' : 'no'),
@@ -69,13 +74,18 @@ const ARCA_LIBS = {
   },
 };
 const major = (v) => Number(String(v).split('.')[0]);
+// Qué hacer para que el campo viaje, cuando no es "actualizar la librería a 1.x" (los forks no tienen 1.x).
+const FIXES = {
+  'ts-afip-ws': 'pasar a @afipsdk/afip.js 1.x o actualizar el WSDL que trae la librería',
+  'eesnaola/afip.php': 'pasar a afipsdk/afip.php 1.x o actualizar el WSDL que trae la librería',
+};
 
 export function arcaLibraries(versions) {
   const out = [];
   for (const [eco, libs] of Object.entries(ARCA_LIBS)) {
     for (const [name, rule] of Object.entries(libs)) {
       const v = versions[eco]?.[name];
-      if (v) out.push({ ecosystem: eco, name, version: v.version, source: v.source, travels: rule(v.version) });
+      if (v) out.push({ ecosystem: eco, name, version: v.version, source: v.source, travels: rule(v.version), ...(FIXES[name] ? { fix: FIXES[name] } : {}) });
     }
   }
   return out;

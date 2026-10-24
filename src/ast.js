@@ -23,11 +23,12 @@ export function eolOf(source) {
   return crlf > lf ? '\r\n' : '\n';
 }
 
-// Aplica inserciones de texto { offset, text } de atrás para adelante, así no se corren los offsets.
+// Aplica ediciones de texto { offset, text, remove } de atrás para adelante, así no se corren los offsets.
+// Sin `remove` es una inserción; con `remove`, `text` reemplaza esa cantidad de caracteres desde `offset`.
 export function applyEdits(source, edits) {
   let out = source;
   for (const e of [...edits].sort((a, b) => b.offset - a.offset)) {
-    out = out.slice(0, e.offset) + e.text + out.slice(e.offset);
+    out = out.slice(0, e.offset) + e.text + out.slice(e.offset + (e.remove || 0));
   }
   return out;
 }

@@ -158,9 +158,15 @@ export function prBody({ pack, findings, changed, verification, ciApproval = fal
       out.push('- CI de este PR: lo abrió GitHub Actions con el `GITHUB_TOKEN`, así que GitHub deja sus workflows esperando aprobación. Alguien con permiso de escritura tiene que tocar **Approve workflows to run**. Para que corran solos, pasale a la Action un token de una GitHub App o un token personal (input `token`).');
     }
   }
-  out.push('', asIssue ? '### Checklist' : '### Checklist antes de mergear', '', ...pack.review_checklist_es.map((x) => `- [ ] ${x}`), '');
+  // Los ítems que dependen de un dato del negocio (por ejemplo, los clientes con CUIT) solo van si queda algo
+  // pendiente: en un PR que arregla todo, como uno de puros consumidores finales, no aplican (frente B, punto 12).
+  const checklist = [...pack.review_checklist_es, ...(pending.length ? pack.review_checklist_if_pending_es || [] : [])];
+  out.push('', asIssue ? '### Checklist' : '### Checklist antes de mergear', '', ...checklist.map((x) => `- [ ] ${x}`), '');
   out.push('### Fuentes', '', ...pack.sources.map((s) => `- [${s.title}](${s.url})`), '');
-  out.push(`<sub>Pack \`${pack.id}\` v${pack.version}, verificado el ${pack.last_verified}. Resumen: ${Object.entries(c).map(([k, v]) => `${LABEL[k]} ${v}`).join(' · ')}. ¿Este PR te sirvió? Mergealo, editalo o cerralo: Parche aprende de cada resultado. [¿Qué es Parche y por qué recibiste esto?](https://github.com/Pepo08/parche/blob/main/docs/por-que-recibi-este-pr.md)</sub>`, '');
+  const feedback = asIssue
+    ? '¿Te sirvió este aviso? Cerralo cuando lo resuelvas, o contestá si algo no aplica: Parche aprende de cada resultado.'
+    : '¿Este PR te sirvió? Mergealo, editalo o cerralo: Parche aprende de cada resultado.';
+  out.push(`<sub>Pack \`${pack.id}\` v${pack.version}, verificado el ${pack.last_verified}. Resumen: ${Object.entries(c).map(([k, v]) => `${LABEL[k]} ${v}`).join(' · ')}. ${feedback} [¿Qué es Parche y por qué recibiste esto?](https://github.com/Pepo08/parche/blob/main/docs/por-que-recibi-este-pr.md)</sub>`, '');
   return out.join('\n');
 }
 

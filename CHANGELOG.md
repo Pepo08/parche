@@ -2,6 +2,22 @@
 
 Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1 y de la 0.6.0 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
 
+## 0.7.0 — 2026-10-24
+
+ARCA: Parche encuentra a los repos que creen estar migrados y no lo están, reconoce `@arcasdk/core` (la segunda librería de ARCA más descargada en npm) y avisa de la librería vieja en más casos. Salió de los pendientes del escaneo de 174 repos públicos (frente B, puntos 12 a 14).
+
+### Nuevo
+- **Clave casi bien escrita:** si el detalle del comprobante lleva `CondicionIVAReceptor` (sin `Id`), `CondicionIvaReceptorId` o `condicionIVAReceptorId`, Parche la renombra a `CondicionIVAReceptorId` sin tocar el valor, en JS y en PHP. Ese elemento no existe en el WSDL de WSFEv1: el dato nunca llegaba y desde el 1/12/2026 ARCA rechaza el CAE. Pasaba en un repo real con integración SOAP propia, en cuatro archivos. El PR sale borrador, para revisar que el valor sea un código válido. Solo se toca dentro de objetos o arrays con al menos dos claves de WSFEv1 (`DocTipo`, `CbteDesde`, `ImpTotal`…), nunca en tests ni en modelos propios con un nombre parecido. Si el comprobante tiene las dos claves, no edita y pide revisar.
+- **`@arcasdk/core`:** `arca.electronicBillingService.createVoucher(...)` y `createNextVoucher(...)` reciben los mismos arreglos que `afip.js` (consumidor final, DNI con B o C, PR parcial). Su comprobante usa las mismas claves de WSFEv1 (tipos de la 2.0.2, leídos en el paquete de npm). Probado sobre cinco repos públicos que la usan.
+- **Guía "Cómo agregar `CondicionIVAReceptorId` antes del 1/12/2026"** (`docs/guia-condicion-iva-receptor.md`): qué cambia, el campo en afip.js, afip.php, @arcasdk/core y SOAP propio, los códigos por clase de comprobante, los tres errores que aparecieron en repos reales y cómo probarlo en homologación. Para quien prefiere hacerlo a mano.
+
+### Cambios
+- **`ts-afip-ws`:** se avisa como librería vieja. Es un fork de afip.js 0.x y su última versión (1.3.2, de 2023) trae `wsfe.wsdl` y `wsfe-production.wsdl` sin el campo. El aviso dice qué hacer: pasar a `@afipsdk/afip.js` 1.x o actualizar el WSDL que trae la librería (lo mismo para `eesnaola/afip.php`, que no tiene una 1.x).
+- **El aviso de librería vieja también sale cuando Parche no puede leer los datos del comprobante** (por ejemplo, si llegan de otra función). Antes salía solo en los arreglos automáticos y en lo que pedía un dato con el objeto a la vista.
+- **Cuerpo del issue:** el pie dice "¿Te sirvió este aviso?" en vez de "¿Este PR te sirvió?".
+- **Checklist:** "confirmar que cada cliente con CUIT tiene su condición" sale solo si queda algo pendiente. En un PR que arregla todo, como uno de puros consumidores finales, no aplicaba (nuevo campo de pack: `review_checklist_if_pending_es`).
+- **Pack `arca.wsfe.condicion-iva-receptor` 2026.10.24:** fuentes releídas el 24/10/2026 (sin prórroga del 1/12); la explicación ya no cita una versión del manual de WSFEv1, que la página de ARCA rotula distinto; suma `facturas` (LaPyme) y las llamadas de `@arcasdk/core` a la detección.
+
 ## 0.6.9 — 2026-10-23
 
 La Action muestra lo que no abre un PR, y la plantilla del workflow anda en repos PHP. Salió de probar cada comando sobre los ejemplos antes de mandar los primeros mensajes de venta.

@@ -15,6 +15,7 @@
     "afip.ts": { "provider": "ARCA (ex AFIP)", "category": "facturación" },
     "ts-afip-ws": { "provider": "ARCA (ex AFIP)", "category": "facturación" },
     "facturajs": { "provider": "ARCA (ex AFIP)", "category": "facturación" },
+    "facturas": { "provider": "ARCA (ex AFIP)", "category": "facturación" },
     "openai": { "provider": "OpenAI", "category": "ia" },
     "@anthropic-ai/sdk": { "provider": "Anthropic", "category": "ia" },
     "@google/generative-ai": { "provider": "Google (Gemini)", "category": "ia" },

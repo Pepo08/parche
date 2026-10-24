@@ -130,7 +130,7 @@ Cómo contribuir, las reglas para el código y cómo se saca una versión: [`CON
 
 | Pack | Proveedor | Tipo | Fecha límite | Arreglo |
 |---|---|---|---|---|
-| `arca.wsfe.condicion-iva-receptor` | ARCA | rompe | 2026-12-01 | sí, en JS (`afip.js`) y PHP (`afipsdk/afip.php` y forks): consumidor final y DNI B/C; con `DocTipo` en una variable, consumidor final al ejecutarse (PR parcial) |
+| `arca.wsfe.condicion-iva-receptor` | ARCA | rompe | 2026-12-01 | sí, en JS (`afip.js` y `@arcasdk/core`) y PHP (`afipsdk/afip.php` y forks): consumidor final y DNI B/C; con `DocTipo` en una variable, consumidor final al ejecutarse (PR parcial) |
 | `mercadopago.payments-to-orders` | Mercado Pago | migración | — | sí (creación de pagos en SDK Node v2) |
 | `ai.model-retirements` | Anthropic, OpenAI | retiro | varias | solo detección (también modelos fine-tuned de OpenAI, `ft:…`). De OpenAI, los modelos que su página de deprecaciones apaga desde 2026: texto, código, imagen, video, voz, transcripción y realtime; y los productos que cierran: Assistants API, prompts reutilizables (`pmpt_…`, `v1/prompts`), la plataforma de Evals, ChatKit con un workflow de Agent Builder y la Videos API (cerrada el 24/9/2026). De Anthropic, los modelos retirados o con fecha, también por su alias (`claude-sonnet-4-5`, que apunta a `claude-sonnet-4-5-20250929` y se retira el 30/11/2026), `temperature`, `top_p` y `top_k` con un valor que no es el de por defecto en Claude 4.7 y posteriores, que dan error 400 (SDK de JS/TS y de Python, y HTTP directo), y los mismos tres parámetros con cualquier modelo en la API version `2026-10-21`, que usan el SDK de TypeScript 1.0.0 y el de Python 2.0.0 (del 21/10/2026): dice si el pedido ya falla, si falla en una instalación nueva o si va a fallar cuando suban el SDK |
 
@@ -159,6 +159,8 @@ Para reportar una vulnerabilidad, y el detalle de todo esto: [`SECURITY.md`](SEC
 
 ## ARCA en PHP
 
+**¿Tenés que agregar el campo a mano?** La guía paso a paso, para afip.js, afip.php, @arcasdk/core y SOAP propio: [Cómo agregar `CondicionIVAReceptorId` antes del 1/12/2026](docs/guia-condicion-iva-receptor.md).
+
 Para `afipsdk/afip.php` y sus forks (`fertandil87/afip.php`, `ivanalemunioz/afip.php`, `eesnaola/afip.php`), Parche busca `$afip->ElectronicBilling->CreateVoucher($data)` y `CreateNextVoucher($data)` (también en minúsculas: PHP no distingue) y agrega una línea por factura:
 
 ```php
@@ -171,7 +173,9 @@ Para `afipsdk/afip.php` y sus forks (`fertandil87/afip.php`, `ivanalemunioz/afip
 - Copia el estilo del array: comillas de las claves, indentación (espacios o tabs), alineación de los `=>`, coma final y fin de línea (LF o CRLF).
 - Saltea `vendor/`.
 
-**La versión de la librería importa.** Con `afip.js`/`afip.php` 0.x (y `eesnaola/afip.php`) el pedido se arma con un WSDL de 2021 que no tiene `CondicionIVAReceptorId`: aunque el campo esté en el código, no llega a ARCA. Parche lee la versión instalada (`composer.lock`, `package-lock.json`, `node_modules`) y, en esos casos, el arreglo sale como **"revisar"** con el aviso de actualizar a 1.x. También avisa si el repo tiene un `.wsdl` de WSFEv1 sin el campo.
+**La versión de la librería importa.** Con `afip.js`/`afip.php` 0.x, `eesnaola/afip.php` y `ts-afip-ws` (un fork de afip.js 0.x; su última versión, la 1.3.2, trae el WSDL sin el campo) el pedido se arma con un WSDL de 2021 que no tiene `CondicionIVAReceptorId`: aunque el campo esté en el código, no llega a ARCA. Parche lee la versión instalada (`composer.lock`, `package-lock.json`, `node_modules`) y, en esos casos, el arreglo sale como **"revisar"** y lo que pide un dato lleva el mismo aviso: qué actualizar para que el campo viaje. También avisa si el repo tiene un `.wsdl` de WSFEv1 sin el campo.
+
+**Clave casi bien escrita.** Si el detalle del comprobante lleva `CondicionIVAReceptor` (sin `Id`), `CondicionIvaReceptorId` o `condicionIVAReceptorId`, ese elemento no existe en el WSDL: el dato nunca llega y el repo parece migrado. Parche renombra la clave a `CondicionIVAReceptorId` sin tocar el valor, en JS y en PHP, y el PR sale **borrador** para revisar que el valor sea un código válido. Solo lo hace dentro de objetos o arrays con al menos dos claves de WSFEv1 (`DocTipo`, `CbteDesde`, `ImpTotal`…), para no tocar modelos propios con un nombre parecido, y nunca en tests.
 
 **Otros lenguajes:** en Python, C#, Java, Go y VB.NET, Parche detecta integraciones SOAP propias y clientes SOAP generados sin el campo (no los reescribe).
 
@@ -203,7 +207,7 @@ Cuando `DocTipo` no es un número fijo (`DocTipo: docTipo`), Parche no puede sab
 ## Límites del MVP
 
 - JS/TS (ESM y CommonJS) y, para ARCA, PHP. Siguen Python y Java.
-- ARCA: cubre `@afipsdk/afip.js` y `afipsdk/afip.php` (con sus forks). Las integraciones SOAP propias (en cualquier lenguaje) se detectan pero no se reescriben.
+- ARCA: cubre `@afipsdk/afip.js`, `@arcasdk/core` (`arca.electronicBillingService.createVoucher` y `createNextVoucher`) y `afipsdk/afip.php` (con sus forks). Las integraciones SOAP propias (en cualquier lenguaje) se detectan pero no se reescriben, salvo el renombre de una clave casi bien escrita.
 - IA, parámetros de Claude 4.7 y posteriores: avisa solo si el modelo del pedido se lee en el mismo archivo (un literal, una constante asignada una vez o el valor por defecto de una variable de entorno) y el parámetro es un número escrito en el código. Si el modelo llega de otro archivo o de la configuración, no avisa: no se puede saber si el pedido va a fallar.
 - IA, API version `2026-10-21` de Anthropic: la versión del SDK sale de `package-lock.json`, `node_modules` o el rango de `package.json`, y en Python solo de `requirements.txt` (todavía no de `pyproject.toml`, `poetry.lock` ni `uv.lock`). Un rango sin número (`latest`, `*`) cuenta como versión desconocida. Por HTTP directo avisa solo si el archivo manda `anthropic-version: 2026-10-21`. Los SDKs de Go, Java, .NET, Ruby y PHP no se leen.
 - IA, alias de Anthropic: avisa los de Claude Sonnet 4.5, Opus 4.5 y Haiku 4.5 (`claude-sonnet-4-5`, `claude-opus-4-5`, `claude-haiku-4-5`), escritos enteros entre comillas. Los alias de modelos ya retirados (`claude-3-5-sonnet-latest`, `claude-3-7-sonnet-latest` y otros) todavía no: la documentación actual de Anthropic ya no los nombra.
