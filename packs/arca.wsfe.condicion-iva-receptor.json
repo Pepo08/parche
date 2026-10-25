@@ -11,6 +11,7 @@
   "why_es": "La RG 5616/2024 hizo obligatorio informar la condición frente al IVA del receptor en cada comprobante electrónico. El manual del desarrollador de WSFEv1 fija el 1 de diciembre de 2026 como fecha desde la cual el campo es obligatorio: si viaja vacío, nulo o no viaja, el pedido de CAE se rechaza y no se puede facturar.",
   "sources": [
     { "title": "ARCA: Manual para el desarrollador WSFEv1 (RG 4291, revisión del 1/9/2026): el campo, los códigos 10242, 10243, 10245 y 10246 y el anexo de condiciones por clase de comprobante", "url": "https://www.afip.gob.ar/ws/documentacion/manuales/manual-desarrollador-ARCA-COMPG.pdf" },
+    { "title": "ARCA: Manual para el desarrollador WSFEv1 de homologación (v4.8, revisión del 1/12/2026): el campo pasa a ser obligatorio el 01/12/2026 y la observación 10245 queda en desuso", "url": "https://www.afip.gob.ar/fe/ayuda/documentos/wsfev1-RG-4291.pdf" },
     { "title": "VATupdate: Argentina makes recipient VAT status mandatory in electronic invoices", "url": "https://www.vatupdate.com/2026/09/09/argentina-makes-recipient-vat-status-mandatory-in-electronic-invoices/" },
     { "title": "iProfesional: ARCA rechazará facturas sin la condición del cliente frente al IVA", "url": "https://www.iprofesional.com/impuestos/464104-nuevo-requisito-arca-puede-trabar-emision-facturas" },
     { "title": "Tabla de códigos de FEParamGetCondicionIvaReceptor", "url": "https://app.spomsolutions.com/blog/condicion-iva-receptor-rg-5616" },
