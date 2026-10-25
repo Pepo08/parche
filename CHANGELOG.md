@@ -2,6 +2,15 @@
 
 Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1, de la 0.6.0 a la 0.7.0 y de la 0.7.2 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La 0.7.1 tampoco: salió junto con la 0.7.2. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
 
+## 0.7.5 — 2026-10-24
+
+Mercado Pago: dos cosas del SDK oficial que el pack no tenía en cuenta, verificadas en su código (github.com/mercadopago/sdk-nodejs, 24/10/2026).
+
+### Cambios
+- **Ya no se agrega `idempotencyKey` al migrar a `Order.create`.** El SDK manda una `X-Idempotency-Key` nueva en cada escritura cuando no recibe una, así que agregarla no aportaba nada. Y por un bug abierto del SDK (mercadopago/sdk-nodejs#481), las `requestOptions` de `create` quedan guardadas en la configuración del `client`: la clave que agregaba Parche salía también en los reembolsos y las capturas siguientes de ese `client`. Si el código ya traía su propia clave, se deja como está y el PR avisa del #481. Tampoco se agrega más el import de `randomUUID`.
+- **Versión del SDK:** `Order` existe en `mercadopago` desde la 2.4.0 (1/4/2025). Con una versión anterior instalada (según el lockfile o `node_modules`), la migración queda **bloqueada** y pide actualizar el SDK, porque migrada dejaría `Order` en undefined. Si solo se conoce el rango de `package.json` y permite una versión anterior, se migra para revisar y pide fijar `^2.4.0`. Si no se ve ninguna versión, pide confirmarla.
+- **Pack `mercadopago.payments-to-orders` 2026.10.24:** el checklist ya no pide mandar `X-Idempotency-Key` a mano con el SDK (sí por HTTP directo) y pide `mercadopago` 2.4.0 o posterior. Suma como fuentes el release 2.4.0 del SDK y el issue #481.
+
 ## 0.7.4 — 2026-10-24
 
 Un repo con `.parche/` commiteado, y los códigos de error de ARCA según su manual oficial.

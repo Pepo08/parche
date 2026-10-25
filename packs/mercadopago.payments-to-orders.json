@@ -1,6 +1,6 @@
 {
   "id": "mercadopago.payments-to-orders",
-  "version": "2026.10.15",
+  "version": "2026.10.24",
   "provider": "Mercado Pago",
   "title": "Migración de creación de pagos: Payments API → Orders API",
   "kind": "migration",
@@ -11,7 +11,9 @@
   "why_es": "Payments API sigue funcionando pero solo recibe correcciones de seguridad y estabilidad. Orders API unifica el procesamiento online, trae varias transacciones por orden, captura dedicada, 3DS 2.0 nativo y errores consolidados. Los pagos ya creados se siguen consultando, capturando, cancelando y reembolsando por la API con la que se crearon, así que Parche migra solo la creación y deja el resto marcado para revisión.",
   "sources": [
     { "title": "Mercado Pago: Cómo migrar de Payments API a Orders API", "url": "https://www.mercadopago.com.ar/developers/es/docs/checkout-api-orders/resources/migrate-payments-to-orders" },
-    { "title": "SDK Node.js de Mercado Pago (clase Order)", "url": "https://www.npmjs.com/package/mercadopago" }
+    { "title": "SDK Node.js de Mercado Pago (clase Order)", "url": "https://www.npmjs.com/package/mercadopago" },
+    { "title": "SDK Node.js de Mercado Pago 2.4.0 (1/4/2025): \"Feature: Order\", la primera versión con Order", "url": "https://github.com/mercadopago/sdk-nodejs/releases/tag/2.4.0" },
+    { "title": "mercadopago/sdk-nodejs#481 (abierto, 18/9/2026): las requestOptions de create quedan en la configuración compartida y su idempotencyKey sale en las llamadas siguientes", "url": "https://github.com/mercadopago/sdk-nodejs/issues/481" }
   ],
   "detect": {
     "packages": ["mercadopago"],
@@ -47,7 +49,8 @@
   "codemod": "mercadopago-payments-to-orders",
   "review_checklist_es": [
     "Configurar el webhook con el tópico `orders` en Tus integraciones y mantener `payment` en paralelo durante la transición.",
-    "Enviar `X-Idempotency-Key` en todas las escrituras (crear, capturar, cancelar, reembolsar).",
+    "Con el SDK, no le pases una `idempotencyKey` fija en `requestOptions`: el SDK manda una `X-Idempotency-Key` nueva en cada escritura, y una fija queda en el client (mercadopago/sdk-nodejs#481) y sale también en los reembolsos y capturas siguientes. Por HTTP directo, mandá `X-Idempotency-Key` en todas las escrituras (crear, capturar, cancelar, reembolsar).",
+    "Tener `mercadopago` 2.4.0 o posterior: `Order` existe desde esa versión.",
     "Manejar `status` y `status_detail` a nivel orden y a nivel transacción.",
     "Persistir también `transactions.payments[].id` (los reembolsos parciales lo necesitan).",
     "En sandbox, el email del pagador tiene que ser test@testuser.com.",

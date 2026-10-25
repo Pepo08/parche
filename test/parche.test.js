@@ -96,13 +96,14 @@ test('MP: checkout.js migra la creación al formato Orders', () => {
   const out = r.output;
   parseCheck(out, 'checkout.js');
   assert.match(out, /import \{ MercadoPagoConfig, Order \} from 'mercadopago'/);
-  assert.match(out, /import \{ randomUUID \} from 'node:crypto'/);
+  // El SDK genera la X-Idempotency-Key en cada escritura: Parche no agrega una fija (mercadopago/sdk-nodejs#481).
+  assert.doesNotMatch(out, /randomUUID|idempotencyKey|node:crypto/);
   assert.match(out, /const order = new Order\(client\)/);
   assert.doesNotMatch(out, /new Payment|notification_url|issuer_id:|issuer_id,\n\s+payer|three_d_secure_mode|transaction_amount/);
   for (const s of ["type: 'online'", "processing_mode: 'automatic'", 'total_amount: Number(amount).toFixed(2)',
     'amount: Number(amount).toFixed(2)', 'id: payment_method_id', 'token,', 'installments: Number(installments)',
     "statement_descriptor: 'TIENDADEMO'", "validation: 'on_fraud_risk'", "liability_shift: 'required'",
-    'idempotencyKey: randomUUID()', "result.status === 'processed'", "result.status === 'failed'",
+    "result.status === 'processed'", "result.status === 'failed'",
     "result.status_detail === 'insufficient_amount'", 'result.created_date']) {
     assert.ok(out.includes(s), `falta: ${s}`);
   }
@@ -121,6 +122,7 @@ test('MP: TypeScript con tarjeta guardada, captura manual e items', () => {
     assert.ok(out.includes(s), `falta: ${s}`);
   }
   assert.doesNotMatch(out, /randomUUID/, 'si ya había idempotencyKey no se agrega otra');
+  assert.ok(r.findings.some((f) => f.status === 'needs-review' && /sdk-nodejs#481/.test(f.message)), 'la clave fija se queda, con el aviso del #481');
   assert.ok(r.findings.some((f) => /authorized/.test(f.message)));
 });
 
@@ -144,17 +146,16 @@ test('MP: require (CommonJS) y create inline', () => {
   const r = mp({ source, file: 'f.cjs', pack: packs['mercadopago.payments-to-orders'] });
   parseCheck(r.output, 'f.cjs');
   assert.match(r.output, /new Order\(c\)\.create/);
-  assert.match(r.output, /const \{ randomUUID \} = require\('node:crypto'\)/);
+  assert.doesNotMatch(r.output, /randomUUID|node:crypto/);
   assert.match(r.output, /total_amount: '50\.00'/);
   assert.match(r.output, /type: 'debit_card'/);
   assert.match(r.output, /r\.status === 'processed'/);
   assert.match(r.output, /\{ MercadoPagoConfig, Order \}/);
 });
 
-test('MP: el import de randomUUID va junto a los otros imports', () => {
+test('MP: no agrega imports fuera de Order, y la línea en blanco después de los imports queda', () => {
   const lines = runMp('checkout.js').output.split('\n');
-  assert.equal(lines[lines.indexOf("import { guardarPedido } from './db.js';") + 1], "import { randomUUID } from 'node:crypto';");
-  assert.equal(lines[lines.indexOf("import { randomUUID } from 'node:crypto';") + 1], '', 'la línea en blanco original queda después');
+  assert.equal(lines[lines.indexOf("import { guardarPedido } from './db.js';") + 1], '');
 });
 
 test('MP: respeta el fin de línea del archivo y sus líneas en blanco', () => {
