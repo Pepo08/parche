@@ -17,8 +17,19 @@ export function currentBranch(cwd) {
   return git(cwd, 'rev-parse', '--abbrev-ref', 'HEAD');
 }
 
+// `.parche/` es lo que Parche escribe en cada corrida (reportes, inventario, registro, cuerpos de PR). No cuenta para
+// "repo limpio" y nunca entra en un PR, aunque alguien lo haya commiteado: pasó copiando una carpeta ya escaneada a un
+// repo nuevo, y `scan` lo modificaba y `pr` frenaba con "Hay cambios sin commitear". Todo el repo (`:/`) menos
+// `.parche/` de la carpeta que se revisa (las rutas de exclusión son relativas a `cwd`, que es donde vive `.parche/`).
+const OUTSIDE_PARCHE = ['--', ':/', ':(exclude).parche'];
+
 export function isClean(cwd) {
-  return git(cwd, 'status', '--porcelain') === '';
+  return git(cwd, 'status', '--porcelain', ...OUTSIDE_PARCHE) === '';
+}
+
+// ¿`.parche/` está commiteado? Solo para avisarlo: Parche funciona igual.
+export function tracksParcheDir(cwd) {
+  return git(cwd, 'ls-files', '--', '.parche') !== '';
 }
 
 export function checkoutNewBranch(cwd, name, base) {
@@ -65,6 +76,10 @@ export const isNoreply = (email) => /@users\.noreply\.github\.com$/i.test(email 
 export function commitAll(cwd, message, env = process.env) {
   const id = commitIdentity(cwd, env);
   git(cwd, 'add', '-A');
+  // `.parche/` nunca entra en el commit. Si no está commiteado, `add` ya no lo toma (está en .git/info/exclude); si lo
+  // está, se saca del índice lo que `add` tomó de ahí. No va como pathspec de exclusión en `add`: git sale con error
+  // cuando una pathspec nombra una carpeta ignorada, aunque sea para excluirla.
+  if (tracksParcheDir(cwd)) git(cwd, 'reset', '-q', 'HEAD', '--', '.parche');
   git(cwd, '-c', `user.name=${id.name}`, '-c', `user.email=${id.email}`, 'commit', '-q', '-m', message);
   return git(cwd, 'rev-parse', '--short', 'HEAD');
 }
@@ -87,9 +102,11 @@ export function push(cwd, branch, remote = 'origin') {
   git(cwd, 'push', '-u', '--force', remote, branch);
 }
 
-// Descarta lo que Parche escribió en su rama (el árbol estaba limpio antes de empezar; .parche/ está excluido).
+// Descarta lo que Parche escribió en su rama (el árbol estaba limpio antes de empezar). Antes era `reset --hard`, que
+// con un `.parche/` commiteado también borraba el registro de esta corrida; los codemods solo modifican archivos que
+// ya existen, así que alcanza con volver todo, menos `.parche/`, a lo que hay en HEAD.
 export function discardChanges(cwd) {
-  git(cwd, 'reset', '--hard', '-q');
+  git(cwd, 'checkout', '-q', 'HEAD', ...OUTSIDE_PARCHE);
 }
 
 export function deleteBranch(cwd, name) {

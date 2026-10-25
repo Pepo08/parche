@@ -215,6 +215,9 @@ async function main() {
   if (cmd === 'pr') {
     if (!git.isRepo(root)) throw new Error('`parche pr` necesita un repositorio git.');
     if (!git.isClean(root)) throw new Error('Hay cambios sin commitear. Commiteá o guardá (stash) antes de correr `parche pr`.');
+    if (git.tracksParcheDir(root)) {
+      console.warn('Ojo: `.parche/` está commiteado en el repo. Parche lo usa para sus reportes y no lo incluye en sus PRs. Si no lo querés versionar: `git rm -r --cached .parche` y sumalo al .gitignore.');
+    }
     // Quién firma el commit se resuelve antes de escribir nada: si falla al commitear, el repo quedaría sucio.
     const env = args.author !== undefined ? { ...process.env, ...git.parseAuthor(args.author) } : process.env;
     const identity = git.commitIdentity(root, env);
