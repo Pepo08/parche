@@ -93,16 +93,16 @@ Si tu sistema guarda la condición con una numeración propia (por ejemplo, un e
 
 ## 5. Probalo en homologación
 
-Emití un comprobante de cada tipo que uses (A, B, C, notas de crédito) contra el ambiente de homologación de WSFEv1, con tu certificado de prueba, y mirá las observaciones y los errores de cada respuesta. Según el [manual para el desarrollador de ARCA](https://www.afip.gob.ar/ws/documentacion/manuales/manual-desarrollador-ARCA-COMPG.pdf) (revisión del 1/9/2026), estos son los códigos del campo:
+Emití un comprobante de cada tipo que uses (A, B, C, notas de crédito) contra el ambiente de homologación de WSFEv1, con tu certificado de prueba, y mirá las observaciones y los errores de cada respuesta. Estos son los códigos del campo según los dos manuales para el desarrollador de ARCA, que dicen lo mismo: el de [producción](https://www.afip.gob.ar/ws/documentacion/manuales/manual-desarrollador-ARCA-COMPG.pdf) (v4.7, revisión del 1/9/2026) y el de [homologación](https://www.afip.gob.ar/fe/ayuda/documentos/wsfev1-RG-4291.pdf) (v4.8, revisión del 1/12/2026).
 
 | Código | Tipo | Qué significa |
 |---|---|---|
-| 10245 | Observación | Falta el campo, que "resultará obligatorio" por la RG 5616. El CAE sale igual, con esta observación |
+| 10245 | Observación | Falta el campo, que "resultará obligatorio" por la RG 5616. El CAE sale igual, con esta observación. La v4.8 dice que este código queda en desuso desde el 1/12/2026 |
 | 10246 | Error | Falta el campo, que ya "es obligatorio": no hay CAE |
-| 10242 | Error | El código no es un valor permitido (consultá `FEParamGetCondicionIvaReceptor`) |
-| 10243 | Error | El código no es válido para la clase del comprobante (por ejemplo, 5, Consumidor Final, en una factura A) |
+| 10242 | Error | El código no existe (no es un valor permitido; consultá `FEParamGetCondicionIvaReceptor`). Ya rechaza hoy |
+| 10243 | Error | El código no es válido para la clase del comprobante (por ejemplo, 5, Consumidor Final, en una factura A). Ya rechaza hoy con CAE; con CAEA, observa |
 
-Si te aparece la 10245, el dato no está viajando. Hasta el 30/11/2026 eso no impide facturar; desde el 1/12, el pedido sin el dato se rechaza ([iProfesional](https://www.iprofesional.com/impuestos/464104-nuevo-requisito-arca-puede-trabar-emision-facturas), [Afip SDK](https://afipsdk.com/blog/factura-electronica-solucion-a-error-10242/)). Los códigos son los del manual: confirmá en homologación cuál te devuelve a vos, porque algunas fuentes citan otros (Afip SDK, por ejemplo, describe el campo faltante con el 10242).
+Si te aparece la 10245, el dato no está viajando. Hasta el 30/11/2026 eso no impide facturar; desde el 1/12/2026 el campo es obligatorio y el pedido sin el dato se rechaza (lo dice el historial de cambios de la v4.8). Confirmá en homologación qué código te devuelve a vos: algunas fuentes citan otros (Afip SDK, por ejemplo, describe el campo faltante con el 10242).
 
 ## Si querés ayuda
 
