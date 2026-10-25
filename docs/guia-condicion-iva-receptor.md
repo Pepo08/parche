@@ -81,19 +81,28 @@ No todos sirven para cualquier comprobante:
 | Clase B | 4, 5, 7, 8, 9, 10, 15 |
 | Clase C | 1, 4, 5, 6, 7, 8, 9, 10, 13, 15, 16 |
 
-La tabla sale de [este relevamiento](https://app.spomsolutions.com/blog/condicion-iva-receptor-rg-5616) y puede cambiar: antes de pasar a producción, consultá los valores vigentes con el método `FEParamGetCondicionIvaReceptor` del web service.
+Las dos tablas son las del anexo "Condición Frente al IVA del receptor" del [manual para el desarrollador de ARCA](https://www.afip.gob.ar/ws/documentacion/manuales/manual-desarrollador-ARCA-COMPG.pdf) (revisión del 1/9/2026), y pueden cambiar: antes de pasar a producción, consultá los valores vigentes con el método `FEParamGetCondicionIvaReceptor` del web service.
 
 Si tu sistema guarda la condición con una numeración propia (por ejemplo, un enum interno), traducila a esta tabla: no la mandes tal cual.
 
 ## 4. Tres errores que vimos en repos reales
 
 - **El nombre casi bien escrito.** `CondicionIVAReceptor` (sin `Id`), `CondicionIvaReceptorId` o `condicionIVAReceptorId` no existen en el web service: el dato no llega y el código parece migrado. Tiene que ser exactamente `CondicionIVAReceptorId`.
-- **La librería vieja.** Con afip.js o afip.php 0.x, y con forks como `ts-afip-ws`, el pedido se arma con un WSDL de 2021 que no tiene el campo: aunque lo agregues al código, no viaja. Pasá a la 1.x de la librería (o actualizá el WSDL que trae).
+- **La librería vieja.** Con afip.php 0.x el pedido se arma con un WSDL de 2021 que no tiene el campo: aunque lo agregues al código, no viaja. Con afip.js 0.x y con `ts-afip-ws` (un fork de afip.js 0.x), el WSDL que traen tampoco lo tiene: tratalo como si no viajara. Pasá a la 1.x de afip.js o de afip.php (con `ts-afip-ws`, a `@afipsdk/afip.js` 1.x), o actualizá el WSDL que trae la librería.
 - **Solo la factura principal.** Las notas de crédito y débito, los procesos en lote y los reintentos también piden CAE: cada uno necesita el campo.
 
 ## 5. Probalo en homologación
 
-Emití un comprobante de cada tipo que uses (A, B, C, notas de crédito) contra el ambiente de homologación de WSFEv1, con tu certificado de prueba. Si el campo falta o tiene un valor inválido, ARCA responde con el código 10242 ("El campo Condición IVA receptor es obligatorio"). Hasta el 30/11/2026 no impide facturar; desde el 1/12, sí ([Afip SDK lo explica acá](https://afipsdk.com/blog/factura-electronica-solucion-a-error-10242/)).
+Emití un comprobante de cada tipo que uses (A, B, C, notas de crédito) contra el ambiente de homologación de WSFEv1, con tu certificado de prueba, y mirá las observaciones y los errores de cada respuesta. Estos son los códigos del campo según los dos manuales para el desarrollador de ARCA, que dicen lo mismo: el de [producción](https://www.afip.gob.ar/ws/documentacion/manuales/manual-desarrollador-ARCA-COMPG.pdf) (v4.7, revisión del 1/9/2026) y el de [homologación](https://www.afip.gob.ar/fe/ayuda/documentos/wsfev1-RG-4291.pdf) (v4.8, revisión del 1/12/2026).
+
+| Código | Tipo | Qué significa |
+|---|---|---|
+| 10245 | Observación | Falta el campo, que "resultará obligatorio" por la RG 5616. El CAE sale igual, con esta observación. La v4.8 dice que este código queda en desuso desde el 1/12/2026 |
+| 10246 | Error | Falta el campo, que ya "es obligatorio": no hay CAE |
+| 10242 | Error | El código no existe (no es un valor permitido; consultá `FEParamGetCondicionIvaReceptor`). Ya rechaza hoy |
+| 10243 | Error | El código no es válido para la clase del comprobante (por ejemplo, 5, Consumidor Final, en una factura A). Ya rechaza hoy con CAE; con CAEA, observa |
+
+Si te aparece la 10245, el dato no está viajando. Hasta el 30/11/2026 eso no impide facturar; desde el 1/12/2026 el campo es obligatorio y el pedido sin el dato se rechaza (lo dice el historial de cambios de la v4.8). Confirmá en homologación qué código te devuelve a vos: algunas fuentes citan otros (Afip SDK, por ejemplo, describe el campo faltante con el 10242).
 
 ## Si querés ayuda
 
