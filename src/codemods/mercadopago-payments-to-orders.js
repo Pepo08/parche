@@ -6,8 +6,31 @@ import {
   jFor, detectQuote, eolOf, getProp, hasSpread, keyName, literalValue, isStringLit, resolveBinding,
   memberChain, buildMember, isReference, cloneNode, finding, tidy, snippet,
 } from '../ast.js';
+import { emptyContext } from '../context.js';
 
 const PACK = 'mercadopago.payments-to-orders';
+// `Order` existe en el SDK desde la 2.4.0 (release del 1/4/2025, "Feature: Order"; no está en el index de la 2.3.0):
+// con una versión anterior, `import { Order }` queda undefined. Verificado en github.com/mercadopago/sdk-nodejs el 24/10.
+const ORDER_SINCE = [2, 4, 0];
+const isOlder = (version, min) => {
+  const v = String(version).split('.').map((n) => Number.parseInt(n, 10) || 0);
+  for (let i = 0; i < min.length; i++) if (v[i] !== min[i]) return v[i] < min[i];
+  return false;
+};
+// Lo que se sabe de la versión instalada (src/context.js): la del lockfile o node_modules es la que corre; la
+// "declarada" sale del rango de package.json y puede instalar otra.
+function sdkVersion(context) {
+  const sdk = context?.versions?.npm?.mercadopago;
+  if (!sdk) return { unknown: true };
+  if (!isOlder(sdk.version, ORDER_SINCE)) return { ok: true };
+  return sdk.source === 'declarada' ? { declaredOld: sdk } : { installedOld: sdk };
+}
+// mercadopago/sdk-nodejs#481 (abierto desde el 18/9/2026): `create` guarda sus requestOptions en la configuración del
+// client (`this.config.options = { ...this.config.options, ...requestOptions }`, de la 2.4.0 a la 3.6.1, también en
+// Payment), y el RestClient solo genera una X-Idempotency-Key nueva cuando no recibe una.
+const IDEMPOTENCY_LEAK = 'Por un bug abierto del SDK (mercadopago/sdk-nodejs#481), las `requestOptions` de `create` quedan guardadas '
+  + 'en la configuración del `client`: esta `idempotencyKey` va a salir también en las escrituras siguientes de ese `client` que no traigan '
+  + 'la suya (reembolsos, capturas). Ya pasaba con `Payment.create`. Si no necesitás una clave fija, sacala: el SDK genera una nueva en cada escritura.';
 const DEBIT = new Set(['debvisa', 'debmaster', 'debcabal', 'maestro']);
 const CREDIT = new Set(['visa', 'master', 'amex', 'naranja', 'cabal', 'tarshop', 'cencosud', 'diners', 'argencard', 'cmr']);
 const TICKET = new Set(['rapipago', 'pagofacil']);
@@ -28,7 +51,7 @@ const RESPONSE_RENAMES = {
 };
 const READ_METHODS = new Set(['get', 'search', 'cancel', 'capture', 'update']);
 
-export default function transform({ source, file, pack }) {
+export default function transform({ source, file, pack, context = emptyContext() }) {
   const findings = [];
   const usages = [];
   if (!/mercadopago/.test(source)) return { output: null, findings, usages };
@@ -50,7 +73,7 @@ export default function transform({ source, file, pack }) {
     return node;
   };
   let changed = false;
-  let needUUID = false;
+  const sdk = sdkVersion(context);
 
   textDetections(source, file, findings, usages);
 
@@ -121,7 +144,14 @@ export default function transform({ source, file, pack }) {
     }
     const paymentRefs = root.find(j.Identifier, { name: paymentLocal }).filter(isReference).size();
     if (paymentRefs === 0) mp.removeSpecifier('Payment');
-    if (needUUID) ensureRandomUUID(j, root, mp, detectQuote(source) === 'double' ? '"' : "'");
+    // Sin la versión instalada a la vista no se puede saber si `Order` existe: se migra, pero para revisar.
+    if (sdk.declaredOld) {
+      findings.push({ pack: PACK, file, line: mp.line, status: 'needs-review',
+        message: `\`package.json\` declara mercadopago \`${sdk.declaredOld.range}\`, que permite instalar una versión sin \`Order\` (existe desde la 2.4.0, del 1/4/2025): fijá \`"mercadopago": "^2.4.0"\` o posterior.` });
+    } else if (sdk.unknown) {
+      findings.push({ pack: PACK, file, line: mp.line, status: 'needs-review',
+        message: 'No pude leer qué versión de mercadopago tenés instalada: `Order` existe desde la 2.4.0 (1/4/2025). Confirmá que tenés esa o una posterior.' });
+    }
   }
 
   webhookDetections(j, root, file, findings);
@@ -160,6 +190,12 @@ export default function transform({ source, file, pack }) {
     if (getProp(body, 'application_fee')) {
       findings.push(finding(PACK, file, call, 'blocked',
         'Usa `application_fee` (Marketplace / Split 1:1). Orders API todavía no tiene un equivalente documentado: NO migrar este flujo hasta que Mercado Pago lo soporte.'));
+      return false;
+    }
+    if (sdk.installedOld) {
+      const { version, source: from } = sdk.installedOld;
+      findings.push(finding(PACK, file, call, 'blocked',
+        `Tenés mercadopago ${version} (según \`${from}\`) y \`Order\` existe desde la 2.4.0 (1/4/2025): migrado ahora, \`Order\` quedaría undefined. Subí el SDK a 2.4.0 o posterior y volvé a correr Parche.`));
       return false;
     }
     const amount = getProp(body, 'transaction_amount');
@@ -271,16 +307,13 @@ export default function transform({ source, file, pack }) {
       findings.push(finding(PACK, file, call, 'needs-review', 'No hay `external_reference`: Orders lo exige para algunos medios de pago y sirve para conciliar.'));
     }
 
-    // Idempotencia obligatoria en todas las escrituras de Orders.
+    // Orders exige X-Idempotency-Key en cada escritura, y el SDK ya manda una nueva en cada una si no recibe ninguna.
+    // Hasta la 0.7.4 Parche agregaba `requestOptions: { idempotencyKey: randomUUID() }`: no aportaba nada y, por el
+    // #481, esa clave quedaba en el client y salía también en las escrituras siguientes. Si el código ya traía una, se
+    // deja como está y se avisa.
     const ro = getProp(arg, 'requestOptions');
-    const idem = prop('idempotencyKey', j.callExpression(id('randomUUID'), []));
-    if (!ro) {
-      arg.properties.push(prop('requestOptions', snippet(j, 'x = { idempotencyKey: randomUUID() };', 'ObjectExpression')));
-      needUUID = true;
-      findings.push(finding(PACK, file, call, 'auto', 'Se agregó `idempotencyKey` (X-Idempotency-Key es obligatorio en Orders).'));
-    } else if (ro.value.type === 'ObjectExpression' && !getProp(ro.value, 'idempotencyKey')) {
-      ro.value.properties.push(idem);
-      needUUID = true;
+    if (ro && ro.value.type === 'ObjectExpression' && getProp(ro.value, 'idempotencyKey')) {
+      findings.push(finding(PACK, file, call, 'needs-review', IDEMPOTENCY_LEAK));
     }
 
     rewriteResponse(p);
@@ -413,23 +446,6 @@ function findMpImport(j, root) {
     };
   }
   return null;
-}
-
-function ensureRandomUUID(j, root, mp, quoteChar) {
-  const already = root.find(j.Identifier, { name: 'randomUUID' }).filter((p) => {
-    const parent = p.parent.node;
-    return parent.type === 'ImportSpecifier' || parent.type === 'ObjectProperty' || parent.type === 'Property';
-  }).size();
-  if (already) return;
-  const q = quoteChar;
-  if (mp.kind === 'esm') {
-    const decl = snippet(j, `import { randomUUID } from ${q}node:crypto${q};`, 'ImportDeclaration');
-    const imports = root.find(j.ImportDeclaration);
-    j(imports.paths()[imports.size() - 1]).insertAfter(decl);
-  } else {
-    const decl = snippet(j, `const { randomUUID } = require(${q}node:crypto${q});`, 'VariableDeclaration');
-    j(mp.statement).insertAfter(decl);
-  }
 }
 
 function textDetections(source, file, findings, usages) {
