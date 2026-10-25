@@ -2,6 +2,8 @@
 
 `parche scan` lista **todas** las APIs de terceros que usa el repo, tengan pack de Parche o no. Es el nivel 1 del producto: saber qué se usa y dónde es lo que permite avisar cuando una de esas APIs cambia.
 
+El archivo es salida local: `.parche/` no va en git (Parche lo agrega a `.git/info/exclude`; ver el [README](../README.md)). Para guardar el inventario de cada semana, usá la foto de la corrida de la Action (`scan.json`, en el artifact `parche`) o `parche scan --json`, que trae el mismo inventario en `inventory`.
+
 Qué detecta:
 
 | Tipo (`kind`) | Cómo se detecta | Ejemplo de operación |

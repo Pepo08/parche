@@ -2,6 +2,16 @@
 
 Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1, de la 0.6.0 a la 0.7.0 y de la 0.7.2 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La 0.7.1 tampoco: salió junto con la 0.7.2. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
 
+## 0.7.4 — 2026-10-24
+
+Un repo con `.parche/` commiteado, y los códigos de error de ARCA según su manual oficial.
+
+### Cambios
+- **`.parche/` commiteado:** si alguien commiteó `.parche/` (pasó copiando una carpeta ya escaneada a un repo nuevo), `scan` lo modificaba y después `pr` frenaba con "Hay cambios sin commitear"; y si hubiera seguido, `git add -A` metía `.parche/` en el PR. Ahora `pr` no cuenta `.parche/` al ver si el repo está limpio, nunca lo incluye en el commit, y avisa con una línea cómo dejar de versionarlo. Si la verificación falla, se descarta el arreglo pero no el registro de esa corrida.
+- **Pack `arca.wsfe.condicion-iva-receptor`:** cita como fuentes los dos manuales para el desarrollador de WSFEv1 de ARCA: el de producción (revisión del 1/9/2026), cuyo anexo confirma la tabla de códigos válidos por clase de comprobante que ya usaba el pack, y el de homologación (v4.8, revisión del 1/12/2026), que fija el 01/12/2026 como la fecha en que el campo pasa a ser obligatorio. Hasta ahora esa fecha salía solo de fuentes de terceros.
+- **Guía de `CondicionIVAReceptorId`:** los códigos son los de los manuales. Cuando falta el campo, el código es la observación 10245 (que queda en desuso el 1/12) y, cuando pasa a ser obligatorio, el error 10246; el 10242 es un código que no existe y el 10243, uno que no corresponde a la clase del comprobante, y los dos ya rechazan hoy. Antes decía que el campo faltante era el 10242. Con afip.js 0.x y `ts-afip-ws` dice "tratalo como si no viajara", porque no está confirmado que no viaje (PR #26). El README dice lo mismo.
+- README e inventario: `.parche/` es salida local y no va en git.
+
 ## 0.7.3 — 2026-10-24
 
 La foto de cada corrida de la Action. Hasta la 0.7.2, el inventario de APIs, los avisos y el registro se escribían dentro del runner y se perdían al terminar el job: de una corrida quedaban solo el resumen del job y los PRs, y el resumen no se puede leer por la API de GitHub.
