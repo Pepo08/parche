@@ -41,16 +41,30 @@ export function annotations(groups, prefix = '') {
   return out;
 }
 
-// El resumen del job: los PRs de esta corrida, lo que quedó sin PR y los avisos de solo detección.
-// opened: [{ title, url, draft }] (url null en modo prueba); reportOnly y notices: grupos { pack, findings }.
-export function stepSummary({ opened = [], reportOnly = [], notices = [] }) {
+// Qué pasó con un PR que ya existía (src/publish.js, P9).
+const EXISTING = {
+  updated: 'ya estaba abierto: se actualizó con el arreglo de hoy',
+  unchanged: 'ya estaba abierto con este mismo arreglo: no se tocó',
+  kept: 'la rama tiene commits de otra persona: Parche no la pisa (si querés que la rehaga, cerrá el PR y borrá la rama)',
+};
+
+// El resumen del job: los PRs de esta corrida, lo que quedó sin PR, los avisos de solo detección y los packs que fallaron.
+// opened: [{ title, url, draft, status }] (url null en modo prueba; status, el de publishPr); reportOnly y notices:
+// grupos { pack, findings }; failed: [{ pack, message }].
+export function stepSummary({ opened = [], reportOnly = [], notices = [], failed = [] }) {
   const lines = ['## Parche', ''];
   if (opened.length) {
     lines.push('### PRs', '');
     for (const o of opened) {
-      const draft = o.draft ? ' · borrador' : '';
-      lines.push(o.url ? `- [${o.title}](${o.url})${draft}` : `- ${o.title}${draft} · modo prueba: no se abrió`);
+      const note = EXISTING[o.status] ? ` · ${EXISTING[o.status]}` : o.draft ? ' · borrador' : '';
+      if (o.url) lines.push(`- [${o.title}](${o.url})${note}`);
+      else lines.push(`- ${o.title}${note}${o.status ? '' : ' · modo prueba: no se abrió'}`);
     }
+    lines.push('');
+  }
+  if (failed.length) {
+    lines.push('### No se pudo', '');
+    for (const f of failed) lines.push(`- **${f.pack.title}** · ${f.message.split('\n')[0]}`);
     lines.push('');
   }
   const section = (title, intro, groups) => {
@@ -64,7 +78,7 @@ export function stepSummary({ opened = [], reportOnly = [], notices = [] }) {
   };
   section('Sin PR', 'Parche no abre un PR cuando el arreglo depende de un dato de tu negocio o cuando no hay código para cambiar. Esto es lo que encontró y lo que falta.', reportOnly);
   section('Avisos', 'Cambios con fecha que afectan a tu código. Parche no los cambia solo: cambiar de modelo, por ejemplo, cambia cómo responde tu producto.', notices);
-  if (!opened.length && !reportOnly.length && !notices.length) {
+  if (!opened.length && !reportOnly.length && !notices.length && !failed.length) {
     lines.push('Ninguno de los packs verificados tiene cambios que te afecten hoy.', '');
   }
   lines.push('El inventario completo de las APIs del repo: `npx parche-cli scan .`');

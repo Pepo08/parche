@@ -7,7 +7,8 @@ import { loadPacks } from '../src/packs.js';
 import { scanReport, prBody, counts, LABEL, daysUntil, partialCovers } from '../src/report.js';
 import { verify } from '../src/verify.js';
 import * as git from '../src/git.js';
-import { parseGithubRemote, openPullRequest } from '../src/github.js';
+import { parseGithubRemote, githubClient } from '../src/github.js';
+import { publishPr } from '../src/publish.js';
 import { record } from '../src/ledger.js';
 import { apiLabel, noUsesLabel } from '../src/inventory/index.js';
 import { isTestFile } from '../src/paths.js';
@@ -49,6 +50,15 @@ function summary(findings) {
   return ['auto', 'needs-review', 'needs-input', 'blocked', 'detect-only']
     .filter((k) => c[k]).map((k) => `${LABEL[k]}: ${c[k]}`).join('   ');
 }
+
+// Qué pasó con el PR de cada pack (src/publish.js), en la salida de `pr`.
+const PUBLISHED = {
+  opened: ({ draft, url }) => `PR abierto${draft ? ' (borrador)' : ''}: ${url}`,
+  updated: ({ url }) => `Ya había un PR abierto con solo el commit de Parche; se actualizó con el arreglo de hoy: ${url}`,
+  unchanged: ({ url }) => `Ya hay un PR abierto con este mismo arreglo; no se tocó: ${url}`,
+  kept: ({ branch, url }) => `La rama ${branch} tiene commits de otra persona${url ? ` (${url})` : ''}: Parche no la pisa. `
+    + `Si querés que la rehaga, cerrá el PR y borrá la rama.`,
+};
 
 function ensureLocalDir(root) {
   fs.mkdirSync(path.join(root, '.parche'), { recursive: true });
@@ -234,6 +244,10 @@ async function main() {
     // Para el resumen del job en GitHub Actions: los PRs de esta corrida y lo que quedó sin PR.
     const opened = [];
     const withoutPr = [];
+    // Un pack que falla (la verificación, la API de GitHub) no corta la corrida: los que siguen corren igual, el resumen
+    // del job lo muestra y `pr` termina con error al final (P9, 0.7.6).
+    const failed = [];
+    const client = process.env.GITHUB_TOKEN ? githubClient(process.env.GITHUB_TOKEN) : null;
     for (const pack of packs) {
       const preview = run(root, { write: false, packIds: [pack.id] });
       if (!preview.findings.length) continue;
@@ -278,18 +292,20 @@ async function main() {
         console.log(`  Cuerpo del PR: ${bodyPath}`);
         const target = parseGithubRemote(git.originUrl(root));
         const pushTo = parseGithubRemote(git.remoteUrl(root, pushRemote));
-        let url = null;
-        if (!args['dry-run'] && process.env.GITHUB_TOKEN && target && pushTo) {
-          git.push(root, branch, pushRemote);
-          const head = pushTo.owner !== target.owner ? `${pushTo.owner}:${branch}` : branch;
-          url = await openPullRequest({ token: process.env.GITHUB_TOKEN, ...target, head, base, title, body: fs.readFileSync(bodyPath, 'utf8'), draft });
-          console.log(`  PR abierto${draft ? ' (borrador)' : ''}: ${url}`);
+        let pr = { status: null, url: null };
+        if (!args['dry-run'] && client && target && pushTo) {
+          pr = await publishPr({ root, client, target, pushTo, pushRemote, branch, base, pack, title, body: fs.readFileSync(bodyPath, 'utf8'), draft });
+          console.log(`  ${PUBLISHED[pr.status]({ draft, branch, url: pr.url })}`);
         } else {
           console.log(`  Modo prueba: no se abrió el PR${draft ? ' (iría como borrador por tener ítems para revisar)' : ''}.`);
         }
-        opened.push({ title, url, draft });
-        record(root, { type: 'pr', pack: pack.id, packVersion: pack.version, branch, sha, url, draft, files: changedFiles, findings: c,
-          partial: result.findings.filter((f) => f.partial).length });
+        opened.push({ title, url: pr.url, draft, status: pr.status });
+        record(root, { type: 'pr', pack: pack.id, packVersion: pack.version, branch, sha, url: pr.url, draft, files: changedFiles, findings: c,
+          partial: result.findings.filter((f) => f.partial).length, ...(pr.status && pr.status !== 'opened' ? { existing: pr.status } : {}) });
+      } catch (err) {
+        console.error(`  No se pudo con ${pack.id}: ${err.message.split('\n')[0]}`);
+        failed.push({ pack, message: err.message });
+        record(root, { type: 'error', pack: pack.id, message: err.message.split('\n')[0] });
       } finally {
         // Pase lo que pase, se vuelve a la rama base; la rama de Parche solo queda si tiene un commit.
         git.checkout(root, base);
@@ -306,9 +322,10 @@ async function main() {
       printFindings(detected);
     }
     if (process.env.GITHUB_ACTIONS === 'true') {
-      if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, stepSummary({ opened, reportOnly: withoutPr, notices }));
+      if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, stepSummary({ opened, reportOnly: withoutPr, notices, failed }));
       for (const line of annotations([...notices, ...withoutPr], workspacePrefix(root, process.env.GITHUB_WORKSPACE))) console.log(line);
     }
+    if (failed.length) throw new Error(failed.map((f) => (failed.length > 1 ? `${f.pack.id}: ${f.message}` : f.message)).join('\n'));
     return 0;
   }
 

@@ -114,7 +114,9 @@ Para que corra todas las semanas, copiá [`templates/github-workflow.yml`](templ
     # dry-run: 'true'                          # opcional: armar las ramas sin abrir PRs
 ```
 
-El workflow necesita `permissions: contents: write` y `pull-requests: write`. Antes de Parche, la plantilla instala las dependencias de tu proyecto para que corran sus tests: `npm ci` si hay `package-lock.json` y `composer install` si hay `composer.json` (Composer viene en los runners de Ubuntu de GitHub). Así anda igual en un repo de Node y en uno de PHP.
+El workflow necesita `permissions: contents: write` y `pull-requests: write`. Además, en el repo (o en la organización, si el repo es de una) tiene que estar prendido **Settings → Actions → General → Workflow permissions → "Allow GitHub Actions to create and approve pull requests"**: viene apagado en los repos personales y las organizaciones nuevas, y sin eso GitHub no deja que la Action abra el PR (Parche te lo dice en la corrida). Con un token de una GitHub App o uno personal (abajo), no hace falta. Antes de Parche, la plantilla instala las dependencias de tu proyecto para que corran sus tests: `npm ci` si hay `package-lock.json` y `composer install` si hay `composer.json` (Composer viene en los runners de Ubuntu de GitHub). Así anda igual en un repo de Node y en uno de PHP.
+
+**Si ya hay un PR de Parche abierto**, la corrida siguiente no abre otro: si el arreglo es el mismo, no lo toca; si cambió (por ejemplo, salió una versión nueva del pack) y el PR tiene solo el commit de Parche, lo actualiza. Si alguien le sumó un commit, Parche no lo pisa: lo deja como está y lo dice en el resumen del job. Si un pack falla (por ejemplo, porque no pasan tus tests), los que siguen corren igual y la corrida termina con error al final.
 
 Lo que no abre un PR también se ve en la corrida: los avisos de solo detección (modelos de IA que se retiran, por ejemplo) y lo que quedó sin PR porque falta un dato de tu negocio aparecen en el **resumen del job** y como **anotaciones** con el archivo y la línea (GitHub muestra las primeras 10; el resumen las tiene todas).
 
@@ -173,7 +175,7 @@ Parche corre en tu máquina o en tu runner. Tu código no sale de ahí, salvo el
 
 | | |
 |---|---|
-| **Red** | `scan`, `fix` y `packs` no usan la red. `pr` llama a `api.github.com` para abrir el PR en tu repo y pushea su rama `parche/<pack>` (con `--force`, así solo reemplaza su propio PR anterior). `diff` y `scan --upgrades` bajan metadatos y paquetes de `registry.npmjs.org`, que ve qué paquetes y versiones consultás. Nada más. |
+| **Red** | `scan`, `fix` y `packs` no usan la red. `pr` llama a `api.github.com` para buscar, abrir o actualizar el PR en tu repo y pushea su rama `parche/<pack>`. La pisa con `--force` solo si todos sus commits son de Parche: si alguien le sumó uno, no la toca y lo dice en la corrida. `diff` y `scan --upgrades` bajan metadatos y paquetes de `registry.npmjs.org`, que ve qué paquetes y versiones consultás. Nada más. |
 | **Telemetría** | Ninguna. `parche feedback` escribe en `.parche/ledger.jsonl` de tu repo y queda ahí. |
 | **Qué ejecuta** | `git` y, solo con `--verify`, los tests de tu repo (`npm test`, `composer test` o `vendor/bin/phpunit`). |
 | **Qué escribe** | Tu working copy (solo `fix` y `pr`), `.parche/` (se agrega a `.git/info/exclude`) y, para `diff` y `--upgrades`, un caché en `~/.parche/cache`. En GitHub Actions, además, la foto de la corrida como artifact de tu workflow (inventario y avisos en JSON, sin código; se apaga con `snapshot: 'false'`). |

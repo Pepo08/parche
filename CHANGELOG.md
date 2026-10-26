@@ -2,6 +2,16 @@
 
 Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1, de la 0.6.0 a la 0.7.0, la 0.7.2, la 0.7.3 y de la 0.7.5 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La 0.7.1 y la 0.7.4 tampoco: salieron junto con la 0.7.2 y la 0.7.5. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
 
+## 0.7.6 — 2026-10-25
+
+Tres cosas que frenaban las corridas semanales y las primeras instalaciones. Las dos primeras las encontró el chat de página armando el diseño del resumen semanal, y se confirmaron leyendo el código.
+
+### Arreglos
+- **Un PR de Parche que ya está abierto.** Hasta la 0.7.5, la corrida siguiente pusheaba la rama `parche/<pack>` con `--force` (y pisaba los commits que alguien le hubiera sumado al PR) y pedía otro PR, que GitHub rechaza: la corrida fallaba y los packs que venían después no corrían. Ahora `pr` busca el PR abierto de esa rama. Si el arreglo es el mismo, no lo toca. Si cambió y el PR tiene solo el commit de Parche, actualiza la rama y el PR, sin abrir otro. Si la rama tiene commits de otra persona (con PR abierto o sin él), no la pisa y lo dice. La regla: Parche nunca hace force push sobre un commit que no escribió.
+- **Un pack que falla no corta la corrida.** Si la verificación de un pack falla, o GitHub responde con un error, los packs que siguen corren igual. El resumen del job suma una sección "No se pudo", el registro anota un evento `error` y `pr` termina con error al final.
+- **El `fingerprint` ya no se hereda entre líneas con el mismo texto.** El orden se contaba entre los avisos: cuando se arreglaba uno, el siguiente con el mismo texto de línea se quedaba con su `fingerprint`. En `tienda-demo`, después del arreglo de ARCA, la factura A, que sigue con "falta un dato", salía con el `fingerprint` de otra y, comparando corridas, como resuelta. Ahora el orden se cuenta entre todas las líneas del archivo con ese texto, tengan aviso o no, y dos avisos del mismo pack en una misma línea se distinguen por su orden en esa línea. Con un solo aviso por línea, el `fingerprint` es el mismo que en la 0.7.3, así que los de siempre no cambian.
+- **GitHub no deja que Actions abra PRs.** En los repos personales y las organizaciones nuevas viene apagado "Allow GitHub Actions to create and approve pull requests", y GitHub responde 403 con un mensaje en inglés. Ahora Parche lo explica en castellano: dónde se prende el ajuste (en el repo, o en la organización) o que se use un token de una GitHub App o uno personal. El README y la plantilla del workflow lo dicen.
+
 ## 0.7.5 — 2026-10-24
 
 Mercado Pago: dos cosas del SDK oficial que el pack no tenía en cuenta, verificadas en su código (github.com/mercadopago/sdk-nodejs, 24/10/2026).
