@@ -10,7 +10,7 @@
 
 ### GitHub Action quick start
 
-Copy [`templates/github-workflow.yml`](templates/github-workflow.yml) to `.github/workflows/parche.yml`. Every Monday it installs your dependencies (so your tests can run) and runs Parche, which opens one PR per API change that affects the repo, as a draft if something needs a human, and lists everything else in the job summary. The job needs `contents: write` and `pull-requests: write`. The key step:
+Copy [`templates/github-workflow.yml`](templates/github-workflow.yml) to `.github/workflows/parche.yml`. Every Monday it installs your dependencies (so your tests can run) and runs Parche, which opens one PR per API change that affects the repo, as a draft if something needs a human, and lists everything else in the job summary. The job needs `contents: write` and `pull-requests: write`, and the repository (or its organization) needs **Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"** turned on: it's off by default for new personal repositories and new organizations. Step by step, with private repositories and what to do if a run fails: **[installation guide](docs/instalacion.md)** (Spanish, with [an English summary](docs/instalacion.md#in-english)). The key step:
 
 ```yaml
 - uses: Pepo08/parche@v0
@@ -104,7 +104,7 @@ Y para un paquete cualquiera, sin repo: `npx parche-cli diff stripe --from 17 --
 
 ### En GitHub Actions
 
-Para que corra todas las semanas, copiá [`templates/github-workflow.yml`](templates/github-workflow.yml) a `.github/workflows/parche.yml`. El paso clave es:
+Para que corra todas las semanas, copiá [`templates/github-workflow.yml`](templates/github-workflow.yml) a `.github/workflows/parche.yml`. El paso a paso (los permisos, la primera corrida, repos privados y qué hacer si algo falla) está en la **[guía de instalación](docs/instalacion.md)**. El paso clave es:
 
 ```yaml
 - uses: Pepo08/parche@v0

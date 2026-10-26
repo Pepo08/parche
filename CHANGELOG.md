@@ -2,6 +2,14 @@
 
 Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1, de la 0.6.0 a la 0.7.0, la 0.7.2, la 0.7.3 y de la 0.7.5 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La 0.7.1 y la 0.7.4 tampoco: salieron junto con la 0.7.2 y la 0.7.5. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
 
+## 0.7.7 — 2026-10-26
+
+La guía de instalación de la Action. El código no cambia.
+
+### Nuevo
+- **[`docs/instalacion.md`](docs/instalacion.md):** el paso a paso para instalar Parche en GitHub Actions. Explica qué hace cada parte del workflow y los permisos: los del job, el ajuste "Allow GitHub Actions to create and approve pull requests" y qué cambia con otro token. También cubre la primera corrida con `workflow_dispatch`, los repos privados (minutos de Actions, espacio de los artifacts, registros privados y runners propios), qué recibís en cada corrida, una tabla de qué hacer si algo falla y cómo desinstalarla. En castellano, con un resumen en inglés para la página del Marketplace.
+- El README la enlaza desde el quick start en inglés, que además nombra el ajuste de los PRs, y desde la sección de GitHub Actions.
+
 ## 0.7.6 — 2026-10-25
 
 Tres cosas que frenaban las corridas semanales y las primeras instalaciones. Las dos primeras las encontró el chat de página armando el diseño del resumen semanal, y se confirmaron leyendo el código.
