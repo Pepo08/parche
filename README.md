@@ -94,7 +94,7 @@ ANTHROPIC_API_KEY=... npx parche-cli ai-upgrade . --dry-run    # arma la rama si
 ANTHROPIC_API_KEY=... npx parche-cli ai-upgrade . --measure    # solo dice qué propondría, sin tocar el repo
 ```
 
-En la Action: `ai-upgrades: 'true'` y `anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}` (`ai-model` cambia el modelo). Cada intento cuesta tokens de tu cuenta. Un PR de nivel 2 no es un pack verificado: revisalo como el PR de una persona.
+En la Action: `ai-upgrades: 'true'` y `anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}` (`ai-model` cambia el modelo). El SDK de Anthropic es una dependencia opcional: la Action lo instala solo con `ai-upgrades: 'true'`. Si instalaste Parche sin dependencias opcionales, `npm install @anthropic-ai/sdk@~0.133.0`. Cada intento cuesta tokens de tu cuenta. Un PR de nivel 2 no es un pack verificado: revisalo como el PR de una persona.
 
 ## Uso
 

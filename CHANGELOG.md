@@ -20,7 +20,7 @@ Arreglos generados con IA y verificados, a prueba (nivel 2), para subir SDKs de 
   - un `NO_CHANGE` del modelo.
 - **`--measure`:** dice qué propondría y si pasó la verificación, sin tocar el repo. `scripts/medir-nivel-2.mjs` lo corre sobre una lista de repos públicos, que clona sin instalar dependencias ni correr tests.
 - **En la Action:** `ai-upgrades` (`'false'` por defecto), `ai-model` y `anthropic-api-key`, en un paso propio que es el único que recibe la clave.
-- **Dependencia nueva:** el SDK oficial de Anthropic (`@anthropic-ai/sdk` 0.133). Se carga solo cuando el nivel 2 está prendido.
+- **Dependencia nueva, opcional:** el SDK oficial de Anthropic (`@anthropic-ai/sdk` 0.133, 13 MB), en `optionalDependencies`. La Action lo instala solo con `ai-upgrades: 'true'` (si no, `npm ci --omit=optional`). En la CLI se carga recién al llamar al modelo, y si no está, `ai-upgrade` dice cómo instalarlo.
 
 ## 0.8.0 — 2026-10-26
 

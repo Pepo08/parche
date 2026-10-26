@@ -47,10 +47,12 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "~0.133.0",
     "@babel/parser": "^7.28.0",
     "jscodeshift": "^17.3.0",
     "php-parser": "^3.7.0",
     "typescript": "~6.0.3"
+  },
+  "optionalDependencies": {
+    "@anthropic-ai/sdk": "~0.133.0"
   }
 }

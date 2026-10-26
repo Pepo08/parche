@@ -17,7 +17,7 @@ import { proposeUpgrade, excluded, blockedFiles } from '../src/ai/upgrade.js';
 import { aiUpgradeCommand, bumpDependency } from '../src/ai/command.js';
 import { extractDiff, parseDiff, applyFile } from '../src/ai/patch.js';
 import { typeCheck } from '../src/ai/types.js';
-import { askModel, DEFAULT_MODEL } from '../src/ai/model.js';
+import { askModel, loadSdk, DEFAULT_MODEL, SDK_MISSING } from '../src/ai/model.js';
 import { SYSTEM, userPrompt } from '../src/ai/prompt.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -272,4 +272,18 @@ test('apagado por defecto: la CLI pide la clave y la Action lo trae en false', (
   assert.match(action, /^ {2}ai-upgrades:\n {4}description: .+\n {4}default: 'false'$/m);
   assert.match(action, /^ {2}ai-model:\n {4}description: .+\n {4}default: claude-opus-5-5$/m);
   assert.match(action, /if: \$\{\{ !cancelled\(\) && inputs\.ai-upgrades == 'true' \}\}/);
+});
+
+test('el SDK de Anthropic es opcional: no lo instala quien no prende el nivel 2, y si falta el error dice cómo instalarlo', async () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  assert.ok(pkg.optionalDependencies['@anthropic-ai/sdk']);
+  assert.equal(pkg.dependencies['@anthropic-ai/sdk'], undefined);
+  const action = fs.readFileSync(path.join(ROOT, 'action.yml'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(action, /PARCHE_AI: \$\{\{ inputs\.ai-upgrades \}\}/);
+  assert.match(action, /if \[ "\$PARCHE_AI" != "true" \]; then omit\+=\(--omit=optional\); fi\n {8}npm ci "\$\{omit\[@\]\}"/);
+  const missing = Object.assign(new Error("Cannot find package '@anthropic-ai/sdk'"), { code: 'ERR_MODULE_NOT_FOUND' });
+  await assert.rejects(loadSdk(async () => { throw missing; }), { message: SDK_MISSING });
+  assert.match(SDK_MISSING, /npm install @anthropic-ai\/sdk@~0\.133\.0/);
+  await assert.rejects(loadSdk(async () => { throw new Error('otra cosa'); }), /otra cosa/);
+  assert.equal(await loadSdk(async () => ({ default: 'Cliente' })), 'Cliente');
 });

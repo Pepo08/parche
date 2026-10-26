@@ -46,9 +46,15 @@ inputs:
 runs:
   using: composite
   steps:
+    # El SDK de Anthropic es una dependencia opcional (13 MB): se instala solo si se prende el nivel 2.
     - name: Instalar Parche
       shell: bash
-      run: npm ci --omit=dev --no-audit --no-fund --prefix "$GITHUB_ACTION_PATH"
+      env:
+        PARCHE_AI: ${{ inputs.ai-upgrades }}
+      run: |
+        omit=(--omit=dev)
+        if [ "$PARCHE_AI" != "true" ]; then omit+=(--omit=optional); fi
+        npm ci "${omit[@]}" --no-audit --no-fund --prefix "$GITHUB_ACTION_PATH"
     - name: Parche
       id: pr
       shell: bash
