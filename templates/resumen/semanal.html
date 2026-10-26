@@ -1,0 +1,135 @@
+{{! Resumen semanal (docs/app-vigilancia.md, 8.1). Mismas secciones, mismo orden y mismos nombres que la especificación. }}
+{{> inicio}}
+<tr><td style="{{{e.lead}}}">
+<h1 class="titular" style="{{{e.titular}}}">{{conteo_titular}}</h1>
+</td></tr>
+<tr><td style="{{{e.lead_texto}}}">
+{{#destinatario}}<p style="{{{e.parrafo}}}">Hola, {{destinatario}}:</p>{{/destinatario}}
+<p style="{{{e.parrafo_ultimo}}}">{{corrida_txt}}</p>
+{{#corrida.fallas}}
+<p style="{{{e.parrafo_falla}}}"><span style="{{{e.marca_tinta}}}">No corrió</span>&nbsp; En {{repo}}: {{motivo}}</p>
+{{/corrida.fallas}}
+{{! Propio del armado de Parche: los packs que la corrida no pudo completar. }}
+{{#corrida.no_se_pudo}}
+<p style="{{{e.parrafo_falla}}}"><span style="{{{e.marca_tinta}}}">No se pudo</span>&nbsp; {{pack}}: {{motivo}}</p>
+{{/corrida.no_se_pudo}}
+</td></tr>
+{{#proxima}}
+<tr><td style="{{{e.tira}}}"><h2 style="{{{e.tira_titulo}}}">Próximo vencimiento</h2></td></tr>
+{{> fecha-grande}}
+{{/proxima}}
+{{> revision}}
+{{#clientes}}
+{{#varios_clientes}}
+<tr><td style="{{{e.cliente_banda}}}"><h2 style="{{{e.cliente_titulo}}}">{{cliente_final}}</h2></td></tr>
+{{/varios_clientes}}
+<tr><td style="{{{e.seccion}}}"><h2 style="{{{e.seccion_titulo}}}"><span style="{{{e.seccion_num}}}">1</span>&nbsp;&nbsp;Para hacer, por fecha</h2></td></tr>
+{{#para_hacer.length}}
+<tr><td style="{{{e.fila_primera}}}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="104" style="{{{e.cabecera_fecha}}}">Vence</td>
+<td style="{{{e.cabecera}}}">Qué cambia, dónde y qué hacer</td>
+</tr></table>
+</td></tr>
+{{/para_hacer.length}}
+{{#para_hacer}}
+<tr><td style="{{{e.fila}}}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+{{> celda-fecha}}
+<td style="{{{e.celda_texto}}}">
+<div style="{{{e.item_titulo}}}">{{proveedor}}: {{cambio}}</div>
+<div style="{{{e.donde}}}">{{repo}} &middot; {{donde_txt}}</div>
+<div style="{{{e.texto_item}}}">{{#falta_dato}}<span style="{{{e.marca_roja}}}">Falta un dato</span>&nbsp; {{/falta_dato}}{{#bloqueado}}<span style="{{{e.marca_tinta}}}">Bloqueado</span>&nbsp; {{/bloqueado}}{{que_hacer}}{{#depende}} <strong style="{{{e.fuerte}}}">{{depende}}</strong>{{/depende}}</div>
+<div style="{{{e.pie_item}}}">{{> seguimiento}}{{#link}}&nbsp; <a href="{{url}}" style="{{{e.enlace}}}">{{texto}}</a>{{/link}}{{#fuente}} &middot; <a href="{{url}}" style="{{{e.enlace}}}">Fuente: {{titulo}}</a>{{#verificado}}, verificada el {{verificado_corto}}{{/verificado}}{{/fuente}}{{#no_aplica}} &middot; <a href="{{url}}" style="{{{e.enlace}}}">No aplica</a>{{/no_aplica}}</div>
+</td>
+</tr></table>
+</td></tr>
+{{/para_hacer}}
+{{^para_hacer}}
+<tr><td style="{{{e.vacio}}}">Nada para hacer.</td></tr>
+{{/para_hacer}}
+<tr><td style="{{{e.seccion}}}"><h2 style="{{{e.seccion_titulo}}}"><span style="{{{e.seccion_num}}}">2</span>&nbsp;&nbsp;Nuevo esta semana</h2></td></tr>
+{{#nuevos}}
+<tr><td style="{{{e.fila_lista}}}"><strong style="{{{e.fuerte}}}">{{proveedor}}: {{cambio}}</strong> en {{repo}} <span style="{{{e.mono_inline}}}">({{donde}})</span>. {{consecuencia}}</td></tr>
+{{/nuevos}}
+{{^nuevos}}
+{{^sin_anterior}}
+<tr><td style="{{{e.vacio}}}">Nada nuevo esta semana.</td></tr>
+{{/sin_anterior}}
+{{#sin_anterior}}
+<tr><td style="{{{e.vacio}}}">Es la primera foto de este repo: lo nuevo se ve desde la próxima corrida.</td></tr>
+{{/sin_anterior}}
+{{/nuevos}}
+<tr><td style="{{{e.seccion}}}"><h2 style="{{{e.seccion_titulo}}}"><span style="{{{e.seccion_num}}}">3</span>&nbsp;&nbsp;PRs de Parche</h2></td></tr>
+{{#prs.esperan}}
+<tr><td style="{{{e.fila}}}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="104" style="{{{e.celda_etiqueta}}}">Espera su revisión</td>
+<td style="{{{e.celda_texto}}}">
+<div style="{{{e.item_titulo}}}"><a href="{{url}}" style="{{{e.enlace}}}">{{titulo}}</a></div>
+<div style="{{{e.donde}}}">{{repo}}{{numero}} &middot; {{estado}}{{#desde}} &middot; desde el {{desde_corto}}{{/desde}}</div>
+</td>
+</tr></table>
+</td></tr>
+{{/prs.esperan}}
+{{#prs.mergeados}}
+<tr><td style="{{{e.fila}}}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="104" style="{{{e.celda_etiqueta}}}">Mergeado</td>
+<td style="{{{e.celda_texto}}}">
+<div style="{{{e.item_titulo}}}"><a href="{{url}}" style="{{{e.enlace}}}">{{titulo}}</a></div>
+<div style="{{{e.donde}}}">{{repo}}{{numero}} &middot; {{como}} &middot; el {{fecha_corto}}</div>
+</td>
+</tr></table>
+</td></tr>
+{{/prs.mergeados}}
+{{#prs.cerrados}}
+<tr><td style="{{{e.fila}}}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="104" style="{{{e.celda_etiqueta}}}">Cerrado sin merge</td>
+<td style="{{{e.celda_texto}}}">
+<div style="{{{e.item_titulo}}}"><a href="{{url}}" style="{{{e.enlace}}}">{{titulo}}</a></div>
+<div style="{{{e.donde}}}">{{repo}}{{numero}} &middot; el {{fecha_corto}}</div>
+{{#motivo}}<div style="{{{e.texto_item}}}">{{motivo}}</div>{{/motivo}}
+</td>
+</tr></table>
+</td></tr>
+{{/prs.cerrados}}
+{{^prs.esperan}}{{^prs.mergeados}}{{^prs.cerrados}}
+<tr><td style="{{{e.vacio}}}">No hay PRs abiertos.</td></tr>
+{{/prs.cerrados}}{{/prs.mergeados}}{{/prs.esperan}}
+<tr><td style="{{{e.seccion}}}"><h2 style="{{{e.seccion_titulo}}}"><span style="{{{e.seccion_num}}}">4</span>&nbsp;&nbsp;Resuelto esta semana</h2></td></tr>
+{{#resueltos}}
+<tr><td style="{{{e.fila}}}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="104" style="{{{e.celda_fecha}}}"><div style="{{{e.fecha_hecha}}}">{{resuelto_el_corto}}</div></td>
+<td style="{{{e.celda_texto}}}">
+<div style="{{{e.item_titulo}}}">{{cambio}}</div>
+<div style="{{{e.donde}}}">{{repo}} &middot; {{donde}}</div>
+<div style="{{{e.texto_item}}}">{{como}}</div>
+</td>
+</tr></table>
+</td></tr>
+{{/resueltos}}
+{{^resueltos}}
+{{^sin_anterior}}
+<tr><td style="{{{e.vacio}}}">Nada resuelto esta semana.</td></tr>
+{{/sin_anterior}}
+{{#sin_anterior}}
+<tr><td style="{{{e.vacio}}}">Es la primera foto de este repo: lo resuelto se ve desde la próxima corrida.</td></tr>
+{{/sin_anterior}}
+{{/resueltos}}
+<tr><td style="{{{e.seccion}}}"><h2 style="{{{e.seccion_titulo}}}"><span style="{{{e.seccion_num}}}">5</span>&nbsp;&nbsp;Sus APIs</h2></td></tr>
+<tr><td style="{{{e.fila_lista_primera}}}">
+<strong style="{{{e.fuerte}}}">{{apis.total_txt}} en {{apis.repos_txt}}.</strong>{{^apis.cambios}}{{^sin_anterior}} Sin cambios desde la semana pasada.{{/sin_anterior}}{{/apis.cambios}}{{#apis.cambios.length}} Desde la semana pasada:{{/apis.cambios.length}}
+{{#apis.cambios}}
+<div style="{{{e.texto_nota}}}"><span style="{{{e.mono_inline}}}">{{signo}}</span>&nbsp; {{texto}}</div>
+{{/apis.cambios}}
+</td></tr>
+{{/clientes}}
+{{! Sin la vigilancia (el resumen que arma la Action), no hay a quién responder: no va. }}
+{{^sin_vigilancia}}
+<tr><td style="{{{e.cierre}}}"><p style="{{{e.parrafo_ultimo}}}">{{^no_aplica_por_fila}}Si algo de esto no aplica (por ejemplo, un archivo que ya no se usa), respondeme y lo marco como descartado.{{/no_aplica_por_fila}}{{#no_aplica_por_fila}}Si algo de esto no aplica (por ejemplo, un archivo que ya no se usa), tocá "No aplica" en esa fila y contanos por qué.{{/no_aplica_por_fila}}</p></td></tr>
+{{/sin_vigilancia}}
+{{> firma}}
+{{> fin}}

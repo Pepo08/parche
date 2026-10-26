@@ -3,6 +3,7 @@
   "version": "2026.10.22",
   "provider": "Modelos de IA",
   "title": "Modelos, endpoints y parámetros de IA retirados o por retirarse",
+  "title_short_es": "modelos, endpoints y parámetros de IA",
   "kind": "retirement",
   "severity": "high",
   "deadline": null,

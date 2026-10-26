@@ -1,0 +1,33 @@
+{{! Portada para agencias (docs/app-vigilancia.md, 8.2): una fila por cliente final. Va en un mail aparte, solo para la agencia: el mensual de cada cliente se reenvía y no puede llevar datos de los otros. }}
+{{> inicio}}
+<tr><td style="{{{e.lead}}}">
+<h1 class="titular" style="{{{e.titular}}}">Sus {{clientes.length}} clientes en {{mes_nombre}}</h1>
+</td></tr>
+<tr><td style="{{{e.lead_texto}}}">
+<p style="{{{e.parrafo}}}">Hola, {{destinatario}}:</p>
+<p style="{{{e.parrafo_ultimo}}}">El resumen de cada cliente va en un mail aparte, listo para reenviarle: no lleva datos de los otros.</p>
+</td></tr>
+{{> revision}}
+<tr><td style="{{{e.seccion}}}"><h2 style="{{{e.seccion_titulo}}}">Portada</h2></td></tr>
+<tr><td style="{{{e.fila_primera}}}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="104" style="{{{e.cabecera_fecha}}}">Próxima fecha</td>
+<td style="{{{e.cabecera}}}">Cliente, repos, pendientes y lo más urgente</td>
+</tr></table>
+</td></tr>
+{{#clientes}}
+<tr><td style="{{{e.fila}}}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+{{> celda-fecha}}
+<td style="{{{e.celda_texto}}}">
+<div style="{{{e.item_titulo}}}">{{cliente_final}}</div>
+<div style="{{{e.donde}}}">{{repos}} &middot; {{pendientes_txt}}</div>
+{{#con_fecha}}<div style="{{{e.texto_nota}}}">{{proximo_cambio}}</div>{{/con_fecha}}
+<div style="{{{e.texto_item}}}"><strong style="{{{e.fuerte}}}">Para hacer este mes:</strong> {{para_hacer}}</div>
+</td>
+</tr></table>
+</td></tr>
+{{/clientes}}
+<tr><td style="{{{e.cierre}}}"><p style="{{{e.parrafo_ultimo}}}">Si algo de esto no aplica, respondeme y lo marco como descartado.</p></td></tr>
+{{> firma}}
+{{> fin}}

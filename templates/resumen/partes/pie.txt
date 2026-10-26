@@ -1,0 +1,4 @@
+--
+Armado con la foto de cada corrida de Parche {{pie_ci}}: rutas, números de línea, versiones y los avisos de Parche, sin código. Cada fecha sale de un pack de Parche, con su fuente.
+{{^sin_vigilancia}}Lo recibís porque {{quien}} tiene la vigilancia de Parche. {{#baja}}Darse de baja: {{url}}{{/baja}}{{^baja}}Para dejar de recibirlo, respondé "baja".{{/baja}}{{/sin_vigilancia}}{{#sin_vigilancia}}Lo armó la Action de Parche en el CI de {{quien}}. Para no armarlo más, poné `summary: 'false'` en el workflow.{{/sin_vigilancia}}
+https://getparche.com · hola@getparche.com

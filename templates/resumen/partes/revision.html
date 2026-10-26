@@ -1,0 +1,9 @@
+{{! La lectura de quien revisa: solo en el plan con revisión. Va arriba de las secciones (decisión del 25/10, doc 05, fila 61). }}
+{{#revision}}
+<tr><td style="{{{e.tira}}}"><h2 style="{{{e.tira_titulo}}}">Revisado por {{por}} &middot; {{fecha_corto}}</h2></td></tr>
+<tr><td style="{{{e.revision_celda}}}">
+{{#parrafos}}
+<p style="{{{e.parrafo}}}">{{.}}</p>
+{{/parrafos}}
+</td></tr>
+{{/revision}}

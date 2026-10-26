@@ -7,6 +7,9 @@ on:
 
 permissions:
   contents: read
+  # Solo lectura: el resumen de la semana de la Action baja la foto de la corrida anterior del CI y la compara
+  # (prueba el camino real: la lista de artifacts, la redirección y el zip).
+  actions: read
 
 jobs:
   test:
@@ -75,6 +78,14 @@ jobs:
             const prs = fs.readFileSync(dir + "/ledger.jsonl", "utf8").trim().split("\n").map(JSON.parse).filter((e) => e.type === "pr");
             if (prs.length !== 2) throw new Error("el registro tiene " + prs.length + " PRs");
             console.log("foto OK:", scan.inventory.apis.length, "APIs,", scan.findings.length, "avisos,", prs.length, "PRs");
+            // El resumen de la semana (0.8.0): HTML y texto en la foto, con el asunto, abajo del límite de Gmail.
+            const html = fs.readFileSync(dir + "/resumen.html", "utf8");
+            const txt = fs.readFileSync(dir + "/resumen.txt", "utf8");
+            if (!/^Asunto: Parche · /.test(txt) || !html.includes("Resumen semanal")) throw new Error("el resumen no está bien armado");
+            if (Buffer.byteLength(html) > 102 * 1024) throw new Error("el resumen pasa los 102 KB");
+            if (/\{\{|\}\}/.test(html + txt)) throw new Error("quedó una etiqueta sin resolver en el resumen");
+            const datos = JSON.parse(fs.readFileSync(dir + "/resumen.json", "utf8"));
+            console.log("resumen OK:", txt.split("\n")[0], datos.sin_anterior ? "(sin foto anterior)" : "(comparado con la foto anterior)", datos.notas.join(" "));
           ' "$dir"
       # Un repo PHP, sin package.json: la Action tiene que andar igual (antes, la plantilla corría `npm ci` y fallaba).
       - name: Repo PHP de prueba (copia de examples/tienda-php)

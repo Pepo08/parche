@@ -1,0 +1,177 @@
+{
+  "_nota": "Ejemplo. Los avisos (pack, repo, archivo, línea, mensaje), las fechas y las fuentes salen de correr Parche 0.7.5 sobre copias de parche/examples/ (tienda-demo después de mergear el PR de ARCA, legacy-ia); el cliente, las personas, los números de PR y las fechas de las corridas y los merges son inventados para la historia. Ver README.md.",
+  "mail": "semanal",
+  "fecha_envio": "2026-11-09",
+  "cliente": "Tienda Demo",
+  "destinatario": "Laura",
+  "remitente": {
+    "nombre": "Joaquin Gonzalez Menza",
+    "linea": "Parche · hola@getparche.com"
+  },
+  "corrida": {
+    "dia": "2026-11-09",
+    "repos": 3,
+    "fallas": []
+  },
+  "proxima": {
+    "vence": "2026-12-01",
+    "proveedor": "ARCA",
+    "cambio": "`CondicionIVAReceptorId` obligatorio en WSFEv1",
+    "resumen": "Desde el 1/12/2026 ARCA rechaza automáticamente las solicitudes de CAE que no informen CondicionIVAReceptorId.",
+    "repos": "tienda-demo: queda 1 lugar, y falta un dato"
+  },
+  "revision": {
+    "por": "Joaquin",
+    "fecha": "2026-11-09",
+    "parrafos": [
+      "Lo primero es ARCA: queda un solo lugar, la factura A de `src/facturacion.js:66`, y no se arregla solo porque falta un dato que no está en el código: la condición frente al IVA de cada cliente con CUIT. Si Sofía la pasa esta semana, llegan al 1/12 con margen.",
+      "Lo segundo, legacy-ia: OpenAI retiró `gpt-3.5-turbo` el 23/10. Si ese asistente sigue en producción, sus llamadas ya están fallando. Si ya no se usa, respondeme y lo descarto.",
+      "Esta semana revisé el PR #15 de Mercado Pago: el diff es chico y tiene sentido. No toca `src/marketplace.cjs`, y está bien: el split con `application_fee` todavía no tiene equivalente en Orders."
+    ]
+  },
+  "clientes": [
+    {
+      "cliente_final": "Tienda Demo",
+      "para_hacer": [
+        {
+          "vence": "2026-02-19",
+          "proveedor": "Anthropic",
+          "cambio": "modelo `claude-3-5-haiku-20241022` retirado",
+          "repo": "tienda-demo",
+          "donde": [
+            "src/ia.js:9"
+          ],
+          "que_hacer": "Las llamadas a este modelo ya fallan. Pasar al reemplazo que recomienda Anthropic, `claude-haiku-4-5-20251001`, y correr sus pruebas de prompts antes del cambio.",
+          "depende": "Lo decide Laura.",
+          "seguimiento": "pendiente",
+          "link": {
+            "texto": "Ver la corrida",
+            "url": "https://github.com/tiendademo-ejemplo/tienda-demo/actions/runs/1109"
+          },
+          "fuente": {
+            "titulo": "Anthropic, Model deprecations",
+            "url": "https://platform.claude.com/docs/en/about-claude/model-deprecations",
+            "verificado": "2026-10-19"
+          }
+        },
+        {
+          "vence": "2026-10-23",
+          "proveedor": "OpenAI",
+          "cambio": "modelo `gpt-3.5-turbo` retirado",
+          "repo": "legacy-ia",
+          "donde": [
+            "src/asistente.js:9"
+          ],
+          "que_hacer": "Las llamadas a este modelo ya fallan. Pasar al reemplazo que recomienda OpenAI, `gpt-5.6-terra`, y correr sus pruebas de prompts antes del cambio.",
+          "depende": "Lo decide Laura.",
+          "seguimiento": "nuevo",
+          "link": {
+            "texto": "Ver la corrida",
+            "url": "https://github.com/tiendademo-ejemplo/legacy-ia/actions/runs/1112"
+          },
+          "fuente": {
+            "titulo": "OpenAI, Deprecations",
+            "url": "https://developers.openai.com/api/docs/deprecations",
+            "verificado": "2026-10-19"
+          }
+        },
+        {
+          "vence": "2026-12-01",
+          "proveedor": "ARCA",
+          "cambio": "`CondicionIVAReceptorId` obligatorio en WSFEv1",
+          "repo": "tienda-demo",
+          "donde": [
+            "src/facturacion.js:66"
+          ],
+          "falta_dato": true,
+          "que_hacer": "La condición frente al IVA de los clientes con CUIT (comprobante clase A): Parche no la puede inferir. Los valores válidos son 1 (IVA Responsable Inscripto), 6 (Responsable Monotributo), 13 (Monotributista Social) y 16 (Monotributo Trabajador Independiente Promovido).",
+          "depende": "La tiene Sofía, de administración.",
+          "seguimiento": "pendiente",
+          "link": {
+            "texto": "Ver la corrida",
+            "url": "https://github.com/tiendademo-ejemplo/tienda-demo/actions/runs/1109"
+          },
+          "fuente": {
+            "titulo": "ARCA, manual para el desarrollador de WSFEv1",
+            "url": "https://www.afip.gob.ar/ws/documentacion/manuales/manual-desarrollador-ARCA-COMPG.pdf",
+            "verificado": "2026-10-24"
+          }
+        },
+        {
+          "vence": null,
+          "proveedor": "Mercado Pago",
+          "cambio": "creación de pagos, de Payments API a Orders API",
+          "repo": "tienda-demo",
+          "donde": [
+            "src/checkout.js:13",
+            "src/checkout-tarjeta-guardada.ts:17"
+          ],
+          "donde_mas": "y 10 lugares más, en el PR",
+          "que_hacer": "Revisar el PR #15 (borrador): 3 cambios automáticos y 8 para revisar. El split con `application_fee` de `src/marketplace.cjs:7` queda bloqueado: no se migra hasta que Mercado Pago lo soporte.",
+          "depende": "Lo revisa Laura.",
+          "seguimiento": "en curso",
+          "link": {
+            "texto": "Ver el PR #15",
+            "url": "https://github.com/tiendademo-ejemplo/tienda-demo/pull/15"
+          },
+          "fuente": {
+            "titulo": "Mercado Pago, Cómo migrar de Payments API a Orders API",
+            "url": "https://www.mercadopago.com.ar/developers/es/docs/checkout-api-orders/resources/migrate-payments-to-orders",
+            "verificado": "2026-10-15"
+          }
+        }
+      ],
+      "nuevos": [
+        {
+          "proveedor": "OpenAI",
+          "cambio": "modelo `gpt-3.5-turbo` retirado",
+          "repo": "legacy-ia",
+          "donde": "src/asistente.js:9",
+          "consecuencia": "OpenAI lo retiró el 23/10: si este asistente sigue en producción, sus llamadas ya fallan."
+        }
+      ],
+      "prs": {
+        "esperan": [
+          {
+            "titulo": "Parche: Migración de creación de pagos: Payments API → Orders API",
+            "repo": "tienda-demo",
+            "numero": "#15",
+            "estado": "borrador",
+            "desde": "2026-10-23",
+            "url": "https://github.com/tiendademo-ejemplo/tienda-demo/pull/15"
+          }
+        ],
+        "mergeados": [
+          {
+            "titulo": "Parche: Condición frente al IVA del receptor obligatoria en WSFEv1",
+            "repo": "tienda-demo",
+            "numero": "#14",
+            "como": "sin cambios",
+            "fecha": "2026-11-04",
+            "url": "https://github.com/tiendademo-ejemplo/tienda-demo/pull/14"
+          }
+        ],
+        "cerrados": []
+      },
+      "resueltos": [
+        {
+          "resuelto_el": "2026-11-04",
+          "cambio": "ARCA: `CondicionIVAReceptorId`, 2 de 3 lugares",
+          "repo": "tienda-demo",
+          "donde": "src/facturacion.js:14 y :56",
+          "como": "Con el PR #14, mergeado sin cambios: consumidor final en los dos. El tercero, la factura A, sigue arriba: falta un dato."
+        }
+      ],
+      "apis": {
+        "total": 10,
+        "repos": 3,
+        "cambios": [
+          {
+            "signo": "+",
+            "texto": "OpenAI en legacy-ia: el repo se sumó a la vigilancia el 4/11."
+          }
+        ]
+      }
+    }
+  ]
+}

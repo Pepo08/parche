@@ -49,6 +49,14 @@ const endpointHit = (ep, l) => {
 const milestonesText = (ep, today) => (ep.milestones || [])
   .map((m) => (m.date <= today ? ` Desde el ${m.date} ${m.past_es}.` : ` El ${m.date} ${m.future_es}.`)).join('');
 
+// La fecha de cada aviso como dato, además de en el texto (P2 de la vigilancia, 0.8.0): `due` es la fecha, `dueKind`
+// dice si es la de retiro (`retirement`) o una fecha mínima publicada (`minimum`), `subject` qué se retira y `provider`
+// de quién. El resumen semanal arma con esto el calendario sin leer el mensaje. Los IDs del pack que no son de Claude
+// son de OpenAI.
+const PROVIDERS = { openai: 'OpenAI', anthropic: 'Anthropic' };
+const providerOf = (model) => (/^claude/i.test(model) ? 'Anthropic' : 'OpenAI');
+const dated = (subject, provider, due, dueKind = 'retirement') => ({ due, dueKind, subject, provider });
+
 export default function detect({ source, file, pack, today = new Date().toISOString().slice(0, 10), context }) {
   const findings = [];
   const usages = [];
@@ -64,7 +72,8 @@ export default function detect({ source, file, pack, today = new Date().toISOStr
     const inCall = MODEL_CONTEXT.test(l);
     for (const [model, raw] of Object.entries(retired)) {
       if (!quoted(l, model)) continue;
-      findings.push({ pack: PACK, file, line, status: 'detect-only', message: retiredMessage(model, entry(raw), inCall, today) });
+      findings.push({ pack: PACK, file, line, status: 'detect-only', message: retiredMessage(model, entry(raw), inCall, today),
+        ...dated(`modelo \`${model}\``, providerOf(model), entry(raw).date) });
       usages.push({ provider: 'ia', op: `modelo ${model}`, line });
     }
     // Alias de Anthropic de antes de la generación 4.6 (`claude-sonnet-4-5`): apuntan al snapshot fechado más reciente y
@@ -74,10 +83,11 @@ export default function detect({ source, file, pack, today = new Date().toISOStr
     for (const [alias, target] of Object.entries(aliases)) {
       if (!quoted(l, alias)) continue;
       let message;
-      if (retired[target]) message = retiredMessage(alias, entry(retired[target]), inCall, today, target);
-      else if (floors[target]) message = floorMessage(alias, floors[target], target);
+      let due;
+      if (retired[target]) { message = retiredMessage(alias, entry(retired[target]), inCall, today, target); due = dated(`modelo \`${alias}\``, providerOf(alias), entry(retired[target]).date); }
+      else if (floors[target]) { message = floorMessage(alias, floors[target], target); due = dated(`modelo \`${alias}\``, providerOf(alias), floors[target], 'minimum'); }
       else continue;
-      findings.push({ pack: PACK, file, line, status: 'detect-only', message });
+      findings.push({ pack: PACK, file, line, status: 'detect-only', message, ...due });
       usages.push({ provider: 'ia', op: `modelo ${alias}`, line });
     }
     for (const [, base] of l.matchAll(FINE_TUNE)) {
@@ -89,12 +99,12 @@ export default function detect({ source, file, pack, today = new Date().toISOStr
       const message = inCall
         ? `El modelo fine-tuned sobre \`${base}\` (\`${ft.name}\`) ${when}${past ? ': las llamadas ya fallan' : ''}. ${repl} Corré tus pruebas de prompts antes de cambiarlo.`
         : `Aparece un modelo fine-tuned sobre \`${base}\` (\`${ft.name}\`, ${when}) fuera de una llamada: si es una lista o un catálogo de modelos, actualizalo. ${repl}`;
-      findings.push({ pack: PACK, file, line, status: 'detect-only', message });
+      findings.push({ pack: PACK, file, line, status: 'detect-only', message, ...dated(`modelo fine-tuned sobre \`${base}\``, 'OpenAI', ft.date) });
       usages.push({ provider: 'ia', op: `modelo fine-tuned ${base}`, line });
     }
     for (const [model, date] of Object.entries(floors)) {
       if (!l.includes(model)) continue;
-      findings.push({ pack: PACK, file, line, status: 'detect-only', message: floorMessage(model, date) });
+      findings.push({ pack: PACK, file, line, status: 'detect-only', message: floorMessage(model, date), ...dated(`modelo \`${model}\``, providerOf(model), date, 'minimum') });
       usages.push({ provider: 'ia', op: `modelo ${model}`, line });
     }
     for (const ep of eps) {
@@ -105,7 +115,9 @@ export default function detect({ source, file, pack, today = new Date().toISOStr
       const steps = past ? '' : milestonesText(ep, today);
       findings.push({ pack: PACK, file, line, status: 'detect-only', message: azure && ep.provider === 'openai'
         ? `\`${hit}\` es la ${ep.api_es}. En Azure OpenAI sigue su propio calendario (el cierre del ${ep.retired} es el de la API de OpenAI): revisá el de Azure.`
-        : `\`${hit}\` pertenece a la ${ep.api_es} de OpenAI, ${closed}.${steps} Reemplazo: ${ep.replacement_es}.${ep.note_es ? ` ${ep.note_es}` : ''}` });
+        : `\`${hit}\` pertenece a la ${ep.api_es} de OpenAI, ${closed}.${steps} Reemplazo: ${ep.replacement_es}.${ep.note_es ? ` ${ep.note_es}` : ''}`,
+        // En Azure, la fecha de OpenAI no es la que rige: no va como dato.
+        ...(azure && ep.provider === 'openai' ? {} : dated(ep.api_es, PROVIDERS[ep.provider] || 'OpenAI', ep.retired)) });
       usages.push({ provider: 'ia', op: `OpenAI ${ep.api_es}`, line });
     }
   });

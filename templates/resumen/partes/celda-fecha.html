@@ -1,0 +1,16 @@
+{{! La celda izquierda de cada fila: la fecha del pack, en rojo si ese día rompe (o ya rompió). }}
+<td width="104" style="{{{e.celda_fecha}}}">
+{{#con_fecha}}
+{{#rojo}}
+<div style="{{{e.fecha_roja}}}">{{vence_corto}}</div>
+<div style="{{{e.fecha_pie_roja}}}">{{vence_anio}}<br>{{vence_dias_txt}}</div>
+{{/rojo}}
+{{^rojo}}
+<div style="{{{e.fecha_tinta}}}">{{vence_corto}}</div>
+<div style="{{{e.fecha_pie_tinta}}}">{{vence_anio}}<br>{{vence_dias_txt}}</div>
+{{/rojo}}
+{{/con_fecha}}
+{{^con_fecha}}
+<div style="{{{e.fecha_sin}}}">Sin fecha</div>
+{{/con_fecha}}
+</td>

@@ -1,0 +1,9 @@
+{{#revision}}
+
+Revisado por {{por}} el {{fecha_corto}}:
+
+{{#parrafos}}
+{{.}}
+
+{{/parrafos}}
+{{/revision}}

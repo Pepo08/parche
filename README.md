@@ -27,6 +27,7 @@ Copy [`templates/github-workflow.yml`](templates/github-workflow.yml) to `.githu
 | `token` | `github.token` | Pushes the branches and opens the PRs. With the default `GITHUB_TOKEN`, GitHub holds the PR's workflows until someone approves them; with a GitHub App token or a personal token they run on their own. |
 | `snapshot` | `'true'` | Save a snapshot of the run (API inventory, findings and the PRs it opened, as JSON; no source code) as a workflow artifact. |
 | `snapshot-name` | `parche` | Artifact name. Use a different one for each step if you call the Action more than once in a workflow. |
+| `summary` | `'true'` | Build the weekly summary (an email-style HTML and plain-text digest, in Spanish) from the snapshot, add it to the job summary and save it in the artifact. It's not emailed anywhere. To compare with the previous week the job needs `actions: read`. |
 
 `@v0` follows every 0.x release; to pin one, use its release commit: `Pepo08/parche@<sha> # v0.7.2`. PR bodies and the job output are in Spanish for now.
 
@@ -121,6 +122,15 @@ El workflow necesita `permissions: contents: write` y `pull-requests: write`. Ad
 Lo que no abre un PR también se ve en la corrida: los avisos de solo detección (modelos de IA que se retiran, por ejemplo) y lo que quedó sin PR porque falta un dato de tu negocio aparecen en el **resumen del job** y como **anotaciones** con el archivo y la línea (GitHub muestra las primeras 10; el resumen las tiene todas).
 
 **La foto de la corrida:** además, la Action guarda un artifact del workflow (`parche`, salvo que le pongas otro nombre con `snapshot-name`) con dos archivos. `scan.json` es la salida de `parche scan --json`: el inventario de APIs y los avisos, cada uno con su `fingerprint`, un identificador que no cambia aunque se muevan las líneas, para comparar una semana con la anterior. `ledger.jsonl` es el registro de esa corrida: los PRs que abrió y lo que quedó sin PR. Lleva rutas, números de línea, paquetes, versiones, operaciones y los mensajes de Parche; no lleva código. Lo baja quien puede ver las corridas de Actions del repo (`gh run download <id> -n parche`), y dura lo que diga la retención de artifacts del repo. Si no lo querés: `snapshot: 'false'`. Si la foto falla, la corrida no falla: queda un aviso.
+
+**El resumen de la semana:** con la foto, la Action arma el resumen semanal, con el mismo diseño que los mails de Parche:
+- qué hay para hacer, ordenado por fecha;
+- lo nuevo desde la semana anterior;
+- los PRs de Parche;
+- lo que se resolvió;
+- las APIs del repo.
+
+Lo suma al resumen del job y lo deja en la foto como `resumen.html` (listo para mandar por mail), `resumen.txt` y `resumen.json`. No lo manda a ningún lado. Para comparar con la semana anterior, baja la foto de esa corrida, y para eso el job necesita `actions: read` (la plantilla lo pide). Sin la foto anterior, el resumen dice que es la primera y no inventa lo nuevo ni lo resuelto. Tampoco dice quién tiene cada dato: Parche no lo sabe. Si no lo querés: `summary: 'false'`. Para armarlo en tu máquina con dos fotos: `npx parche-cli summary --snapshot <carpeta> --previous <carpeta>`.
 
 Con el `GITHUB_TOKEN` por defecto, GitHub deja los workflows del PR que abre Parche esperando aprobación: alguien con permiso de escritura tiene que tocar **Approve workflows to run** (el cuerpo del PR lo avisa). Para que tu CI corra sola sobre esos PRs, pasale a la Action un token de una GitHub App o un token personal con permiso de escritura en `contents` y `pull-requests`:
 
