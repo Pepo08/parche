@@ -1,6 +1,6 @@
 {
   "name": "parche-cli",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Dependabot para APIs: detecta cambios de cualquier API de terceros en tu código (ARCA, Mercado Pago, OpenAI, Anthropic) y abre el PR con el arreglo.",
   "keywords": [
     "api",
@@ -47,6 +47,7 @@
     "node": ">=22"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "~0.133.0",
     "@babel/parser": "^7.28.0",
     "jscodeshift": "^17.3.0",
     "php-parser": "^3.7.0",

@@ -33,6 +33,15 @@ inputs:
   summary:
     description: Armar el resumen de la semana (HTML y texto, con el diseño de los mails de Parche) y sumarlo al resumen del job y a la foto ('true' o 'false'). Necesita la foto. Para comparar con la semana anterior, el workflow necesita `actions: read`.
     default: 'true'
+  ai-upgrades:
+    description: A prueba (nivel 2). Para los SDKs de npm con llamadas que cambian en su última versión, un modelo de IA propone el arreglo con tu clave, Parche lo verifica (sintaxis, tipos y, con `verify`, tus tests) y abre un PR en borrador. Nunca en facturación, pagos ni modelos de IA ('true' o 'false').
+    default: 'false'
+  ai-model:
+    description: El modelo para `ai-upgrades`.
+    default: claude-opus-5-5
+  anthropic-api-key:
+    description: Tu clave de la API de Anthropic para `ai-upgrades`, como un secret del repo (por ejemplo, secrets.ANTHROPIC_API_KEY). Solo la usa ese paso.
+    default: ''
 
 runs:
   using: composite
@@ -53,6 +62,23 @@ runs:
       run: |
         args=(pr .)
         if [ -n "$PARCHE_PACK" ]; then args+=(--pack "$PARCHE_PACK"); fi
+        if [ "$PARCHE_VERIFY" = "true" ]; then args+=(--verify); fi
+        if [ "$PARCHE_DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+        node "$GITHUB_ACTION_PATH/bin/parche.js" "${args[@]}"
+    # El nivel 2, a prueba (0.9.0): apagado salvo `ai-upgrades: 'true'`. La clave solo llega a este paso. Si falla (por
+    # ejemplo, sin clave), la corrida falla: quien lo prendió tiene que enterarse.
+    - name: Arreglos con IA (a prueba)
+      if: ${{ !cancelled() && inputs.ai-upgrades == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.path }}
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        PARCHE_AI_MODEL: ${{ inputs.ai-model }}
+        PARCHE_VERIFY: ${{ inputs.verify }}
+        PARCHE_DRY_RUN: ${{ inputs.dry-run }}
+      run: |
+        args=(ai-upgrade .)
         if [ "$PARCHE_VERIFY" = "true" ]; then args+=(--verify); fi
         if [ "$PARCHE_DRY_RUN" = "true" ]; then args+=(--dry-run); fi
         node "$GITHUB_ACTION_PATH/bin/parche.js" "${args[@]}"

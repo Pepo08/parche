@@ -2,6 +2,26 @@
 
 Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1, de la 0.6.0 a la 0.7.0, la 0.7.2, la 0.7.3 y de la 0.7.5 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La 0.7.1 y la 0.7.4 tampoco: salieron junto con la 0.7.2 y la 0.7.5. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
 
+## 0.9.0 — 2026-10-26
+
+Arreglos generados con IA y verificados, a prueba (nivel 2), para subir SDKs de npm. Apagados por defecto.
+
+### Nuevo
+- **`parche ai-upgrade`.** Arranca de lo que ya encuentra `scan --upgrades`: un SDK de npm cuya última versión cambia llamadas que usa el repo. Para cada uno, un modelo de IA (por defecto `claude-opus-5-5`, con la clave del cliente en `ANTHROPIC_API_KEY`) propone el arreglo como un diff. El modelo solo devuelve texto y no corre comandos; las instrucciones le dicen que el código y la lista de cambios son datos, no instrucciones.
+- **La verificación, antes de que exista un PR:**
+  - el diff se aplica solo en los archivos del aviso, ubicando cada bloque por su contexto y respetando el fin de línea;
+  - cada archivo tiene que parsear;
+  - con los tipos de la versión nueva no puede quedar ningún error en las líneas que cambiaron, ni haber más errores que antes. El chequeo es en memoria, con el TypeScript de Parche y los `.d.ts` del registry, así que no instala nada ni corre código del repo. Los archivos JS se chequean con `checkJs`;
+  - con `--verify`, además corren los tests del repo con la versión nueva instalada (`npm install --ignore-scripts`).
+- **Si pasa:** un PR **siempre en borrador** en `parche/sdk-upgrade.<paquete>`, con la versión nueva en `package.json` y el lockfile actualizado (`npm install --package-lock-only --ignore-scripts`). El cuerpo dice que lo escribió un modelo y cuál, qué se le mandó y qué se verificó. El registro anota un evento `ai-pr`.
+- **Lo que se descarta, aunque el modelo lo proponga:**
+  - SDKs de facturación o pagos, o con un pack de ARCA o de Mercado Pago, y los archivos donde esos packs encontraron algo;
+  - un diff que toque otros archivos, cree o borre archivos, cambie un ID de modelo de IA, sume una URL o una variable de entorno que el archivo no tenía, o pase las 400 líneas;
+  - un `NO_CHANGE` del modelo.
+- **`--measure`:** dice qué propondría y si pasó la verificación, sin tocar el repo. `scripts/medir-nivel-2.mjs` lo corre sobre una lista de repos públicos, que clona sin instalar dependencias ni correr tests.
+- **En la Action:** `ai-upgrades` (`'false'` por defecto), `ai-model` y `anthropic-api-key`, en un paso propio que es el único que recibe la clave.
+- **Dependencia nueva:** el SDK oficial de Anthropic (`@anthropic-ai/sdk` 0.133). Se carga solo cuando el nivel 2 está prendido.
+
 ## 0.8.0 — 2026-10-26
 
 El resumen de la semana, armado por la Action con la foto de cada corrida.
