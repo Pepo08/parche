@@ -31,7 +31,7 @@ inputs:
     description: Nombre del artifact de la foto. Si usás la Action más de una vez en el mismo workflow, poné un nombre distinto en cada una.
     default: parche
   summary:
-    description: Armar el resumen de la semana (HTML y texto, con el diseño de los mails de Parche) y sumarlo al resumen del job y a la foto ('true' o 'false'). Necesita la foto. Para comparar con la semana anterior, el workflow necesita `actions: read`.
+    description: "Armar el resumen de la semana (HTML y texto, con el diseño de los mails de Parche) y sumarlo al resumen del job y a la foto ('true' o 'false'). Necesita la foto. Para comparar con la semana anterior, el workflow necesita `actions: read`."
     default: 'true'
   ai-upgrades:
     description: A prueba (nivel 2). Para los SDKs de npm con llamadas que cambian en su última versión, un modelo de IA propone el arreglo con tu clave, Parche lo verifica (sintaxis, tipos y, con `verify`, tus tests) y abre un PR en borrador. Nunca en facturación, pagos ni modelos de IA ('true' o 'false').

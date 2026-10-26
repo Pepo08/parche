@@ -295,4 +295,8 @@ test('la Action arma el resumen después de la foto y antes de subirla, se puede
   assert.match(action, /\|\| echo "::warning title=Parche::No se pudo armar el resumen de la semana/);
   const tpl = fs.readFileSync(path.join(ROOT, 'templates', 'github-workflow.yml'), 'utf8');
   assert.match(tpl, /^ {6}actions: read # /m);
+  // Un ": " en una descripción sin comillas rompe el YAML de la Action (pasó en la CI del PR #31: "`actions: read`").
+  for (const [, value] of action.matchAll(/^ {4}description: (.*)$/gm)) {
+    if (!/^["']/.test(value)) assert.doesNotMatch(value, /: |^[[{&*!|>%@`]/, `description sin comillas: ${value}`);
+  }
 });
