@@ -1,0 +1,15 @@
+{{! La fila del vencimiento que importa: la fecha a escala de planilla en la celda izquierda (roja si ese día rompe) y el cambio al lado. En el celular, si el cliente lee el <style>, la fecha queda arriba del texto; si no, quedan las dos columnas. }}
+<tr><td style="{{{e.fila_primera}}}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="128" class="apila apila-fecha" style="{{{e.celda_fecha_grande}}}">
+<div style="{{#rojo}}{{{e.fecha_grande}}}{{/rojo}}{{^rojo}}{{{e.fecha_grande_tinta}}}{{/rojo}}">{{vence_corto}}</div>
+<div style="{{#rojo}}{{{e.fecha_grande_pie}}}{{/rojo}}{{^rojo}}{{{e.fecha_grande_pie_tinta}}}{{/rojo}}">{{vence_anio}}<br>{{vence_dias_txt}}</div>
+</td>
+<td class="apila apila-texto" style="{{{e.celda_texto}}}">
+<div style="{{{e.item_titulo}}}">{{proveedor}}: {{cambio}}</div>
+<div style="{{{e.texto_item}}}">{{resumen}}</div>
+{{#repos}}<div style="{{{e.donde}}}">{{repos}}</div>{{/repos}}
+{{#fuente}}<div style="{{{e.pie_item}}}"><a href="{{url}}" style="{{{e.enlace}}}">Fuente: {{titulo}}</a>{{#verificado}}, verificada el {{verificado_corto}}{{/verificado}}</div>{{/fuente}}
+</td>
+</tr></table>
+</td></tr>

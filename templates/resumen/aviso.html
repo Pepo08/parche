@@ -1,0 +1,51 @@
+{{! Aviso inmediato (docs/app-vigilancia.md, 8.3): cuando una corrida encuentra algo nuevo desde la gravedad elegida en la puesta en marcha (crítica, por defecto). Corto: qué cambia y desde cuándo, dónde le pega, qué hacer y de quién depende, y el PR si lo hay. }}
+{{> inicio}}
+{{#aviso}}
+<tr><td style="{{{e.lead}}}">
+<h1 class="titular-aviso" style="{{{e.titular_aviso}}}">{{titular}}</h1>
+</td></tr>
+<tr><td style="{{{e.lead_texto}}}">
+<p style="{{{e.parrafo}}}">Hola, {{destinatario}}:</p>
+<p style="{{{e.parrafo_ultimo}}}">La corrida de hoy encontró algo nuevo de gravedad {{gravedad}}, así que este aviso sale hoy en vez de esperar al resumen del lunes.</p>
+</td></tr>
+<tr><td style="{{{e.tira}}}"><h2 style="{{{e.tira_titulo}}}">{{proveedor}} &middot; gravedad {{gravedad}}</h2></td></tr>
+{{> fecha-grande}}
+<tr><td style="{{{e.fila}}}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="104" style="{{{e.celda_etiqueta}}}">Dónde</td>
+<td style="{{{e.celda_texto}}}">
+<div style="{{{e.item_titulo}}}">{{repo}}</div>
+<div style="{{{e.donde}}}">{{donde}}</div>
+<div style="{{{e.texto_nota}}}">Parche dice: "{{mensaje}}"</div>
+</td>
+</tr></table>
+</td></tr>
+<tr><td style="{{{e.fila}}}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="104" style="{{{e.celda_etiqueta}}}">Qué hacer</td>
+<td style="{{{e.celda_texto}}}">
+<div style="{{{e.texto_item}}}padding-top:0;">{{#falta_dato}}<span style="{{{e.marca_roja}}}">Falta un dato</span>&nbsp; {{/falta_dato}}{{que_hacer}}{{#depende}} <strong style="{{{e.fuerte}}}">{{depende}}</strong>{{/depende}}</div>
+{{#sugerencia}}
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="{{{e.codigo_caja}}}">
+<tr><td colspan="2" style="{{{e.codigo_archivo}}}">{{archivo}} &middot; lo que falta, según Parche</td></tr>
+<tr><td style="{{{e.codigo_margen}}}">+</td><td style="{{{e.codigo_linea}}}">{{linea}}</td></tr>
+</table>
+{{/sugerencia}}
+</td>
+</tr></table>
+</td></tr>
+<tr><td style="{{{e.fila}}}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="104" style="{{{e.celda_etiqueta}}}">PR</td>
+<td style="{{{e.celda_texto}}}">
+{{#pr}}<div style="{{{e.item_titulo}}}"><a href="{{url}}" style="{{{e.enlace}}}">{{titulo}}</a></div><div style="{{{e.donde}}}">{{repo}}{{numero}} &middot; {{estado}}</div>{{/pr}}
+{{^pr}}<div style="{{{e.texto_item}}}padding-top:0;">{{sin_pr}}</div>{{/pr}}
+{{#relacionado}}<div style="{{{e.texto_nota}}}">{{relacionado}}</div>{{/relacionado}}
+<div style="{{{e.pie_item}}}">{{#relacionado_link}}<a href="{{url}}" style="{{{e.enlace}}}">{{texto}}</a> &middot; {{/relacionado_link}}{{#corrida}}<a href="{{url}}" style="{{{e.enlace}}}">{{texto}}</a>{{/corrida}}{{#no_aplica}} &middot; <a href="{{url}}" style="{{{e.enlace}}}">No aplica</a>{{/no_aplica}}</div>
+</td>
+</tr></table>
+</td></tr>
+{{/aviso}}
+<tr><td style="{{{e.cierre}}}"><p style="{{{e.parrafo_ultimo}}}">{{^no_aplica_por_fila}}Si esto no aplica, respondeme y lo marco como descartado.{{/no_aplica_por_fila}}{{#no_aplica_por_fila}}Si esto no aplica, tocá "No aplica" y contanos por qué.{{/no_aplica_por_fila}} También va a estar en el próximo resumen semanal.</p></td></tr>
+{{> firma}}
+{{> fin}}

@@ -3,6 +3,7 @@
   "version": "2026.10.24",
   "provider": "ARCA (ex AFIP)",
   "title": "Condición frente al IVA del receptor obligatoria en WSFEv1",
+  "title_short_es": "`CondicionIVAReceptorId` obligatorio en WSFEv1",
   "kind": "breaking",
   "severity": "critical",
   "deadline": "2026-12-01",

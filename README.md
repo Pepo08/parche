@@ -27,6 +27,9 @@ Copy [`templates/github-workflow.yml`](templates/github-workflow.yml) to `.githu
 | `token` | `github.token` | Pushes the branches and opens the PRs. With the default `GITHUB_TOKEN`, GitHub holds the PR's workflows until someone approves them; with a GitHub App token or a personal token they run on their own. |
 | `snapshot` | `'true'` | Save a snapshot of the run (API inventory, findings and the PRs it opened, as JSON; no source code) as a workflow artifact. |
 | `snapshot-name` | `parche` | Artifact name. Use a different one for each step if you call the Action more than once in a workflow. |
+| `ai-upgrades` | `'false'` | Experimental: for npm SDKs whose latest version changes calls your code uses, an AI model (with your key) proposes the fix, Parche verifies it (syntax, types and, with `verify`, your tests) and opens a draft PR. Never for invoicing, payments or AI model IDs. |
+| `ai-model` / `anthropic-api-key` | `claude-opus-5-5` / `''` | The model for `ai-upgrades`, and your Anthropic API key as a repository secret (`${{ secrets.ANTHROPIC_API_KEY }}`). |
+| `summary` | `'true'` | Build the weekly summary (an email-style HTML and plain-text digest, in Spanish) from the snapshot, add it to the job summary and save it in the artifact. It's not emailed anywhere. To compare with the previous week the job needs `actions: read`. |
 
 `@v0` follows every 0.x release; to pin one, use its release commit: `Pepo08/parche@<sha> # v0.7.2`. PR bodies and the job output are in Spanish for now.
 
@@ -63,6 +66,35 @@ Ya hay varios prototipos que le piden a un modelo que lea un changelog y escriba
 - **El arreglo es determinístico.** Los codemods trabajan sobre el AST, respetan el formato del cliente (el diff de ARCA es de 2 líneas por factura) y son idempotentes.
 - **Lo que no se puede inferir, no se inventa.** Si falta un dato del negocio (¿este cliente con CUIT es Responsable Inscripto o Monotributo?), el PR lo dice y muestra los valores válidos.
 - **Cada PR mergeado, editado o rechazado vuelve como señal** (`.parche/ledger.jsonl`, `parche feedback`). Eso es lo que hace que la base mejore con el uso.
+
+### Arreglos con IA, a prueba (nivel 2)
+
+Para lo que no tiene pack, hay una prueba **apagada por defecto**: subir un SDK de npm cuando su última versión cambia llamadas que usa tu código. Hoy es solo para SDKs de npm.
+
+**Cómo funciona:**
+1. Parche encuentra el cambio con `scan --upgrades`: compara los tipos de las dos versiones.
+2. Un modelo de IA (por defecto `claude-opus-5-5`, con **tu** clave) propone el arreglo como un diff. Solo devuelve texto: no corre comandos.
+3. Parche aplica el diff solo en los archivos del aviso y lo verifica. Cada archivo tiene que parsear. Con los tipos de la versión nueva, no puede quedar ningún error en las líneas que cambiaron ni haber más errores que antes. Con `verify`, además corren tus tests, con la versión nueva instalada (`npm install --ignore-scripts`).
+4. Si pasa, abre un PR **siempre en borrador**, que dice que lo escribió un modelo y cuál.
+
+**Qué se le manda al modelo**, y solo cuando lo prendés:
+- el nombre del paquete y las dos versiones;
+- la lista de cambios que calculó Parche;
+- el contenido completo de los archivos del aviso.
+
+Nada más del repo.
+
+**Qué nunca hace:**
+- tocar código de facturación o de pagos, ni archivos donde un pack de ARCA o de Mercado Pago encontró algo;
+- cambiar IDs de modelos de IA;
+- aplicar un diff que toque otros archivos, sume URLs o variables de entorno, o pase las 400 líneas.
+
+```bash
+ANTHROPIC_API_KEY=... npx parche-cli ai-upgrade . --dry-run    # arma la rama sin abrir el PR
+ANTHROPIC_API_KEY=... npx parche-cli ai-upgrade . --measure    # solo dice qué propondría, sin tocar el repo
+```
+
+En la Action: `ai-upgrades: 'true'` y `anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}` (`ai-model` cambia el modelo). El SDK de Anthropic es una dependencia opcional: la Action lo instala solo con `ai-upgrades: 'true'`. Si instalaste Parche sin dependencias opcionales, `npm install @anthropic-ai/sdk@~0.133.0`. Cada intento cuesta tokens de tu cuenta. Un PR de nivel 2 no es un pack verificado: revisalo como el PR de una persona.
 
 ## Uso
 
@@ -121,6 +153,15 @@ El workflow necesita `permissions: contents: write` y `pull-requests: write`. Ad
 Lo que no abre un PR también se ve en la corrida: los avisos de solo detección (modelos de IA que se retiran, por ejemplo) y lo que quedó sin PR porque falta un dato de tu negocio aparecen en el **resumen del job** y como **anotaciones** con el archivo y la línea (GitHub muestra las primeras 10; el resumen las tiene todas).
 
 **La foto de la corrida:** además, la Action guarda un artifact del workflow (`parche`, salvo que le pongas otro nombre con `snapshot-name`) con dos archivos. `scan.json` es la salida de `parche scan --json`: el inventario de APIs y los avisos, cada uno con su `fingerprint`, un identificador que no cambia aunque se muevan las líneas, para comparar una semana con la anterior. `ledger.jsonl` es el registro de esa corrida: los PRs que abrió y lo que quedó sin PR. Lleva rutas, números de línea, paquetes, versiones, operaciones y los mensajes de Parche; no lleva código. Lo baja quien puede ver las corridas de Actions del repo (`gh run download <id> -n parche`), y dura lo que diga la retención de artifacts del repo. Si no lo querés: `snapshot: 'false'`. Si la foto falla, la corrida no falla: queda un aviso.
+
+**El resumen de la semana:** con la foto, la Action arma el resumen semanal, con el mismo diseño que los mails de Parche:
+- qué hay para hacer, ordenado por fecha;
+- lo nuevo desde la semana anterior;
+- los PRs de Parche;
+- lo que se resolvió;
+- las APIs del repo.
+
+Lo suma al resumen del job y lo deja en la foto como `resumen.html` (listo para mandar por mail), `resumen.txt` y `resumen.json`. No lo manda a ningún lado. Para comparar con la semana anterior, baja la foto de esa corrida, y para eso el job necesita `actions: read` (la plantilla lo pide). Sin la foto anterior, el resumen dice que es la primera y no inventa lo nuevo ni lo resuelto. Tampoco dice quién tiene cada dato: Parche no lo sabe. Si no lo querés: `summary: 'false'`. Para armarlo en tu máquina con dos fotos: `npx parche-cli summary --snapshot <carpeta> --previous <carpeta>`.
 
 Con el `GITHUB_TOKEN` por defecto, GitHub deja los workflows del PR que abre Parche esperando aprobación: alguien con permiso de escritura tiene que tocar **Approve workflows to run** (el cuerpo del PR lo avisa). Para que tu CI corra sola sobre esos PRs, pasale a la Action un token de una GitHub App o un token personal con permiso de escritura en `contents` y `pull-requests`:
 

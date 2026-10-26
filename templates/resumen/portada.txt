@@ -1,0 +1,19 @@
+{{! Portada para agencias, versión en texto (docs/app-vigilancia.md, 8.2). }}
+Hola, {{destinatario}}:
+
+El resumen de {{mes_nombre}} de cada cliente va en un mail aparte, listo para reenviarle: no lleva datos de los otros. Esta es la portada, una fila por cliente.
+{{> revision}}
+
+Portada
+-------
+
+{{#clientes}}
+* {{cliente_final}} · {{repos}} · {{pendientes_txt}}
+  Próxima fecha: {{#con_fecha}}{{vence_largo}} ({{vence_dias_txt}}): {{proximo_cambio}}{{/con_fecha}}{{^con_fecha}}ninguna en los packs de Parche{{/con_fecha}}
+  Para hacer este mes: {{para_hacer}}
+
+{{/clientes}}
+Si algo de esto no aplica, respondeme y lo marco como descartado.
+
+{{> firma}}
+{{> pie}}

@@ -1,0 +1,27 @@
+{
+  "_nota": "Plantillas de una línea de cada mail: el asunto, el texto de vista previa (lo que Gmail muestra al lado del asunto), la etiqueta de la banda y la línea de datos de arriba. Asunto corto, que diga si hay algo para hacer (docs/app-vigilancia.md, sección 8).",
+  "semanal": {
+    "asunto": "Parche · {{cliente}} · semana del {{fecha_envio_corto}}: {{conteo_txt}}",
+    "previa": "{{#proxima}}Próximo vencimiento: {{vence_corto}}, {{proveedor}} ({{vence_dias_txt}}). {{/proxima}}{{corrida_txt}}",
+    "etiqueta": "Resumen semanal",
+    "meta": "{{cliente}} · semana del {{fecha_envio_largo}}"
+  },
+  "mensual": {
+    "asunto": "Parche · {{cliente}} · resumen de {{mes_nombre}}",
+    "previa": "En {{mes_nombre}}, {{cambios_txt}} les pegaron: {{conteo_mes_txt}}.",
+    "etiqueta": "Resumen mensual",
+    "meta": "{{cliente}} · {{mes_nombre}} de {{mes_anio}}"
+  },
+  "aviso": {
+    "asunto": "Parche · {{cliente}} · {{aviso.proveedor}}: {{aviso.asunto_cambio}} en {{aviso.repo}}",
+    "previa": "{{aviso.titular}}. {{aviso.vence_frase}}",
+    "etiqueta": "Aviso inmediato",
+    "meta": "{{cliente}} · {{dia_semana}} {{fecha_envio_largo}}"
+  },
+  "portada": {
+    "asunto": "Parche · {{agencia}} · resumen de {{mes_nombre}}: sus {{clientes.length}} clientes",
+    "previa": "Una fila por cliente. El resumen de cada uno va en un mail aparte, listo para reenviar.",
+    "etiqueta": "Resumen mensual · portada",
+    "meta": "{{agencia}} · {{mes_nombre}} de {{mes_anio}}"
+  }
+}

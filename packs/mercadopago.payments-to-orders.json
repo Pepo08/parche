@@ -3,6 +3,7 @@
   "version": "2026.10.24",
   "provider": "Mercado Pago",
   "title": "Migración de creación de pagos: Payments API → Orders API",
+  "title_short_es": "creación de pagos, de Payments API a Orders API",
   "kind": "migration",
   "severity": "medium",
   "deadline": null,

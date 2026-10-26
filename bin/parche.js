@@ -9,6 +9,8 @@ import { verify } from '../src/verify.js';
 import * as git from '../src/git.js';
 import { parseGithubRemote, githubClient } from '../src/github.js';
 import { publishPr } from '../src/publish.js';
+import { summaryCommand } from '../src/summary/index.js';
+import { actionsRun } from '../src/summary/github.js';
 import { record } from '../src/ledger.js';
 import { apiLabel, noUsesLabel } from '../src/inventory/index.js';
 import { isTestFile } from '../src/paths.js';
@@ -28,6 +30,13 @@ Uso:
                                        Rama + commit + PR por cada cambio. Con --push-remote,
                                        pushea a ese remote (tu fork) y abre el PR contra origin.
                                        Con --author, firma con esa identidad y no con la de git
+  parche ai-upgrade <dir> [--package <pkg>] [--model <id>] [--dry-run] [--verify] [--measure]
+                                       A prueba (nivel 2): para los SDKs de npm con llamadas que cambian en su
+                                       última versión, un modelo propone el arreglo, Parche lo verifica y abre
+                                       un PR en borrador. Usa ANTHROPIC_API_KEY. --measure: no toca el repo
+  parche summary --snapshot <dir> [--previous <dir>] [--out <dir>] [--date AAAA-MM-DD]
+                                       El resumen de la semana (HTML y texto) con la foto de una corrida
+                                       (scan.json y ledger.jsonl) y, si está, la anterior
   parche feedback <dir> --pack <id> --outcome merged|edited|rejected [--note "..."]
   parche --version                     La versión instalada (para reportar un error)
 `;
@@ -167,6 +176,21 @@ async function main() {
     return 0;
   }
 
+  // El nivel 2 a prueba: se carga recién acá (TypeScript, el registry y, al llamar al modelo, el SDK de Anthropic).
+  if (cmd === 'ai-upgrade') {
+    const { aiUpgradeCommand } = await import('../src/ai/command.js');
+    const { createRegistry } = await import('../src/sdk-diff/registry.js');
+    const r = path.resolve(dirArg || '.');
+    ensureLocalDir(r);
+    await aiUpgradeCommand(args, { root: r, registry: createRegistry(), version: VERSION() });
+    return 0;
+  }
+
+  if (cmd === 'summary') {
+    await summaryCommand(args);
+    return 0;
+  }
+
   if (cmd === 'diff') {
     const pkg = dirArg;
     if (!pkg || !args.from || !args.to) throw new Error('Uso: parche diff <paquete> --from <versión> --to <versión>');
@@ -199,7 +223,8 @@ async function main() {
     fs.writeFileSync(path.join(root, '.parche', 'report.md'), scanReport({ ...result, changed: [], upgrades }));
     record(root, { type: 'scan', findings: counts(result.findings) });
     // parcheVersion: qué versión (y por lo tanto qué reglas) generó este JSON; la foto de cada corrida de la Action lo guarda.
-    if (args.json) { console.log(JSON.stringify({ parcheVersion: VERSION(), inventory: result.inventory, findings: result.findings, skipped: result.skipped }, null, 2)); return 0; }
+    // run: en GitHub Actions, de qué repo, commit y corrida es la foto (F5 del diseño del resumen, 0.8.0).
+    if (args.json) { console.log(JSON.stringify({ parcheVersion: VERSION(), ...(process.env.GITHUB_ACTIONS === 'true' ? { run: actionsRun() } : {}), inventory: result.inventory, findings: result.findings, skipped: result.skipped }, null, 2)); return 0; }
     console.log(`Parche · scan de ${path.basename(root)}\n`);
     printInventory(result.inventory);
     if (upgrades) printUpgrades(upgrades);
@@ -280,7 +305,7 @@ async function main() {
           git.discardChanges(root);
           console.log(`  ${summary(result.findings)}`);
           console.log(`  ${why[0].toUpperCase()}${why.slice(1)}; queda como issue o reporte: ${bodyPath}`);
-          record(root, { type: 'report-only', pack: pack.id, findings: c, reason: why });
+          record(root, { type: 'report-only', pack: pack.id, findings: c, reason: why, fingerprints: result.findings.map((f) => f.fingerprint) });
           withoutPr.push({ pack, findings: result.findings });
           continue;
         }
@@ -301,7 +326,9 @@ async function main() {
         }
         opened.push({ title, url: pr.url, draft, status: pr.status });
         record(root, { type: 'pr', pack: pack.id, packVersion: pack.version, branch, sha, url: pr.url, draft, files: changedFiles, findings: c,
-          partial: result.findings.filter((f) => f.partial).length, ...(pr.status && pr.status !== 'opened' ? { existing: pr.status } : {}) });
+          partial: result.findings.filter((f) => f.partial).length, ...(pr.status && pr.status !== 'opened' ? { existing: pr.status } : {}),
+          // Qué avisos cubre el PR (F4): el resumen los marca "en curso" por aviso, no por pack.
+          fingerprints: result.findings.map((f) => f.fingerprint), ...(pr.number ? { number: pr.number } : {}) });
       } catch (err) {
         console.error(`  No se pudo con ${pack.id}: ${err.message.split('\n')[0]}`);
         failed.push({ pack, message: err.message });

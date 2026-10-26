@@ -30,14 +30,33 @@ inputs:
   snapshot-name:
     description: Nombre del artifact de la foto. Si usás la Action más de una vez en el mismo workflow, poné un nombre distinto en cada una.
     default: parche
+  summary:
+    description: "Armar el resumen de la semana (HTML y texto, con el diseño de los mails de Parche) y sumarlo al resumen del job y a la foto ('true' o 'false'). Necesita la foto. Para comparar con la semana anterior, el workflow necesita `actions: read`."
+    default: 'true'
+  ai-upgrades:
+    description: A prueba (nivel 2). Para los SDKs de npm con llamadas que cambian en su última versión, un modelo de IA propone el arreglo con tu clave, Parche lo verifica (sintaxis, tipos y, con `verify`, tus tests) y abre un PR en borrador. Nunca en facturación, pagos ni modelos de IA ('true' o 'false').
+    default: 'false'
+  ai-model:
+    description: El modelo para `ai-upgrades`.
+    default: claude-opus-5-5
+  anthropic-api-key:
+    description: Tu clave de la API de Anthropic para `ai-upgrades`, como un secret del repo (por ejemplo, secrets.ANTHROPIC_API_KEY). Solo la usa ese paso.
+    default: ''
 
 runs:
   using: composite
   steps:
+    # El SDK de Anthropic es una dependencia opcional (13 MB): se instala solo si se prende el nivel 2.
     - name: Instalar Parche
       shell: bash
-      run: npm ci --omit=dev --no-audit --no-fund --prefix "$GITHUB_ACTION_PATH"
+      env:
+        PARCHE_AI: ${{ inputs.ai-upgrades }}
+      run: |
+        omit=(--omit=dev)
+        if [ "$PARCHE_AI" != "true" ]; then omit+=(--omit=optional); fi
+        npm ci "${omit[@]}" --no-audit --no-fund --prefix "$GITHUB_ACTION_PATH"
     - name: Parche
+      id: pr
       shell: bash
       working-directory: ${{ inputs.path }}
       env:
@@ -49,6 +68,23 @@ runs:
       run: |
         args=(pr .)
         if [ -n "$PARCHE_PACK" ]; then args+=(--pack "$PARCHE_PACK"); fi
+        if [ "$PARCHE_VERIFY" = "true" ]; then args+=(--verify); fi
+        if [ "$PARCHE_DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+        node "$GITHUB_ACTION_PATH/bin/parche.js" "${args[@]}"
+    # El nivel 2, a prueba (0.9.0): apagado salvo `ai-upgrades: 'true'`. La clave solo llega a este paso. Si falla (por
+    # ejemplo, sin clave), la corrida falla: quien lo prendió tiene que enterarse.
+    - name: Arreglos con IA (a prueba)
+      if: ${{ !cancelled() && inputs.ai-upgrades == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.path }}
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        PARCHE_AI_MODEL: ${{ inputs.ai-model }}
+        PARCHE_VERIFY: ${{ inputs.verify }}
+        PARCHE_DRY_RUN: ${{ inputs.dry-run }}
+      run: |
+        args=(ai-upgrade .)
         if [ "$PARCHE_VERIFY" = "true" ]; then args+=(--verify); fi
         if [ "$PARCHE_DRY_RUN" = "true" ]; then args+=(--dry-run); fi
         node "$GITHUB_ACTION_PATH/bin/parche.js" "${args[@]}"
@@ -72,6 +108,23 @@ runs:
         else
           rm -f "$dir/scan.json"
           echo "::warning title=Parche::No se pudo armar la foto de la corrida; los PRs y el resumen del job no cambian."
+        fi
+    # El resumen de la semana (0.8.0): con la foto de esta corrida, la de la semana anterior (si el workflow tiene
+    # `actions: read`) y los PRs de Parche, arma el mail semanal con el diseño de templates/resumen/. No lo manda: lo suma
+    # al resumen del job y lo deja en la foto (resumen.html, resumen.txt y resumen.json). Si falla, la corrida no falla.
+    - name: Resumen de la semana
+      if: ${{ !cancelled() && inputs.snapshot == 'true' && inputs.summary == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.path }}
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        PARCHE_SNAPSHOT_NAME: ${{ inputs.snapshot-name }}
+        PARCHE_PR_OUTCOME: ${{ steps.pr.outcome }}
+      run: |
+        dir="$RUNNER_TEMP/parche-snapshot/$PARCHE_SNAPSHOT_NAME"
+        if [ -f "$dir/scan.json" ]; then
+          node "$GITHUB_ACTION_PATH/bin/parche.js" summary --snapshot "$dir" \
+            || echo "::warning title=Parche::No se pudo armar el resumen de la semana; los PRs y la foto no cambian."
         fi
     - name: Guardar la foto como artifact
       if: ${{ !cancelled() && inputs.snapshot == 'true' }}

@@ -1,0 +1,40 @@
+{{! Aviso inmediato, versión en texto (docs/app-vigilancia.md, 8.3). }}
+Hola, {{destinatario}}:
+
+{{#aviso}}
+{{titular}}. La corrida de hoy lo encontró y, como es de gravedad {{gravedad}}, este aviso sale hoy en vez de esperar al resumen del lunes.
+
+Qué cambia: {{resumen}} {{vence_frase}}
+{{#fuente}}
+Fuente: {{titulo}}{{#verificado}} (verificada el {{verificado_corto}}){{/verificado}}, {{url}}
+{{/fuente}}
+
+Dónde: le pega a {{repo}} en {{donde}}. Parche dice: "{{mensaje}}"
+
+Qué hacer: {{#falta_dato}}falta un dato. {{/falta_dato}}{{que_hacer}}{{#depende}} {{depende}}{{/depende}}
+{{#sugerencia}}
+Lo que falta en {{archivo}}, según Parche:
++ {{linea}}
+{{/sugerencia}}
+
+{{#pr}}
+PR: {{titulo}} ({{repo}}{{numero}}), {{estado}}. {{url}}
+{{/pr}}
+{{^pr}}
+PR: {{sin_pr}}
+{{/pr}}
+{{#relacionado}}
+{{relacionado}}{{#relacionado_link}} {{url}}{{/relacionado_link}}
+{{/relacionado}}
+{{#corrida}}
+{{texto}}: {{url}}
+{{/corrida}}
+{{#no_aplica}}
+No aplica: {{url}}
+{{/no_aplica}}
+{{/aviso}}
+
+{{^no_aplica_por_fila}}Si esto no aplica, respondeme y lo marco como descartado.{{/no_aplica_por_fila}}{{#no_aplica_por_fila}}Si esto no aplica, abrí el link "No aplica" y contanos por qué.{{/no_aplica_por_fila}} También va a estar en el próximo resumen semanal.
+
+{{> firma}}
+{{> pie}}

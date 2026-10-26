@@ -41,7 +41,12 @@ Las opciones de la Action (`verify`, `pack`, `dry-run`, `token`, `snapshot` y `s
 
 Son tres cosas:
 
-1. **Los permisos del job.** La plantilla le da al job de Parche `contents: write`, para pushear su rama `parche/<pack>`, y `pull-requests: write`, para abrir el PR. Nada más.
+1. **Los permisos del job.** La plantilla le da al job de Parche tres permisos y nada más:
+   - `contents: write`, para pushear su rama `parche/<pack>`;
+   - `pull-requests: write`, para abrir el PR;
+   - `actions: read`, para que el resumen de la semana lea la foto de la semana anterior.
+
+   Si copiaste la plantilla antes de la 0.8.0, sumale `actions: read`. Sin ese permiso todo anda igual, pero el resumen no puede comparar con la semana anterior y lo dice.
 2. **El ajuste que deja que GitHub Actions abra PRs.** En **Settings → Actions → General → Workflow permissions**, prendé **"Allow GitHub Actions to create and approve pull requests"** y guardá. Viene apagado en los repos personales nuevos y en las organizaciones nuevas, y el repo de una organización hereda lo que diga la organización: en ese caso, lo prende un admin en la configuración de la organización. Si está apagado, la corrida termina con "GitHub no deja que GitHub Actions abra PRs en este repo".
 3. **El token.** Por defecto, la Action usa el `GITHUB_TOKEN` del workflow. Con ese token, GitHub deja esperando los workflows del PR que abre Parche (tu CI, por ejemplo) hasta que alguien con permiso de escritura toca **Approve workflows to run**; el cuerpo del PR lo avisa. Si querés que corran solos, pasale a la Action un token de una GitHub App o uno personal, con permiso de escritura en `contents` y `pull-requests`. Con uno de esos tokens, el ajuste del punto 2 no hace falta:
 
@@ -84,6 +89,7 @@ Parche anda igual en un repo privado. Lo que cambia es lo que cobra GitHub, y no
 |---|---|---|
 | Un PR por cada cambio que te afecta | Pull requests, rama `parche/<pack>` | Con las notificaciones de GitHub de siempre: te llega si mirás el repo (Watch; GitHub lo prende solo para quien tiene permiso de escritura, salvo que lo haya apagado en su configuración). Para que le llegue a alguien en particular, pedile revisión en el PR |
 | Lo que quedó sin PR y los avisos | El resumen del job, y como anotaciones con el archivo y la línea (GitHub muestra las primeras 10; el resumen las tiene todas) | Entrando a la corrida, en la pestaña Actions |
+| **El resumen de la semana**: qué hay para hacer por fecha, lo nuevo, los PRs de Parche, lo resuelto y las APIs del repo | El resumen del job, y en la foto como `resumen.html` (con el diseño de los mails de Parche), `resumen.txt` y `resumen.json` | Entrando a la corrida. No se manda por mail: el HTML queda listo para reenviarlo. La primera vez dice que es la primera foto; desde la semana siguiente compara con la anterior (necesita `actions: read`). Para apagarlo: `summary: 'false'` |
 | La foto de la corrida (`scan.json` y `ledger.jsonl`) | El artifact `parche` de la corrida | Se baja desde la corrida o con `gh run download <id> -n parche` |
 
 **Si ya hay un PR de Parche abierto,** la corrida siguiente no abre otro:
@@ -124,4 +130,4 @@ Borrá `.github/workflows/parche.yml`. Las ramas `parche/*` y sus PRs quedan has
 2. In **Settings → Actions → General → Workflow permissions**, turn on **"Allow GitHub Actions to create and approve pull requests"**. It's off by default for new personal repositories and new organizations, and an organization's repositories inherit the organization's setting. Without it, the run ends with "GitHub no deja que GitHub Actions abra PRs en este repo". With a GitHub App token or a personal token in the `token` input you don't need it, and your CI also runs on Parche's PRs without someone approving it.
 3. Run it once by hand: **Actions → Parche → Run workflow**, or `gh workflow run parche.yml`. Check the job summary, the PRs (branches `parche/<pack>`) and the `parche` artifact.
 
-Private repositories work the same; runs use your account's Actions minutes (2,000 per month and 500 MB of artifact storage on GitHub Free, per GitHub's docs, checked on October 25, 2026). If an open Parche PR already exists, the next run updates it only when it holds nothing but Parche's own commit, and never force-pushes over someone else's commits. PR bodies and the job output are in Spanish for now.
+Each run also builds a weekly summary (in Spanish), added to the job summary and saved in the artifact as `resumen.html` and `resumen.txt`; it isn't emailed anywhere. To compare with the previous week it needs `actions: read`, which the template asks for. Private repositories work the same; runs use your account's Actions minutes (2,000 per month and 500 MB of artifact storage on GitHub Free, per GitHub's docs, checked on October 25, 2026). If an open Parche PR already exists, the next run updates it only when it holds nothing but Parche's own commit, and never force-pushes over someone else's commits. PR bodies and the job output are in Spanish for now.
