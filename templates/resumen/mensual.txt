@@ -1,0 +1,83 @@
+{{! Resumen mensual, versión en texto (docs/app-vigilancia.md, 8.2). }}
+Hola, {{destinatario}}:
+
+En una línea: en {{mes_nombre}}, {{cambios_txt}} les pegaron; {{conteo_mes_txt}}. Este es el resumen de {{repos_txt}}.
+{{> revision}}
+
+1. Lo que viene: próximos 90 días
+---------------------------------
+
+{{#viene}}
+* {{vence_largo}} ({{vence_dias_txt}}) · {{seguimiento_may}}
+  {{proveedor}}: {{cambio}}
+  {{repos}}
+{{#detalle}}
+  {{detalle}}
+{{/detalle}}
+{{#link}}
+  {{texto}}: {{url}}
+{{/link}}
+{{#fuente}}
+  Fuente: {{titulo}}{{#verificado}} (verificada el {{verificado_corto}}){{/verificado}}, {{url}}
+{{/fuente}}
+
+{{/viene}}
+{{#viene.length}}Nada más{{/viene.length}}{{^viene}}Nada{{/viene}} con fecha hasta el {{ventana_hasta_largo}} en los packs de Parche que les pegue.
+
+2. Lo que se resolvió este mes
+------------------------------
+
+{{#resueltos}}
+- {{resuelto_el_corto}} · {{cambio}} en {{repo}} ({{donde}}). {{como}}
+{{/resueltos}}
+{{^resueltos}}
+Nada resuelto este mes.
+{{/resueltos}}
+
+3. Lo pendiente y de quién depende
+----------------------------------
+
+{{#pendiente}}
+- {{proveedor}}: {{cambio}} en {{repo}} ({{donde_txt}}): falta {{falta}} {{depende}} {{vence_frase}}{{#link}} {{url}}{{/link}}{{#no_aplica}} (No aplica: {{url}}){{/no_aplica}}
+{{/pendiente}}
+{{^pendiente}}
+Nada pendiente.
+{{/pendiente}}
+
+4. Sus APIs
+-----------
+
+{{#apis}}
+- {{proveedor}} · {{api}} · {{repos}} · {{#con_pack}}con pack de Parche{{#solo_aviso}}, solo aviso{{/solo_aviso}}{{/con_pack}}{{^con_pack}}sin pack: Parche no sigue sus cambios{{/con_pack}}{{#proximo}} · {{#con_fecha}}{{vence_largo}}: {{/con_fecha}}{{cambio}}{{/proximo}}
+{{/apis}}
+{{#sin_resolver}}
+{{.}}
+{{/sin_resolver}}
+
+5. El mes en números
+--------------------
+
+{{#numeros}}
+- {{etiqueta}}: {{valor}}
+{{/numeros}}
+{{#numeros_nota}}
+{{numeros_nota}}
+{{/numeros_nota}}
+
+6. Lo nuevo en Parche este mes
+------------------------------
+
+{{#novedades}}
+- {{fecha_corto}} ({{version}}): {{texto}}
+{{/novedades}}
+{{^novedades}}
+Este mes no salió nada nuevo en Parche.
+{{/novedades}}
+
+{{#migro}}
+Cualquier duda sobre lo que migramos, respondeme acá: va sin costo mientras sigan suscriptos.
+{{/migro}}
+{{^no_aplica_por_fila}}Si algo de esto no aplica, respondeme y lo marco como descartado.{{/no_aplica_por_fila}}{{#no_aplica_por_fila}}Si algo de esto no aplica, abrí el link "No aplica" de esa fila y contanos por qué.{{/no_aplica_por_fila}}
+
+{{> firma}}
+{{> pie}}

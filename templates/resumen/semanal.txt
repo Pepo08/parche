@@ -1,0 +1,108 @@
+{{! Resumen semanal, versión en texto (docs/app-vigilancia.md, 8.1). }}
+{{#destinatario}}
+Hola, {{destinatario}}:
+
+{{/destinatario}}
+{{corrida_txt}}
+{{#corrida.fallas}}
+- No corrió en {{repo}}: {{motivo}}
+{{/corrida.fallas}}
+{{#corrida.no_se_pudo}}
+- No se pudo con {{pack}}: {{motivo}}
+{{/corrida.no_se_pudo}}
+
+Esta semana: {{conteo_txt}}.
+{{#proxima}}
+Próximo vencimiento: {{vence_largo}} ({{vence_dias_txt}}). {{proveedor}}: {{cambio}}. {{resumen}} {{repos}}.
+{{/proxima}}
+{{> revision}}
+{{#clientes}}
+{{#varios_clientes}}
+
+=== {{cliente_final}} ===
+{{/varios_clientes}}
+
+1. Para hacer, por fecha
+------------------------
+
+{{#para_hacer}}
+* {{#con_fecha}}{{vence_largo}} ({{vence_dias_txt}}){{/con_fecha}}{{^con_fecha}}Sin fecha límite{{/con_fecha}}{{#seguimiento_may}} · {{seguimiento_may}}{{/seguimiento_may}}
+  {{proveedor}}: {{cambio}}
+  {{repo}} · {{donde_txt}}
+  {{#falta_dato}}Falta un dato. {{/falta_dato}}{{#bloqueado}}Bloqueado. {{/bloqueado}}{{que_hacer}}{{#depende}} {{depende}}{{/depende}}
+{{#link}}
+  {{texto}}: {{url}}
+{{/link}}
+{{#fuente}}
+  Fuente: {{titulo}}{{#verificado}} (verificada el {{verificado_corto}}){{/verificado}}, {{url}}
+{{/fuente}}
+{{#no_aplica}}
+  No aplica: {{url}}
+{{/no_aplica}}
+
+{{/para_hacer}}
+{{^para_hacer}}
+Nada para hacer.
+
+{{/para_hacer}}
+2. Nuevo esta semana
+--------------------
+
+{{#nuevos}}
+- {{proveedor}}: {{cambio}} en {{repo}} ({{donde}}). {{consecuencia}}
+{{/nuevos}}
+{{^nuevos}}
+{{^sin_anterior}}
+Nada nuevo esta semana.
+{{/sin_anterior}}
+{{#sin_anterior}}
+Es la primera foto de este repo: lo nuevo se ve desde la próxima corrida.
+{{/sin_anterior}}
+{{/nuevos}}
+
+3. PRs de Parche
+----------------
+
+{{#prs.esperan}}
+- Espera su revisión: {{titulo}} ({{repo}}{{numero}}), {{estado}}{{#desde}}, desde el {{desde_corto}}{{/desde}}. {{url}}
+{{/prs.esperan}}
+{{#prs.mergeados}}
+- Mergeado el {{fecha_corto}}: {{titulo}} ({{repo}}{{numero}}), {{como}}. {{url}}
+{{/prs.mergeados}}
+{{#prs.cerrados}}
+- Cerrado sin merge el {{fecha_corto}}: {{titulo}} ({{repo}}{{numero}}){{#motivo}}: {{motivo}}{{/motivo}}. {{url}}
+{{/prs.cerrados}}
+{{^prs.esperan}}{{^prs.mergeados}}{{^prs.cerrados}}No hay PRs abiertos.
+{{/prs.cerrados}}{{/prs.mergeados}}{{/prs.esperan}}
+
+4. Resuelto esta semana
+-----------------------
+
+{{#resueltos}}
+- {{resuelto_el_corto}} · {{cambio}} en {{repo}} ({{donde}}). {{como}}
+{{/resueltos}}
+{{^resueltos}}
+{{^sin_anterior}}
+Nada resuelto esta semana.
+{{/sin_anterior}}
+{{#sin_anterior}}
+Es la primera foto de este repo: lo resuelto se ve desde la próxima corrida.
+{{/sin_anterior}}
+{{/resueltos}}
+
+5. Sus APIs
+-----------
+
+{{apis.total_txt}} en {{apis.repos_txt}}.{{^apis.cambios}}{{^sin_anterior}} Sin cambios desde la semana pasada.{{/sin_anterior}}{{/apis.cambios}}{{#apis.cambios.length}} Desde la semana pasada:{{/apis.cambios.length}}
+{{#apis.cambios}}
+{{signo}} {{texto}}
+{{/apis.cambios}}
+{{/clientes}}
+
+{{^sin_vigilancia}}
+{{^no_aplica_por_fila}}Si algo de esto no aplica (por ejemplo, un archivo que ya no se usa), respondeme y lo marco como descartado.{{/no_aplica_por_fila}}{{#no_aplica_por_fila}}Si algo de esto no aplica (por ejemplo, un archivo que ya no se usa), abrí el link "No aplica" de esa fila y contanos por qué.{{/no_aplica_por_fila}}
+
+{{/sin_vigilancia}}
+
+{{> firma}}
+{{> pie}}

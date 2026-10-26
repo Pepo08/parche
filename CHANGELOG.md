@@ -2,6 +2,19 @@
 
 Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1, de la 0.6.0 a la 0.7.0, la 0.7.2, la 0.7.3 y de la 0.7.5 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La 0.7.1 y la 0.7.4 tampoco: salieron junto con la 0.7.2 y la 0.7.5. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
 
+## 0.8.0 — 2026-10-26
+
+El resumen de la semana, armado por la Action con la foto de cada corrida.
+
+### Nuevo
+- **`parche summary`** arma el resumen semanal de un repo con el diseño de los mails de Parche: qué hay para hacer ordenado por fecha (lo vencido primero), el próximo vencimiento, lo nuevo desde la semana anterior, los PRs de Parche, lo resuelto y las APIs del repo. Usa la foto de la corrida (`scan.json` y `ledger.jsonl`) y, si está, la anterior, que compara por `fingerprint`. Deja `resumen.html` (con estilos inline, abajo de los 102 KB en los que Gmail corta el mensaje), `resumen.txt` y `resumen.json`. No manda mails ni le habla a ningún servidor de Parche.
+- **La Action lo arma en cada corrida** (input `summary`, `'true'` por defecto): lo suma al resumen del job y a la foto. En GitHub Actions baja la foto de la semana anterior y lee los PRs de Parche del repo; para la foto anterior el job necesita `actions: read`, que la plantilla del workflow ahora pide. Sin ese permiso, o la primera vez, el resumen sale igual y dice que no tiene con qué comparar. Si el resumen falla, la corrida no falla.
+- **Lo que no sabe no lo inventa.** Sin la foto anterior, no hay "nuevo", "resuelto" ni seguimiento, y el resumen lo dice. Quién tiene cada dato, la lectura de una persona y los descartados no aparecen.
+- **Las plantillas de los mails** pasan a `templates/resumen/`. El diseño es el original: con los datos de su ejemplo, Parche arma el mismo HTML y el mismo texto, y hay un test que lo controla. Se sumaron bloques opcionales para lo que solo tiene el armado automático: sin saludo cuando no hay destinatario, los packs que no se pudieron completar, la primera foto, los PRs sin fecha y el pie sin "la vigilancia".
+- **La fecha de cada aviso como dato** (`due`): la `deadline` del pack o, en IA, la de retiro de cada modelo o producto, con `dueKind` (`retirement` o `minimum`, para las fechas mínimas publicadas), `subject` (qué se retira) y `provider`. En Azure OpenAI no va la fecha de OpenAI.
+- **La foto sabe de dónde es:** en GitHub Actions, `scan --json` suma `run` (repo, commit, rama y corrida). Los eventos `pr` y `report-only` del registro suman los `fingerprint` que cubren, y el `pr`, el número del PR.
+- **Packs:** cada uno suma `title_short_es`, el nombre corto del cambio para el resumen. La detección no cambia.
+
 ## 0.7.7 — 2026-10-26
 
 La guía de instalación de la Action. El código no cambia.

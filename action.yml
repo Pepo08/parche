@@ -30,6 +30,9 @@ inputs:
   snapshot-name:
     description: Nombre del artifact de la foto. Si usás la Action más de una vez en el mismo workflow, poné un nombre distinto en cada una.
     default: parche
+  summary:
+    description: Armar el resumen de la semana (HTML y texto, con el diseño de los mails de Parche) y sumarlo al resumen del job y a la foto ('true' o 'false'). Necesita la foto. Para comparar con la semana anterior, el workflow necesita `actions: read`.
+    default: 'true'
 
 runs:
   using: composite
@@ -38,6 +41,7 @@ runs:
       shell: bash
       run: npm ci --omit=dev --no-audit --no-fund --prefix "$GITHUB_ACTION_PATH"
     - name: Parche
+      id: pr
       shell: bash
       working-directory: ${{ inputs.path }}
       env:
@@ -72,6 +76,23 @@ runs:
         else
           rm -f "$dir/scan.json"
           echo "::warning title=Parche::No se pudo armar la foto de la corrida; los PRs y el resumen del job no cambian."
+        fi
+    # El resumen de la semana (0.8.0): con la foto de esta corrida, la de la semana anterior (si el workflow tiene
+    # `actions: read`) y los PRs de Parche, arma el mail semanal con el diseño de templates/resumen/. No lo manda: lo suma
+    # al resumen del job y lo deja en la foto (resumen.html, resumen.txt y resumen.json). Si falla, la corrida no falla.
+    - name: Resumen de la semana
+      if: ${{ !cancelled() && inputs.snapshot == 'true' && inputs.summary == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.path }}
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        PARCHE_SNAPSHOT_NAME: ${{ inputs.snapshot-name }}
+        PARCHE_PR_OUTCOME: ${{ steps.pr.outcome }}
+      run: |
+        dir="$RUNNER_TEMP/parche-snapshot/$PARCHE_SNAPSHOT_NAME"
+        if [ -f "$dir/scan.json" ]; then
+          node "$GITHUB_ACTION_PATH/bin/parche.js" summary --snapshot "$dir" \
+            || echo "::warning title=Parche::No se pudo armar el resumen de la semana; los PRs y la foto no cambian."
         fi
     - name: Guardar la foto como artifact
       if: ${{ !cancelled() && inputs.snapshot == 'true' }}

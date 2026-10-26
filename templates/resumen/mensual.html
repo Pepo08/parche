@@ -1,0 +1,119 @@
+{{! Resumen mensual (docs/app-vigilancia.md, 8.2). Uno por cliente final: para una agencia, listo para reenviar, así que nunca lleva datos de otro cliente (la portada va en un mail aparte: portada.html). }}
+{{> inicio}}
+<tr><td style="{{{e.lead}}}">
+<h1 class="titular" style="{{{e.titular}}}">En {{mes_nombre}}, {{cambios_txt}} les pegaron</h1>
+</td></tr>
+<tr><td style="{{{e.lead_texto}}}">
+<p style="{{{e.parrafo}}}">Hola, {{destinatario}}:</p>
+<p style="{{{e.parrafo_ultimo}}}">De esos {{cambios_txt}}, {{conteo_mes_txt}}. Este es el resumen de {{mes_nombre}} de {{repos_txt}}.</p>
+</td></tr>
+{{> revision}}
+<tr><td style="{{{e.seccion}}}"><h2 style="{{{e.seccion_titulo}}}"><span style="{{{e.seccion_num}}}">1</span>&nbsp;&nbsp;Lo que viene: próximos 90 días</h2></td></tr>
+{{#viene.length}}
+<tr><td style="{{{e.fila_primera}}}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="104" style="{{{e.cabecera_fecha}}}">Fecha</td>
+<td style="{{{e.cabecera}}}">Qué cambia, en qué repos y en qué está</td>
+</tr></table>
+</td></tr>
+{{/viene.length}}
+{{#viene}}
+<tr><td style="{{{e.fila}}}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+{{> celda-fecha}}
+<td style="{{{e.celda_texto}}}">
+<div style="{{{e.item_titulo}}}">{{proveedor}}: {{cambio}}</div>
+<div style="{{{e.donde}}}">{{repos}}</div>
+{{#detalle}}<div style="{{{e.texto_item}}}">{{detalle}}</div>{{/detalle}}
+<div style="{{{e.pie_item}}}">{{> seguimiento}}{{#link}}&nbsp; <a href="{{url}}" style="{{{e.enlace}}}">{{texto}}</a>{{/link}}{{#fuente}} &middot; <a href="{{url}}" style="{{{e.enlace}}}">Fuente: {{titulo}}</a>{{#verificado}}, verificada el {{verificado_corto}}{{/verificado}}{{/fuente}}</div>
+</td>
+</tr></table>
+</td></tr>
+{{/viene}}
+<tr><td style="{{{e.fila_lista}}}"><span style="{{{e.texto_nota}}}padding-top:0;">{{#viene.length}}Nada más{{/viene.length}}{{^viene}}Nada{{/viene}} con fecha hasta el {{ventana_hasta_largo}} en los packs de Parche que les pegue.</span></td></tr>
+<tr><td style="{{{e.seccion}}}"><h2 style="{{{e.seccion_titulo}}}"><span style="{{{e.seccion_num}}}">2</span>&nbsp;&nbsp;Lo que se resolvió este mes</h2></td></tr>
+{{#resueltos}}
+<tr><td style="{{{e.fila}}}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="104" style="{{{e.celda_fecha}}}"><div style="{{{e.fecha_hecha}}}">{{resuelto_el_corto}}</div></td>
+<td style="{{{e.celda_texto}}}">
+<div style="{{{e.item_titulo}}}">{{cambio}}</div>
+<div style="{{{e.donde}}}">{{repo}} &middot; {{donde}}</div>
+<div style="{{{e.texto_item}}}">{{como}}</div>
+</td>
+</tr></table>
+</td></tr>
+{{/resueltos}}
+{{^resueltos}}
+<tr><td style="{{{e.vacio}}}">Nada resuelto este mes.</td></tr>
+{{/resueltos}}
+<tr><td style="{{{e.seccion}}}"><h2 style="{{{e.seccion_titulo}}}"><span style="{{{e.seccion_num}}}">3</span>&nbsp;&nbsp;Lo pendiente y de quién depende</h2></td></tr>
+{{#pendiente}}
+<tr><td style="{{{e.fila}}}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+{{> celda-fecha}}
+<td style="{{{e.celda_texto}}}">
+<div style="{{{e.item_titulo}}}">{{proveedor}}: {{cambio}}</div>
+<div style="{{{e.donde}}}">{{repo}} &middot; {{donde_txt}}</div>
+<div style="{{{e.texto_item}}}">{{#falta_dato}}<span style="{{{e.marca_roja}}}">Falta un dato</span>&nbsp; {{/falta_dato}}Falta {{falta}} <strong style="{{{e.fuerte}}}">{{depende}}</strong></div>
+<div style="{{{e.pie_item}}}">{{> seguimiento}}{{#link}}&nbsp; <a href="{{url}}" style="{{{e.enlace}}}">{{texto}}</a>{{/link}}{{#no_aplica}} &middot; <a href="{{url}}" style="{{{e.enlace}}}">No aplica</a>{{/no_aplica}}</div>
+</td>
+</tr></table>
+</td></tr>
+{{/pendiente}}
+{{^pendiente}}
+<tr><td style="{{{e.vacio}}}">Nada pendiente.</td></tr>
+{{/pendiente}}
+<tr><td style="{{{e.seccion}}}"><h2 style="{{{e.seccion_titulo}}}"><span style="{{{e.seccion_num}}}">4</span>&nbsp;&nbsp;Sus APIs</h2></td></tr>
+<tr><td style="{{{e.fila_primera}}}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="104" style="{{{e.cabecera_fecha}}}">Proveedor</td>
+<td style="{{{e.cabecera}}}">API, repos, pack de Parche y próximo cambio</td>
+</tr></table>
+</td></tr>
+{{#apis}}
+<tr><td style="{{{e.fila}}}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="104" style="{{{e.api_nombre}}}">{{proveedor}}</td>
+<td style="{{{e.celda_texto}}}">
+<div style="{{{e.donde}}}padding-top:0;">{{api}}</div>
+<div style="{{{e.texto_nota}}}">{{repos}} &middot; {{#con_pack}}con pack de Parche{{#solo_aviso}}, solo aviso{{/solo_aviso}}{{/con_pack}}{{^con_pack}}sin pack: Parche no sigue sus cambios{{/con_pack}}</div>
+{{#proximo}}<div style="{{{e.texto_item}}}">{{#con_fecha}}<span style="{{#rojo}}{{{e.marca_roja}}}{{/rojo}}{{^rojo}}{{{e.marca_tinta}}}{{/rojo}}">{{vence_largo}}</span>&nbsp; {{/con_fecha}}{{cambio}}</div>{{/proximo}}
+</td>
+</tr></table>
+</td></tr>
+{{/apis}}
+{{#sin_resolver}}
+<tr><td style="{{{e.fila_lista}}}"><span style="{{{e.texto_nota}}}padding-top:0;">{{.}}</span></td></tr>
+{{/sin_resolver}}
+<tr><td style="{{{e.seccion}}}"><h2 style="{{{e.seccion_titulo}}}"><span style="{{{e.seccion_num}}}">5</span>&nbsp;&nbsp;El mes en números</h2></td></tr>
+<tr><td style="{{{e.fila_primera}}}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+{{#numeros}}
+<tr><td style="{{{e.numero_etiqueta}}}">{{etiqueta}}</td><td align="right" style="{{{e.numero_valor}}}">{{valor}}</td></tr>
+{{/numeros}}
+</table>
+</td></tr>
+{{#numeros_nota}}
+<tr><td style="{{{e.fila_lista}}}"><span style="{{{e.texto_nota}}}padding-top:0;">{{numeros_nota}}</span></td></tr>
+{{/numeros_nota}}
+<tr><td style="{{{e.seccion}}}"><h2 style="{{{e.seccion_titulo}}}"><span style="{{{e.seccion_num}}}">6</span>&nbsp;&nbsp;Lo nuevo en Parche este mes</h2></td></tr>
+{{#novedades}}
+<tr><td style="{{{e.fila}}}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="104" style="{{{e.celda_fecha}}}"><div style="{{{e.fecha_hecha}}}">{{fecha_corto}}</div><div style="{{{e.fecha_pie_tinta}}}">{{version}}</div></td>
+<td style="{{{e.celda_texto}}}"><div style="{{{e.texto_item}}}padding-top:0;">{{texto}}</div></td>
+</tr></table>
+</td></tr>
+{{/novedades}}
+{{^novedades}}
+<tr><td style="{{{e.vacio}}}">Este mes no salió nada nuevo en Parche.</td></tr>
+{{/novedades}}
+<tr><td style="{{{e.cierre}}}">
+{{#migro}}
+<p style="{{{e.parrafo}}}">Cualquier duda sobre lo que migramos, respondeme acá: va sin costo mientras sigan suscriptos.</p>
+{{/migro}}
+<p style="{{{e.parrafo_ultimo}}}">{{^no_aplica_por_fila}}Si algo de esto no aplica, respondeme y lo marco como descartado.{{/no_aplica_por_fila}}{{#no_aplica_por_fila}}Si algo de esto no aplica, tocá "No aplica" en esa fila y contanos por qué.{{/no_aplica_por_fila}}</p>
+</td></tr>
+{{> firma}}
+{{> fin}}

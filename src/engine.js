@@ -96,8 +96,9 @@ export function run(dir, { write = false, packIds = null, today } = {}) {
         findings.push({ ...f, fingerprint: fingerprint(f, source, seen) });
         continue;
       }
-      // El texto de la línea, del archivo tal como lo leyó este pack (antes de su propio cambio).
-      findings.push(...res.findings.map((f) => ({ ...f, fingerprint: fingerprint(f, source, seen) })));
+      // El texto de la línea, del archivo tal como lo leyó este pack (antes de su propio cambio). Un pack con fecha
+      // (`deadline`) la pasa a cada aviso como dato (`due`), salvo que el aviso traiga la suya (P2, 0.8.0).
+      findings.push(...res.findings.map((f) => ({ ...f, ...(f.due === undefined && pack.deadline ? { due: pack.deadline } : {}), fingerprint: fingerprint(f, source, seen) })));
       usages.push(...res.usages.map((u) => ({ ...u, file: rel, pack: pack.id })));
       if (res.output !== null && res.output !== source) {
         source = res.output;
