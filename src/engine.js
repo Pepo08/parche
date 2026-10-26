@@ -37,13 +37,31 @@ export function listFiles(dir, skipped = []) {
 // Identificador estable de un aviso (P5 de docs/app-vigilancia.md): el pack, el archivo y el texto de la línea, sin el
 // número de línea ni el mensaje. Así una corrida reconoce el mismo aviso de la anterior aunque se muevan las líneas o
 // cambie el texto del pack, y "nuevo", "sigue" y "resuelto" no dependen de la posición. Los espacios y el \r no cuentan
-// (una reindentación o pasar a CRLF no es otro aviso). Si el mismo texto se repite en el archivo, cuenta el orden.
+// (una reindentación o pasar a CRLF no es otro aviso).
+// Si el mismo texto se repite en el archivo, cuenta el orden entre las líneas del archivo con ese texto, tengan aviso o
+// no (P10, 0.7.6). Antes contaba entre los avisos: al arreglarse uno, el siguiente con el mismo texto heredaba su
+// fingerprint, y en tienda-demo la factura A, que sigue con "falta un dato", salía como "resuelta". Dos avisos del mismo
+// pack en la misma línea se distinguen por su orden en esa línea; un aviso sin línea, por su orden en el archivo.
+const normalized = (line) => line.replace(/\s+/g, ' ').trim();
+
 export function fingerprint(finding, source, seen) {
-  const text = finding.line ? (source.split('\n')[finding.line - 1] ?? '').replace(/\s+/g, ' ').trim() : '';
+  const lines = finding.line ? source.split('\n') : [];
+  const text = finding.line ? normalized(lines[finding.line - 1] ?? '') : '';
   const key = [finding.pack, finding.file, text].join('\u0000');
-  const n = (seen.get(key) || 0) + 1;
-  seen.set(key, n);
-  return crypto.createHash('sha256').update(`${key}\u0000${n}`).digest('hex').slice(0, 16);
+  let n;
+  if (finding.line) {
+    n = 0;
+    for (let i = 0; i < finding.line && i < lines.length; i++) if (normalized(lines[i]) === text) n++;
+    n = Math.max(n, 1);
+  }
+  // Cuántos avisos de este pack ya salieron en esta línea (o sin línea, en este archivo).
+  const slot = `${finding.pack}\u0000${finding.file}\u0000${finding.line || ''}`;
+  const k = (seen.get(slot) || 0) + 1;
+  seen.set(slot, k);
+  if (!finding.line) n = k;
+  // Con un solo aviso en la línea, la clave es la misma que en la 0.7.3: no cambian los fingerprint de siempre.
+  const suffix = finding.line && k > 1 ? `\u0000${k}` : '';
+  return crypto.createHash('sha256').update(`${key}\u0000${n}${suffix}`).digest('hex').slice(0, 16);
 }
 
 export function run(dir, { write = false, packIds = null, today } = {}) {
@@ -60,7 +78,7 @@ export function run(dir, { write = false, packIds = null, today } = {}) {
   const usages = [];
   const fileScans = []; // inventario de cualquier API (nivel 1), por archivo
   const changed = new Map(); // archivo relativo → [packs]
-  const seen = new Map(); // para fingerprint(): cuántas veces apareció cada pack + archivo + texto
+  const seen = new Map(); // para fingerprint(): cuántos avisos de cada pack salieron en cada línea
 
   files.forEach((abs, i) => {
     const rel = rels[i];

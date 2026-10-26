@@ -98,8 +98,35 @@ export function remoteUrl(cwd, remote = 'origin') {
 
 export const originUrl = (cwd) => remoteUrl(cwd, 'origin');
 
+// Con `--force`: reemplaza el commit anterior de Parche en su rama. Quien llama se fija antes que la rama remota no
+// tenga commits de otra persona (src/publish.js, P9).
 export function push(cwd, branch, remote = 'origin') {
   git(cwd, 'push', '-u', '--force', remote, branch);
+}
+
+// El commit de la rama `branch` en `remote`, o null si no existe. No toca las ramas locales.
+export function fetchBranch(cwd, remote, branch) {
+  try {
+    git(cwd, 'fetch', '-q', '--no-tags', remote, `refs/heads/${branch}`);
+    return git(cwd, 'rev-parse', 'FETCH_HEAD');
+  } catch {
+    return null;
+  }
+}
+
+// Los commits de `to` que no están en `from`, con su mensaje completo.
+export function commitsBetween(cwd, from, to) {
+  return git(cwd, 'log', '--format=%H%x00%B%x1e', `${from}..${to}`)
+    .split('\x1e').map((s) => s.trim()).filter(Boolean)
+    .map((s) => { const [sha, ...rest] = s.split('\0'); return { sha, message: rest.join('\0').trim() }; });
+}
+
+// Un identificador del cambio que hace `to` desde donde se separó de `from`, sin contar números de línea ni espacios
+// (`git patch-id`). Dos ramas con el mismo arreglo sobre bases distintas dan el mismo; sin cambios, ''.
+export function patchId(cwd, from, to) {
+  const diff = execFileSync('git', gitArgs(['diff', `${from}...${to}`]), { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
+  if (!diff.trim()) return '';
+  return execFileSync('git', gitArgs(['patch-id', '--stable']), { cwd, input: diff, encoding: 'utf8' }).trim().split(/\s+/)[0] || '';
 }
 
 // Descarta lo que Parche escribió en su rama (el árbol estaba limpio antes de empezar). Antes era `reset --hard`, que

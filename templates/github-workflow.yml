@@ -9,6 +9,8 @@ on:
   workflow_dispatch:
 
 # Por defecto, solo lectura. La escritura la pide el único job que la necesita.
+# En un repo o una organización nuevos, prendé además Settings → Actions → General → Workflow permissions →
+# "Allow GitHub Actions to create and approve pull requests": viene apagado, y sin eso la Action no puede abrir el PR.
 permissions:
   contents: read
 
