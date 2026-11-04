@@ -10,10 +10,14 @@ export const SKIP_DIRS = new Set(['node_modules', 'vendor', '.git', 'dist', 'bui
 export const toPosix = (p) => p.split(path.sep).join('/');
 
 // Tests, mocks, fixtures y ejemplos: un PR que solo toca eso no le sirve al mantenedor, y la detección
-// por texto en esos archivos es ruido (frente B, 16/10).
+// por texto en esos archivos es ruido (frente B, 16/10). También en los lenguajes de solo detección
+// (x_test.go, test_x.py, XTests.cs, proyecto.Tests/) y los helpers de tests (x.test.helpers.ts, frente B, punto 24).
 export function isTestFile(file) {
   return /(^|\/)(__tests__|__mocks__|tests?|specs?|mocks?|fixtures?|examples?)\//i.test(file)
-    || /\.(test|spec|mock)\.[cm]?[jt]sx?$/i.test(file) || /Test\.php$/.test(file);
+    || /(^|\/)[^/]*\.tests?\//i.test(file)
+    || /\.(test|spec|mock)(\.[\w-]+)*\.[cm]?[jt]sx?$/i.test(file)
+    || /Tests?\.(php|cs|java|vb)$/.test(file)
+    || /_test\.(go|py)$/.test(file) || /(^|\/)test_[^/]*\.py$/.test(file);
 }
 
 // Copias de respaldo: no es el código que corre. Un PR sobre BAK/ o sobre "factura copy.php" no le sirve al

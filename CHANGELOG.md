@@ -2,6 +2,20 @@
 
 Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1, de la 0.6.0 a la 0.7.0, la 0.7.2, la 0.7.3 y de la 0.7.5 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La 0.7.1 y la 0.7.4 tampoco: salieron junto con la 0.7.2 y la 0.7.5. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
 
+## 0.8.1 — 2026-11-04
+
+Menos ruido en ARCA, y los cuerpos de los PRs y los issues ya no hay que corregirlos a mano. Son los puntos 26, 27, 28 y parte del 30 del feedback de los PRs preparados a mano.
+
+### Arreglos
+- **Detección SOAP: se marca donde se arma el pedido.** Ya no cuentan las menciones en comentarios (JS, TS, PHP, Python, C#, Java, Go, VB.NET), los archivos que solo leen la respuesta (`FECAESolicitarResult`, `FeDetResp`, `FECAEDetResponse`), las declaraciones de tipos de TypeScript ni las que solo comparan o leen una clave. La línea del aviso es la del código, no la de un comentario de arriba. Si el repo no menciona el campo en ningún lado, un archivo que llama a `FECAESolicitar` se sigue marcando: ese pedido sale sin el campo, se arme donde se arme. Un archivo con el campo solo en un comentario ya no cuenta como migrado.
+- **Un issue ya no se contradice.** Si no hay PR, lo que caería en un test o un mock no se lista como "✅ automático" abajo de "no hay un arreglo automático seguro": va en una línea aparte, "En tests o mocks (Parche no los toca)". Tampoco suma en el resumen del pie, en el resumen del job ni en las anotaciones.
+- **Tests en otros lenguajes:** cuentan como tests `x_test.go`, `test_x.py`, `x_test.py`, `XTests.cs`, `XTest.java`, una carpeta `proyecto.Tests/` y los helpers con `.test.` o `.spec.` en el nombre (`x.test.helpers.ts`). Lo último cierra la segunda mitad del punto 24.
+
+### Nuevo
+- **El PR dice si el repo ya usa el campo.** Si `CondicionIVAReceptorId` ya está en otro archivo que corre, el cuerpo del PR lo nombra y dice qué cubre este PR, para que quien lo recibe no piense que Parche no vio su servicio. El "ya usa el campo" ya no cuenta los comentarios y nombra primero el código que corre, no un test ni un WSDL.
+- **`@arcasdk/core` sin código.** De la 0.2.0 a la 0.3.2, los paquetes de npm traen solo el README y el `package.json` (`dist.fileCount` 2): no tienen el campo ni el resto de la librería. El arreglo sale como "revisar" y el aviso pide pasar a la 0.3.3 o posterior. La 0.1.0 sí trae el campo. Sin lockfile, un rango como `^0.3.0` no avisa: una instalación nueva trae una versión con código.
+- **El campo está, pero la librería no lo manda.** Con una librería que no manda el campo o sin confirmar (`afip.php` 0.x, `afip.js` 0.x, `ts-afip-ws`, `@arcasdk/core` de la 0.2.0 a la 0.3.2), un comprobante que ya lleva `CondicionIVAReceptorId` ahora da un "revisar" con qué actualizar. Antes no decía nada, y el repo parecía migrado.
+
 ## 0.8.0 — 2026-10-26
 
 El resumen de la semana, armado por la Action con la foto de cada corrida.
