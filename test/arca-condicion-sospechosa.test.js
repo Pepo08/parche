@@ -40,7 +40,7 @@ function gitRepo(files) {
   const cfg = path.join(root, '..', `${path.basename(root)}.gitconfig`);
   fs.writeFileSync(cfg, '');
   const env = { ...process.env, GIT_CONFIG_GLOBAL: cfg, GIT_CONFIG_NOSYSTEM: '1' };
-  for (const k of ['GITHUB_ACTIONS', 'GITHUB_TOKEN', 'GITHUB_STEP_SUMMARY', 'PARCHE_GIT_NAME', 'PARCHE_GIT_EMAIL', 'GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL']) delete env[k];
+  for (const k of ['GITHUB_ACTIONS', 'GITHUB_TOKEN', 'GITHUB_STEP_SUMMARY', 'GITHUB_WORKSPACE', 'PARCHE_GIT_NAME', 'PARCHE_GIT_EMAIL', 'GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL']) delete env[k];
   const g = (...a) => execFileSync('git', a, { cwd: root, encoding: 'utf8', env });
   g('init', '-q', '-b', 'main');
   g('config', 'user.name', 'T');
