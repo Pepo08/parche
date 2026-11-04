@@ -315,6 +315,19 @@ test('fast mode: Opus 4.7 ya da error, Opus 4.6 corre sin fast mode, y lo soport
   assert.deepEqual(of('import anthropic\nclient.messages.create(model=config.modelo, max_tokens=9, speed="fast", messages=[])\n'), []);
 });
 
+test('la pasada rápida no cambia qué se avisa: cada ID del pack se ve con las tres comillas, y las comillas mezcladas no cuentan', () => {
+  const { retired_models: retired, model_aliases: aliases } = AI.detect;
+  for (const id of [...Object.keys(retired), ...Object.keys(aliases)]) {
+    for (const q of ["'", '"', '`']) {
+      const found = scan(`const m = await run({ model: ${q}${id}${q} });`).some((f) => f.message.includes(`\`${id}\``));
+      assert.ok(found, `${q}${id}${q}`);
+    }
+  }
+  assert.deepEqual(scan(`const m = "'gpt-4" + 'gpt-4"';`), []);
+  // Un ID dentro de otro string entre comillas también se ve, como antes de la pasada rápida.
+  assert.equal(scan(`const m = "usar 'gpt-4' siempre";`).length, 1);
+});
+
 test('pack: ningún modelo sin fecha se carga con una inventada', () => {
   // `claude-mythos-preview` figura Deprecated con "To be announced": sin fecha no entra a la lista de retiros.
   assert.ok(!('claude-mythos-preview' in AI.detect.retired_models));

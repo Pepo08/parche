@@ -72,6 +72,17 @@ const PROVIDERS = { openai: 'OpenAI', anthropic: 'Anthropic' };
 const providerOf = (model) => (/^claude/i.test(model) ? 'Anthropic' : 'OpenAI');
 const dated = (subject, provider, due, dueKind = 'retirement') => ({ due, dueKind, subject, provider });
 
+// Comparar cada línea con cada ID es lo que más tarda en un repo grande, y casi ninguna línea tiene uno: una sola regex con
+// todos los IDs descarta el resto de una pasada (0.8.3). Deja pasar comillas mezcladas (`'gpt-4"`): eso lo decide `quoted()`.
+const idPatterns = new WeakMap();
+const anyIdPattern = (detect) => {
+  if (!idPatterns.has(detect)) {
+    const ids = [...Object.keys(detect.retired_models), ...Object.keys(detect.model_aliases || {})].map((id) => id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    idPatterns.set(detect, new RegExp(`['"\`](?:${ids.join('|')})['"\`]`));
+  }
+  return idPatterns.get(detect);
+};
+
 export default function detect({ source, file, pack, today = new Date().toISOString().slice(0, 10), context }) {
   const findings = [];
   const usages = [];
@@ -81,11 +92,15 @@ export default function detect({ source, file, pack, today = new Date().toISOStr
   const azure = AZURE.test(source);
   const openai = OPENAI_CONTEXT.test(source);
   const eps = endpoints.filter((ep) => openai || !ep.openai_context).map((ep) => (ep.regex ? { ...ep, re: new RegExp(ep.regex) } : ep));
+  const anyId = anyIdPattern(pack.detect);
+  const retiredEntries = Object.entries(retired);
+  const aliasEntries = Object.entries(aliases);
   const lines = source.split('\n');
   lines.forEach((l, i) => {
     const line = i + 1;
     const inCall = MODEL_CONTEXT.test(l);
-    for (const [model, raw] of Object.entries(retired)) {
+    const hasId = anyId.test(l);
+    for (const [model, raw] of hasId ? retiredEntries : []) {
       if (!quoted(l, model)) continue;
       const e = entry(raw);
       // `'o1'` y `'o3'` son palabras comunes (el ozono en una app de calidad del aire): sin una llamada ni el SDK, no se avisan.
@@ -100,7 +115,7 @@ export default function detect({ source, file, pack, today = new Date().toISOStr
     // Cloud (`claude-sonnet-4-5@20250929`), que tienen su propio calendario.
     // También los alias de OpenAI que su página de cada modelo marca como Deprecated y cuyos snapshots tienen fecha
     // (`gpt-4o-mini`; 0.8.3): `note_es` dice que la fecha es la del snapshot. En Azure no se avisan: tiene su calendario.
-    for (const [alias, rawAlias] of Object.entries(aliases)) {
+    for (const [alias, rawAlias] of hasId ? aliasEntries : []) {
       if (!quoted(l, alias)) continue;
       const { target, note_es: aliasNote } = aliasInfo(rawAlias);
       if (azure && providerOf(alias) === 'OpenAI') continue;

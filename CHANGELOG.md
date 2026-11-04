@@ -21,6 +21,7 @@ El pack de IA al día con las fuentes oficiales, leídas el 4/11/2026 (pack `ai.
 - **Un reemplazo que también tiene fecha se dice.** La página recomienda a veces un modelo que después se apagó (`o1-mini` → `o4-mini`, apagado el 23/10/2026). El aviso sigue copiando la página y agrega: "Ojo: `o4-mini` también fue retirado el 2026-10-23; su reemplazo es `gpt-5.6-terra`".
 - **`o1` y `o3` piden contexto:** escritos sueltos en una lista, y sin el SDK de OpenAI en el archivo, ya no se avisan (`'o3'` puede ser el ozono en una app de calidad del aire). En una llamada (`model: 'o3'`) sí.
 - **El aviso de un endpoint dice de qué proveedor es**, porque ahora también hay de Anthropic.
+- **Más rápido en repos grandes:** el detector comparaba cada línea con cada ID. Con los IDs nuevos habría tardado más del doble; con una sola regex que descarta las líneas sin ningún ID, tarda 11 veces menos que antes (142 ms contra 1.613 ms en un repo de 49.580 líneas). Avisa exactamente lo mismo.
 
 ### Límites
 - `claude-mythos-preview` figura como Deprecated y "To be announced": sin fecha, no se avisa.
