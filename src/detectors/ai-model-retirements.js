@@ -26,12 +26,27 @@ const OPENAI_CONTEXT = /\b(?:from|import)\s+["']openai(?:\/[^"']*)?["']|\b(?:req
 // capaz al que tengas acceso"); `note_es` es una oración más, para lo que la página dice además de la fecha.
 const entry = (v) => (typeof v === 'string' ? { date: v, replacement: null } : v);
 const quoted = (line, id) => line.includes(`'${id}'`) || line.includes(`"${id}"`) || line.includes(`\`${id}\``);
-const replacementText = ({ replacement, replacement_es: prose, note_es: note }) =>
-  (replacement ? ` Reemplazo recomendado: \`${replacement}\`.` : prose ? ` Reemplazo recomendado: ${prose}.` : '') + (note ? ` ${note}` : '');
-// `aliasOf`: el snapshot al que apunta un alias de Anthropic (`model_aliases` del pack). Sin alias, el texto es el de siempre.
-const retiredMessage = (model, e, inCall, today, aliasOf) => {
+// Un alias del pack es el snapshot al que apunta o, si la página dice algo más, { target, note_es }.
+const aliasInfo = (v) => (typeof v === 'string' ? { target: v } : v);
+// El reemplazo que da la página a veces también tiene fecha (`o1-mini` → `o4-mini`, apagado el 23/10/2026; 0.8.3). El aviso
+// copia la página y agrega lo que la misma página dice de ese reemplazo: recomendar un modelo apagado sin decirlo le haría
+// perder el tiempo a quien lo lee. Sale solo de `replacement` (IDs), nunca de un reemplazo en prosa.
+const chainText = (replacement, retired, aliases, today) => {
+  if (!replacement) return '';
+  const notes = replacement.split(/,\s*|\s+o\s+/).map((id) => id.replace(/\s*\(.*$/, '').trim()).flatMap((id) => {
+    const raw = retired[id] ?? (aliases[id] ? retired[aliasInfo(aliases[id]).target] : null);
+    if (!raw) return [];
+    const r = entry(raw);
+    return [`\`${id}\` también ${r.date <= today ? 'fue retirado' : 'se retira'} el ${r.date}${r.replacement ? `; su reemplazo es \`${r.replacement}\`` : ''}.`];
+  });
+  return notes.length ? ` Ojo: ${notes.join(' ')}` : '';
+};
+const replacementText = ({ replacement, replacement_es: prose, note_es: note }, chain = '') =>
+  (replacement ? ` Reemplazo recomendado: \`${replacement}\`.` : prose ? ` Reemplazo recomendado: ${prose}.` : '') + chain + (note ? ` ${note}` : '');
+// `aliasOf`: el snapshot al que apunta un alias (`model_aliases` del pack). Sin alias, el texto es el de siempre.
+const retiredMessage = (model, e, inCall, today, aliasOf, chain = '') => {
   const past = e.date <= today;
-  const repl = replacementText(e);
+  const repl = replacementText(e, chain);
   const when = past ? `fue retirado el ${e.date}` : `se retira el ${e.date}`;
   return inCall
     ? `El modelo \`${model}\`${aliasOf ? ` (alias de \`${aliasOf}\`)` : ''} ${when}${past ? ': las llamadas ya fallan' : ''}.${repl} Corré tus pruebas de prompts antes de cambiarlo.`
@@ -72,19 +87,30 @@ export default function detect({ source, file, pack, today = new Date().toISOStr
     const inCall = MODEL_CONTEXT.test(l);
     for (const [model, raw] of Object.entries(retired)) {
       if (!quoted(l, model)) continue;
-      findings.push({ pack: PACK, file, line, status: 'detect-only', message: retiredMessage(model, entry(raw), inCall, today),
-        ...dated(`modelo \`${model}\``, providerOf(model), entry(raw).date) });
+      const e = entry(raw);
+      // `'o1'` y `'o3'` son palabras comunes (el ozono en una app de calidad del aire): sin una llamada ni el SDK, no se avisan.
+      if (e.needs_context && !inCall && !openai) continue;
+      findings.push({ pack: PACK, file, line, status: 'detect-only', message: retiredMessage(model, e, inCall, today, undefined, chainText(e.replacement, retired, aliases, today)),
+        ...dated(`modelo \`${model}\``, providerOf(model), e.date) });
       usages.push({ provider: 'ia', op: `modelo ${model}`, line });
     }
     // Alias de Anthropic de antes de la generación 4.6 (`claude-sonnet-4-5`): apuntan al snapshot fechado más reciente y
     // tienen su fecha (Model IDs and versioning). Se comparan enteros entre comillas: `'claude-sonnet-4-5'` no es
     // `'claude-sonnet-4-5-20250929'` (ese ya se avisa arriba), ni el ID de Bedrock (`anthropic.claude-…`) o el de Google
     // Cloud (`claude-sonnet-4-5@20250929`), que tienen su propio calendario.
-    for (const [alias, target] of Object.entries(aliases)) {
+    // También los alias de OpenAI que su página de cada modelo marca como Deprecated y cuyos snapshots tienen fecha
+    // (`gpt-4o-mini`; 0.8.3): `note_es` dice que la fecha es la del snapshot. En Azure no se avisan: tiene su calendario.
+    for (const [alias, rawAlias] of Object.entries(aliases)) {
       if (!quoted(l, alias)) continue;
+      const { target, note_es: aliasNote } = aliasInfo(rawAlias);
+      if (azure && providerOf(alias) === 'OpenAI') continue;
       let message;
       let due;
-      if (retired[target]) { message = retiredMessage(alias, entry(retired[target]), inCall, today, target); due = dated(`modelo \`${alias}\``, providerOf(alias), entry(retired[target]).date); }
+      if (retired[target]) {
+        const e = { ...entry(retired[target]), ...(aliasNote ? { note_es: aliasNote } : {}) };
+        message = retiredMessage(alias, e, inCall, today, target, chainText(e.replacement, retired, aliases, today));
+        due = dated(`modelo \`${alias}\``, providerOf(alias), e.date);
+      }
       else if (floors[target]) { message = floorMessage(alias, floors[target], target); due = dated(`modelo \`${alias}\``, providerOf(alias), floors[target], 'minimum'); }
       else continue;
       findings.push({ pack: PACK, file, line, status: 'detect-only', message, ...due });
@@ -115,15 +141,15 @@ export default function detect({ source, file, pack, today = new Date().toISOStr
       const steps = past ? '' : milestonesText(ep, today);
       findings.push({ pack: PACK, file, line, status: 'detect-only', message: azure && ep.provider === 'openai'
         ? `\`${hit}\` es la ${ep.api_es}. En Azure OpenAI sigue su propio calendario (el cierre del ${ep.retired} es el de la API de OpenAI): revisá el de Azure.`
-        : `\`${hit}\` pertenece a la ${ep.api_es} de OpenAI, ${closed}.${steps} Reemplazo: ${ep.replacement_es}.${ep.note_es ? ` ${ep.note_es}` : ''}`,
+        : `\`${hit}\` pertenece a la ${ep.api_es} de ${PROVIDERS[ep.provider] || 'OpenAI'}, ${closed}.${steps} Reemplazo: ${ep.replacement_es}.${ep.note_es ? ` ${ep.note_es}` : ''}`,
         // En Azure, la fecha de OpenAI no es la que rige: no va como dato.
         ...(azure && ep.provider === 'openai' ? {} : dated(ep.api_es, PROVIDERS[ep.provider] || 'OpenAI', ep.retired)) });
-      usages.push({ provider: 'ia', op: `OpenAI ${ep.api_es}`, line });
+      usages.push({ provider: 'ia', op: `${PROVIDERS[ep.provider] || 'OpenAI'} ${ep.api_es}`, line });
     }
   });
-  // `temperature`, `top_p` y `top_k` (Claude 4.7 y posteriores, API version 2026-10-21): el modelo y el parámetro pueden estar en líneas
-  // distintas del pedido, así que va aparte (anthropic-sampling-params.js).
-  const sampling = samplingParams({ source, file, pack, context });
+  // Lo que depende del pedido entero (`temperature`, `top_p` y `top_k`; `document` y `citations`; fast mode): el modelo y el
+  // campo pueden estar en líneas distintas, así que va aparte (anthropic-sampling-params.js).
+  const sampling = samplingParams({ source, file, pack, context, today });
   findings.push(...sampling.findings);
   usages.push(...sampling.usages);
   return { output: null, findings, usages };
