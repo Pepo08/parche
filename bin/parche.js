@@ -30,6 +30,10 @@ Uso:
                                        Rama + commit + PR por cada cambio. Con --push-remote,
                                        pushea a ese remote (tu fork) y abre el PR contra origin.
                                        Con --author, firma con esa identidad y no con la de git
+  parche ai-upgrade <dir> [--package <pkg>] [--model <id>] [--dry-run] [--verify] [--measure]
+                                       A prueba (nivel 2): para los SDKs de npm con llamadas que cambian en su
+                                       última versión, un modelo propone el arreglo, Parche lo verifica y abre
+                                       un PR en borrador. Usa ANTHROPIC_API_KEY. --measure: no toca el repo
   parche summary --snapshot <dir> [--previous <dir>] [--out <dir>] [--date AAAA-MM-DD]
                                        El resumen de la semana (HTML y texto) con la foto de una corrida
                                        (scan.json y ledger.jsonl) y, si está, la anterior
@@ -169,6 +173,16 @@ async function main() {
     for (const p of loadPacks()) {
       console.log(`${p.id.padEnd(36)} ${p.provider.padEnd(16)} ${p.kind.padEnd(10)} ${p.severity.padEnd(9)} ${p.deadline || '—'}  ${p.codemod ? 'con arreglo' : 'solo detección'}`);
     }
+    return 0;
+  }
+
+  // El nivel 2 a prueba: se carga recién acá (TypeScript, el registry y, al llamar al modelo, el SDK de Anthropic).
+  if (cmd === 'ai-upgrade') {
+    const { aiUpgradeCommand } = await import('../src/ai/command.js');
+    const { createRegistry } = await import('../src/sdk-diff/registry.js');
+    const r = path.resolve(dirArg || '.');
+    ensureLocalDir(r);
+    await aiUpgradeCommand(args, { root: r, registry: createRegistry(), version: VERSION() });
     return 0;
   }
 
