@@ -2,6 +2,19 @@
 
 Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1, de la 0.6.0 a la 0.7.0, la 0.7.2, la 0.7.3 y de la 0.7.5 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La 0.7.1 y la 0.7.4 tampoco: salieron junto con la 0.7.2 y la 0.7.5. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
 
+## 0.8.2 — 2026-11-04
+
+La condición frente al IVA equivocada. Es el punto 29 del feedback: el error caro no es el rechazo, es un CAE válido con la condición que no es la del cliente. Solo detección: no toca código ni abre un PR por esto, y nunca sugiere un valor.
+
+### Nuevo
+- **Avisos `detect-only` en el pack de ARCA, también cuando el campo ya está** (JS, TS y PHP): un literal fuera de la tabla de ARCA; un enum u objeto con valores fuera de la tabla, o con una clave que dice otra cosa que el código; un valor que solo depende de una regla (`cuit ? 1 : 5`, `let c = 5; if (a) c = 1;`); un valor por defecto fijo (`x || 5`, `x ?? 1`, `$x ?: 5`, `function f(c = 5)`); un código que no vale para la clase del comprobante; un comentario que dice otra condición (`4, // Consumidor Final`), y un valor fijo cuando `DocTipo` puede ser un CUIT. Lee el valor en objetos, asignaciones (`det.Campo = x`, `$det['Campo'] = $x`, `$det->Campo = $x`), templates de XML y armadores (`tag('ar:Campo', x)`).
+- **No avisa cuando el valor sale de un dato o el 5 es correcto:** `cliente.condicion`, `docTipo === 99 ? 5 : x`, `cuit ? x : 5`, `{ DocTipo: 99, Campo: x || 5 }`, una traducción con tres códigos o más según la condición del cliente, y un 5 fijo con `DocTipo` 96 o 99. Tampoco en tests y mocks.
+- **Dónde se ve:** en el reporte y en la consola (`🔎 detectado`), en `scan --json` con su `fingerprint` y `rule`, en una sección propia del cuerpo del PR o del issue, en el resumen del job y las anotaciones, y en el resumen de la semana, en una fila aparte, sin fecha y sin "en curso". El registro de un PR no los cuenta entre los avisos que cubre.
+- **La tabla, verificada en la fuente oficial:** los 11 códigos y las clases A, B y C del pack coinciden con el anexo de los dos manuales para el desarrollador de ARCA (v4.7 y v4.8, leídos el 4/11/2026). El pack lo cita (`codes_source_es`).
+
+### Arreglos
+- **El resumen de la semana no corta una oración adentro de un `código`:** un ternario tiene un "?" seguido de un espacio.
+
 ## 0.8.1 — 2026-11-04
 
 Menos ruido en ARCA, y los cuerpos de los PRs y los issues ya no hay que corregirlos a mano. Son los puntos 26, 27, 28 y parte del 30 del feedback de los PRs preparados a mano.
