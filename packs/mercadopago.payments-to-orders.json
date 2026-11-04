@@ -1,13 +1,13 @@
 {
   "id": "mercadopago.payments-to-orders",
-  "version": "2026.10.24",
+  "version": "2026.11.04",
   "provider": "Mercado Pago",
   "title": "Migración de creación de pagos: Payments API → Orders API",
   "title_short_es": "creación de pagos, de Payments API a Orders API",
   "kind": "migration",
   "severity": "medium",
   "deadline": null,
-  "last_verified": "2026-10-15",
+  "last_verified": "2026-11-04",
   "summary_es": "Mercado Pago dejó de sumar features a Payments API; Orders API es la integración nueva para Checkout API.",
   "why_es": "Payments API sigue funcionando pero solo recibe correcciones de seguridad y estabilidad. Orders API unifica el procesamiento online, trae varias transacciones por orden, captura dedicada, 3DS 2.0 nativo y errores consolidados. Los pagos ya creados se siguen consultando, capturando, cancelando y reembolsando por la API con la que se crearon, así que Parche migra solo la creación y deja el resto marcado para revisión.",
   "sources": [
@@ -54,7 +54,6 @@
     "Tener `mercadopago` 2.4.0 o posterior: `Order` existe desde esa versión.",
     "Manejar `status` y `status_detail` a nivel orden y a nivel transacción.",
     "Persistir también `transactions.payments[].id` (los reembolsos parciales lo necesitan).",
-    "En sandbox, el email del pagador tiene que ser test@testuser.com.",
     "Si usás captura manual: la ventana de captura es de 5 días y Orders solo soporta captura total.",
     "Pagos creados con Payments API se siguen consultando y reembolsando por Payments API."
   ]
