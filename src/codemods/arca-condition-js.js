@@ -34,6 +34,7 @@ function bindingOf(p, name) {
 }
 
 const numeric = (v) => (typeof v === 'number' ? v : typeof v === 'string' && /^\d+$/.test(v.trim()) ? Number(v) : v);
+const deprecated = (n) => (n.comments || n.leadingComments || []).some((c) => /@deprecated/.test(c.value));
 
 // Los enums de TS y los objetos de números de este archivo. Sin claves calculadas ni spreads.
 function tablesOf(j, root) {
@@ -50,7 +51,7 @@ function tablesOf(j, root) {
       const key = m.id.name ?? m.id.value;
       const init = m.initializer ? numeric(literalValue(m.initializer)) : next;
       if (typeof init === 'number') next = init + 1;
-      entries.push({ key, value: init, line: m.loc?.start.line });
+      entries.push({ key, value: init, deprecated: deprecated(m) });
     }
     add(p.node.id.name, p.node.id.loc?.start.line ?? p.node.loc?.start.line, entries); // `export enum` no trae loc propio
   });
@@ -59,7 +60,7 @@ function tablesOf(j, root) {
     let init = unwrap(p.node.init);
     if (init && init.type === 'CallExpression' && init.callee.type === 'MemberExpression' && init.callee.object.name === 'Object' && init.callee.property.name === 'freeze') init = unwrap(init.arguments[0]);
     if (!init || init.type !== 'ObjectExpression' || !init.properties.every(isPlainProp)) return;
-    const entries = init.properties.map((pr) => ({ key: keyName(pr), value: numeric(literalValue(unwrap(pr.value))), line: pr.loc?.start.line }));
+    const entries = init.properties.map((pr) => ({ key: keyName(pr), value: numeric(literalValue(unwrap(pr.value))), deprecated: deprecated(pr) }));
     if (entries.some((e) => e.key === null)) return;
     add(p.node.id.name, p.node.loc?.start.line, entries);
   });
@@ -217,5 +218,5 @@ export function conditionFindings({ j, root, source, file, pack, context }) {
     review(value, { docTipo: undefined, docVaries: false, clase: null, comment: null, path: p }, value.loc?.start.line);
   });
 
-  return [...collect(out), ...tableFindings(tables, file, pack, context)];
+  return [...collect(out), ...tableFindings(tables, file, source, pack, context)];
 }

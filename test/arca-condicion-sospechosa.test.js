@@ -20,7 +20,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const BIN = path.join(HERE, '..', 'bin', 'parche.js');
 const packs = loadPacks();
 const pack = packs.find((p) => p.id === 'arca.wsfe.condicion-iva-receptor');
-const ctx = { ...emptyContext(), arcaRepo: true };
+const ctx = { ...emptyContext(), arcaRepo: true, usesField: true, mentions: () => true };
 const js = (source, file = 'src/x.ts', context = ctx) => arca({ source, file, pack, context });
 const php = (source, file = 'src/x.php', context = ctx) => arcaPhp({ source, file, pack, context });
 const notices = (r) => r.findings.filter((f) => f.status === 'detect-only');
@@ -132,6 +132,20 @@ test('enum u objeto con valores fuera de la tabla, aunque el campo no salga de a
   assert.match(f.message, /Si esos valores llegan a `CondicionIVAReceptorId` tal cual/);
   // En un repo que no factura con ARCA no se dice nada.
   assert.deepEqual(notices(js(only, 'src/types.ts', emptyContext())), []);
+  // El nombre dice que es de ARCA: alcanza con que se use, aunque el repo todavía no mande el campo.
+  const noField = { ...ctx, usesField: false };
+  assert.deepEqual(rules(js(only, 'src/types.ts', noField)), ['tabla']);
+  // Un catálogo que no se usa en ningún lado, o con otro nombre en un repo que todavía no manda el campo: nada.
+  assert.deepEqual(notices(js(only, 'src/types.ts', { ...ctx, mentions: () => false })), []);
+  const catalog = 'export enum CondicionIva { RI = 1, NO_RESPONSABLE = 3 }\n';
+  assert.deepEqual(notices(js(catalog, 'src/types.ts', noField)), []);
+  assert.deepEqual(rules(js(catalog, 'src/types.ts')), ['tabla']);
+  // Usado en el mismo archivo también cuenta.
+  assert.deepEqual(rules(js(`${catalog}export const n = CondicionIva.RI;\n`, 'src/types.ts', { ...ctx, mentions: () => false })), ['tabla']);
+  // Lo que el autor ya marcó como @deprecated no se repite.
+  const dep = 'enum VatCondition {\n  RI = 1,\n  /** @deprecated ARCA lo rechaza. */\n  NO_RESPONSABLE = 3,\n}\n';
+  assert.deepEqual(notices(js(dep)), []);
+  assert.deepEqual(notices(js('const COND_IVA = {\n  RI: 1,\n  // @deprecated: ARCA lo rechaza\n  NR: 3,\n};\n')), []);
   // Objetos, con cualquier grafía del nombre y con as const o Object.freeze.
   for (const src of [
     'export const CONDICIONES_IVA = { RI: 1, EXENTO: 3 };\n',

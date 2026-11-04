@@ -126,7 +126,8 @@ export function reviewCondition(d, site, pack) {
       }
     } else if (v.kind === 'rules') {
       const before = out.length;
-      for (const x of v.assigns) if (x.value.kind === 'or' || x.value.kind === 'if') walk(x.value);
+      // Un `|| 5` adentro de una reasignación se dice él solo. Un ternario de códigos fijos es parte de la regla.
+      for (const x of v.assigns) if (x.value.kind === 'or' || (x.value.kind === 'if' && leaves(x.value).dyn)) walk(x.value);
       if (out.length === before) reviewRules(v, say, pack);
     }
   };
@@ -176,8 +177,9 @@ function reviewRules(v, say, pack) {
 
 // table.entries: [{ key, value }]. Valores fuera de la tabla y claves que dicen otra cosa que el código.
 export function reviewTable(table, pack) {
-  const unknown = table.entries.filter((e) => !known(e.value, pack));
-  const wrong = table.entries.filter((e) => known(e.value, pack) && conditionNamed(String(e.key)) !== null && conditionNamed(String(e.key)) !== e.value);
+  const live = table.entries.filter((e) => !e.deprecated);
+  const unknown = live.filter((e) => !known(e.value, pack));
+  const wrong = live.filter((e) => known(e.value, pack) && conditionNamed(String(e.key)) !== null && conditionNamed(String(e.key)) !== e.value);
   return { unknown, wrong };
 }
 
@@ -194,11 +196,18 @@ export function tableMessage(table, { unknown, wrong }, pack) {
 }
 
 // Las tablas de un archivo que se avisan: las que alimentan el campo y, en un repo que factura con ARCA, las que se llaman
-// como una condición frente al IVA, aunque el campo no salga de ellas todavía.
-export function tableFindings(tables, file, pack, context) {
+// como una condición frente al IVA y además se usan en algún lado. Por el nombre solo, tiene que decir que es de ARCA
+// (AfipCondicionIva) o el repo tiene que estar trabajando con el campo: un catálogo para imprimir en el PDF, en un repo
+// que todavía no lo manda, no es un hallazgo. Un valor con @deprecated ya lo sabe quien lo escribió.
+export function tableFindings(tables, file, source, pack, context) {
   const out = [];
+  const usedHere = (name) => (source.match(new RegExp(`(?<![\\w$])${name}(?![\\w$])`, 'g')) || []).length > 1;
   for (const table of tables.values()) {
-    if (!table.usedAt && !(context?.arcaRepo && isConditionName(table.name))) continue;
+    if (!table.usedAt) {
+      if (!context?.arcaRepo || !isConditionName(table.name)) continue;
+      if (!/afip|arca|wsfe/i.test(table.name) && !context.usesField) continue;
+      if (!usedHere(table.name) && !context.mentions?.(table.name, file)) continue;
+    }
     const bad = reviewTable(table, pack);
     if (bad.unknown.length || bad.wrong.length) out.push(suspect(file, table.line, 'tabla', tableMessage(table, bad, pack)));
   }

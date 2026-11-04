@@ -167,5 +167,5 @@ export function conditionFindingsPhp({ ast, source, file, pack, context }) {
     }
   });
 
-  return [...collect(out), ...tableFindings(tables, file, pack, context)];
+  return [...collect(out), ...tableFindings(tables, file, source, pack, context)];
 }
