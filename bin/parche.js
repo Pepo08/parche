@@ -50,6 +50,23 @@ function parseArgs(argv) {
   return args;
 }
 
+// Los comandos que cambian algo: un flag que no conocen (`fix --dry-run`, que es de `pr`; `pr --dryrun`) frena antes de tocar nada.
+const WRITE_FLAGS = {
+  fix: ['pack'],
+  pr: ['pack', 'dry-run', 'verify', 'push-remote', 'author'],
+};
+
+function checkFlags(cmd, args) {
+  const known = WRITE_FLAGS[cmd];
+  const unknown = known ? Object.keys(args).filter((k) => k !== '_' && !known.includes(k)) : [];
+  if (!unknown.length) return;
+  if (cmd === 'fix' && unknown.includes('dry-run')) {
+    throw new Error('`parche fix` no tiene --dry-run: escribe en el código. No se tocó nada. Para ver qué cambiaría, usá `parche scan`; para armar la rama sin abrir el PR, `parche pr --dry-run`.');
+  }
+  const list = (keys) => keys.map((k) => `--${k}`).join(', ');
+  throw new Error(`\`parche ${cmd}\` no conoce ${list(unknown)}. No se tocó nada. Opciones: ${list(known)}.`);
+}
+
 function summary(findings) {
   const c = counts(findings);
   return ['auto', 'needs-review', 'needs-input', 'blocked', 'detect-only']
@@ -164,6 +181,7 @@ async function main() {
     return 0;
   }
   if (!cmd || args.help) { console.log(HELP); return 0; }
+  checkFlags(cmd, args);
 
   if (cmd === 'packs') {
     for (const p of loadPacks()) {

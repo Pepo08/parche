@@ -2,6 +2,14 @@
 
 Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1, de la 0.6.0 a la 0.7.0, la 0.7.2, la 0.7.3 y de la 0.7.5 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La 0.7.1 y la 0.7.4 tampoco: salieron junto con la 0.7.2 y la 0.7.5. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
 
+## 0.8.5 — 2026-11-04
+
+`fix` y `pr` frenan con un flag que no conocen, antes de tocar nada.
+
+### Corregido
+- **`parche fix . --dry-run` escribía en el código sin avisar.** `--dry-run` es de `pr`, y la CLI aceptaba cualquier flag en cualquier comando. Ahora `fix` lo rechaza y dice qué usar: `parche scan` para ver qué cambiaría, o `parche pr --dry-run` para armar la rama sin abrir el PR.
+- **Un flag mal escrito ya no pasa de largo en `fix` ni en `pr`.** `fix --pakc <id>` aplicaba todos los packs y `pr --dryrun` podía abrir el PR de verdad. Ahora frenan y listan las opciones. El resto de los comandos lee los flags como antes, y la Action no cambia.
+
 ## 0.8.0 — 2026-10-26
 
 El resumen de la semana, armado por la Action con la foto de cada corrida.
