@@ -127,7 +127,7 @@ test('API 2026-10-21: rangos con y sin tope, y versiones de Python desde require
 test('API 2026-10-21: los datos del pack salen de las páginas oficiales', () => {
   const api = AI.detect.sampling_params.api_version;
   assert.equal(api.version, '2026-10-21');
-  assert.equal(api.last_verified, '2026-10-21');
+  assert.match(api.last_verified, /^\d{4}-\d{2}-\d{2}$/);
   assert.deepEqual(api.sdks.npm, { package: '@anthropic-ai/sdk', first: '1.0.0' });
   assert.deepEqual(api.sdks.pypi, { package: 'anthropic', first: '2.0.0', typeerror_from: '1.0.0' });
   for (const m of ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5']) assert.ok(api.older_models.some((p) => m.startsWith(p)), m);

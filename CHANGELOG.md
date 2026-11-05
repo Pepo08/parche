@@ -9,6 +9,65 @@ Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. 
 ### Corregido
 - **`parche fix . --dry-run` escribía en el código sin avisar.** `--dry-run` es de `pr`, y la CLI aceptaba cualquier flag en cualquier comando. Ahora `fix` lo rechaza y dice qué usar: `parche scan` para ver qué cambiaría, o `parche pr --dry-run` para armar la rama sin abrir el PR.
 - **Un flag mal escrito ya no pasa de largo en `fix` ni en `pr`.** `fix --pakc <id>` aplicaba todos los packs y `pr --dryrun` podía abrir el PR de verdad. Ahora frenan y listan las opciones. El resto de los comandos lee los flags como antes, y la Action no cambia.
+## 0.8.4 — 2026-11-04
+
+Mercado Pago: el checklist del PR deja de pedir un mail de prueba que la documentación oficial no pide. La detección y el arreglo no cambian.
+
+### Corregido
+- **El checklist ya no dice que el email del pagador en sandbox tiene que ser `test@testuser.com`.** La línea venía del pack original (15/10) y hoy no aparece en la documentación de Checkout API con Orders: las páginas de compra de prueba con tarjetas y con otros medios de pago piden cualquier dirección de correo válida.
+
+### Packs
+- `mercadopago.payments-to-orders` 2026.11.04, `last_verified` 2026-11-04: la guía de migración sigue igual (Payments API sin fecha de cierre, mapeo de estados, captura total en 5 días, `application_fee` bloqueado, webhooks en paralelo).
+## 0.8.3 — 2026-11-04
+
+El pack de IA al día con las fuentes oficiales, leídas el 4/11/2026 (pack `ai.model-retirements` 2026.11.04). Ninguna fecha cambió: lo que hay es lo que faltaba. También se volvió a verificar el pack de ARCA: el manual sigue diciendo lo mismo.
+
+### Nuevo
+- **Los alias de OpenAI con fecha.** La página de deprecaciones nombra `gpt-5`, `gpt-5-mini`, `gpt-5-nano`, `gpt-5-pro`, `o3` y `o3-pro` (11/12/2026) y `gpt-4o-mini-tts` (6/1/2027) junto a su snapshot, y Parche solo avisaba el snapshot. También los snapshots que faltaban (`gpt-5.1-2025-11-13`, `gpt-5.4-nano-2026-03-17`, `gpt-4o-mini-transcribe-2025-12-15`, `gpt-image-1.5-2025-12-16`) y `gpt-4o-audio`, `gpt-4o-realtime`, `gpt-4o-mini-realtime` y `gpt-4o-mini-audio` (20/1/2027).
+- **`gpt-4o`, `gpt-4o-mini`, `gpt-4.1` y `gpt-4.1-mini` se avisan con el 14/1/2027.** La página de deprecaciones nombra solo sus snapshots, pero la de cada modelo marca el alias como Deprecated y todos sus snapshots se apagan ese día. El aviso dice que la fecha es la del snapshot y que OpenAI no publicó una aparte para el alias. En Azure OpenAI no se avisan: tiene su propio calendario.
+- **Lo que OpenAI apagó antes de 2026:** `o1-preview`, `o1-mini`, `gpt-4.5-preview`, `gpt-4-32k`, `gpt-4-vision-preview`, `text-moderation-*`, `text-davinci-003` y los demás modelos de texto, código y embeddings de primera generación, con los endpoints `/v1/edits`, `/v1/engines`, `/v1/fine-tunes`, `/v1/search`, `/v1/classifications` y `/v1/answers` (con el host de OpenAI) y el header `assistants=v1`. `ada`, `babbage`, `curie` y `davinci` no entran: son palabras comunes.
+- **Crear trabajos de fine-tuning se termina el 6/1/2027:** `fineTuning.jobs.create` y `fine_tuning.jobs.create`. Los modelos ya creados siguen respondiendo hasta que se retire su modelo base.
+- **`api.openai.com/v1/audio/translations`** (26/2/2027), con el host escrito: la misma ruta en otras APIs no se avisa.
+- **Los alias de Claude ya retirados:** `claude-3-5-sonnet-latest`, `claude-3-7-sonnet-latest`, `claude-3-5-haiku-latest`, `claude-3-opus-latest`, `claude-sonnet-4-0`, `claude-opus-4-0`, `claude-opus-4-1`, `claude-4-sonnet-20250514` y `claude-4-opus-20250514`, con la fecha de su snapshot. Los nombran los tipos del SDK oficial de TypeScript, y la guía de Claude Haiku 5.5 nombra `claude-3-5-haiku-latest`.
+- **Los otros dos cambios de la API version `2026-10-21` de Anthropic:** un bloque `document` directo en un mensaje de `assistant` y `citations` con contenido en un bloque `text` de un mensaje de `user`, también dentro de un `search_result`, dan error 400. Con los mismos tres estados que `temperature`: ya falla, falla en una instalación nueva o va a fallar con la suba. Un documento anidado, `citations` en `assistant` y `citations: { enabled: true }` siguen valiendo y no se avisan.
+- **Fast mode de Anthropic:** `speed: "fast"` en Claude Opus 4.8 se retira el 30/11/2026 (después, error); en Opus 4.7 da error desde el 24/7/2026; en Opus 4.6, desde el 29/6/2026 corre a velocidad estándar sin avisar. Reemplazo: `claude-opus-5-5`.
+- **Las herramientas experimentales de prompts de Anthropic** (`/v1/experimental/generate_prompt`, `improve_prompt` y `templatize_prompt`), cerradas el 17/8/2026.
+
+### Cambios
+- **Un reemplazo que también tiene fecha se dice.** La página recomienda a veces un modelo que después se apagó (`o1-mini` → `o4-mini`, apagado el 23/10/2026). El aviso sigue copiando la página y agrega: "Ojo: `o4-mini` también fue retirado el 2026-10-23; su reemplazo es `gpt-5.6-terra`".
+- **`o1` y `o3` piden contexto:** escritos sueltos en una lista, y sin el SDK de OpenAI en el archivo, ya no se avisan (`'o3'` puede ser el ozono en una app de calidad del aire). En una llamada (`model: 'o3'`) sí.
+- **El aviso de un endpoint dice de qué proveedor es**, porque ahora también hay de Anthropic.
+- **Más rápido en repos grandes:** el detector comparaba cada línea con cada ID. Con los IDs nuevos habría tardado más del doble; con una sola regex que descarta las líneas sin ningún ID, tarda 11 veces menos que antes (142 ms contra 1.613 ms en un repo de 49.580 líneas). Avisa exactamente lo mismo.
+
+### Límites
+- `claude-mythos-preview` figura como Deprecated y "To be announced": sin fecha, no se avisa.
+- Los valores que acepta cada modelo en `temperature` y `top_p` se verificaron por última vez el 20/10/2026: la referencia de la API y la guía de Claude Haiku 5.5 ya no los publican desde la API version `2026-10-21`. La página de deprecaciones sigue diciendo que un valor distinto del de por defecto da error 400 con las versiones anteriores.
+## 0.8.2 — 2026-11-04
+
+La condición frente al IVA equivocada. Es el punto 29 del feedback: el error caro no es el rechazo, es un CAE válido con la condición que no es la del cliente. Solo detección: no toca código ni abre un PR por esto, y nunca sugiere un valor.
+
+### Nuevo
+- **Avisos `detect-only` en el pack de ARCA, también cuando el campo ya está** (JS, TS y PHP): un literal fuera de la tabla de ARCA; un enum u objeto con valores fuera de la tabla, o con una clave que dice otra cosa que el código; un valor que solo depende de una regla (`cuit ? 1 : 5`, `let c = 5; if (a) c = 1;`); un valor por defecto fijo (`x || 5`, `x ?? 1`, `$x ?: 5`, `function f(c = 5)`); un código que no vale para la clase del comprobante; un comentario que dice otra condición (`4, // Consumidor Final`), y un valor fijo cuando `DocTipo` puede ser un CUIT. Lee el valor en objetos, asignaciones (`det.Campo = x`, `$det['Campo'] = $x`, `$det->Campo = $x`), templates de XML y armadores (`tag('ar:Campo', x)`).
+- **No avisa cuando el valor sale de un dato o el 5 es correcto:** `cliente.condicion`, `docTipo === 99 ? 5 : x`, `cuit ? x : 5`, `{ DocTipo: 99, Campo: x || 5 }`, una traducción con tres códigos o más según la condición del cliente, y un 5 fijo con `DocTipo` 96 o 99. Tampoco en tests y mocks. Una tabla que solo se llama como una condición frente al IVA se avisa si se usa en algún lado y su nombre dice que es de ARCA o el repo ya trabaja con el campo: un catálogo para imprimir en el PDF, en un repo que todavía no lo manda, no es un hallazgo. Lo que el autor marcó con `@deprecated` no se repite.
+- **Dónde se ve:** en el reporte y en la consola (`🔎 detectado`), en `scan --json` con su `fingerprint` y `rule`, en una sección propia del cuerpo del PR o del issue, en el resumen del job y las anotaciones, y en el resumen de la semana, en una fila aparte, sin fecha y sin "en curso". El registro de un PR no los cuenta entre los avisos que cubre.
+- **La tabla, verificada en la fuente oficial:** los 11 códigos y las clases A, B y C del pack coinciden con el anexo de los dos manuales para el desarrollador de ARCA (v4.7 y v4.8, leídos el 4/11/2026). El pack lo cita (`codes_source_es`).
+
+### Arreglos
+- **El resumen de la semana no corta una oración adentro de un `código`:** un ternario tiene un "?" seguido de un espacio.
+
+## 0.8.1 — 2026-11-04
+
+Menos ruido en ARCA, y los cuerpos de los PRs y los issues ya no hay que corregirlos a mano. Son los puntos 26, 27, 28 y parte del 30 del feedback de los PRs preparados a mano.
+
+### Arreglos
+- **Detección SOAP: se marca donde se arma el pedido.** Ya no cuentan las menciones en comentarios (JS, TS, PHP, Python, C#, Java, Go, VB.NET), los archivos que solo leen la respuesta (`FECAESolicitarResult`, `FeDetResp`, `FECAEDetResponse`), las declaraciones de tipos de TypeScript ni las que solo comparan o leen una clave. La línea del aviso es la del código, no la de un comentario de arriba. Si el repo no menciona el campo en ningún lado, un archivo que llama a `FECAESolicitar` se sigue marcando: ese pedido sale sin el campo, se arme donde se arme. Un archivo con el campo solo en un comentario ya no cuenta como migrado.
+- **Un issue ya no se contradice.** Si no hay PR, lo que caería en un test o un mock no se lista como "✅ automático" abajo de "no hay un arreglo automático seguro": va en una línea aparte, "En tests o mocks (Parche no los toca)". Tampoco suma en el resumen del pie, en el resumen del job ni en las anotaciones.
+- **Tests en otros lenguajes:** cuentan como tests `x_test.go`, `test_x.py`, `x_test.py`, `XTests.cs`, `XTest.java`, una carpeta `proyecto.Tests/` y los helpers con `.test.` o `.spec.` en el nombre (`x.test.helpers.ts`). Lo último cierra la segunda mitad del punto 24.
+
+### Nuevo
+- **El PR dice si el repo ya usa el campo.** Si `CondicionIVAReceptorId` ya está en otro archivo que corre, el cuerpo del PR lo nombra y dice qué cubre este PR, para que quien lo recibe no piense que Parche no vio su servicio. El "ya usa el campo" ya no cuenta los comentarios y nombra primero el código que corre, no un test ni un WSDL.
+- **`@arcasdk/core` sin código.** De la 0.2.0 a la 0.3.2, los paquetes de npm traen solo el README y el `package.json` (`dist.fileCount` 2): no tienen el campo ni el resto de la librería. El arreglo sale como "revisar" y el aviso pide pasar a la 0.3.3 o posterior. La 0.1.0 sí trae el campo. Sin lockfile, un rango como `^0.3.0` no avisa: una instalación nueva trae una versión con código.
+- **El campo está, pero la librería no lo manda.** Con una librería que no manda el campo o sin confirmar (`afip.php` 0.x, `afip.js` 0.x, `ts-afip-ws`, `@arcasdk/core` de la 0.2.0 a la 0.3.2), un comprobante que ya lleva `CondicionIVAReceptorId` ahora da un "revisar" con qué actualizar. Antes no decía nada, y el repo parecía migrado.
 
 ## 0.8.0 — 2026-10-26
 

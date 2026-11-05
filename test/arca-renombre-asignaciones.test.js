@@ -88,8 +88,10 @@ test('punto 25: si el comprobante ya tiene el campo bien escrito, no edita y pid
   const src = CAEA_TS.replace('    CAEA: caea,', '    CAEA: caea,\n    CondicionIVAReceptorId: 5,');
   const r = js(src);
   assert.equal(r.output, null);
-  assert.equal(r.findings.length, 1);
-  assert.match(r.findings[0].message, /se puede borrar/);
+  // Además puede salir el aviso de que el valor es fijo (punto 29), que no cambia código.
+  const fixes = r.findings.filter((f) => f.status !== 'detect-only');
+  assert.equal(fixes.length, 1);
+  assert.match(fixes[0].message, /se puede borrar/);
 });
 
 test('punto 25 en PHP: $det[...] = ... se renombra entre las mismas comillas, e idempotente', () => {

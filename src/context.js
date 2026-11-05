@@ -3,15 +3,19 @@
 //
 //   versions:   versión instalada de cada dependencia (de los lockfiles, de node_modules o del rango declarado;
 //               en Python, solo el rango de requirements.txt). Si sale del rango, `range` trae el texto declarado.
-//   fieldFiles: archivos que ya usan CondicionIVAReceptorId (el repo ya empezó a migrar)
+//   arcaRepo:   el repo factura con ARCA (algún archivo que no es un test nombra ElectronicBilling, FECAESolicitar o el campo)
+//   usesField:  algún archivo que no es un test ya trabaja con el campo, aunque mal escrito (condicionIvaReceptor)
+//   mentions:   mentions(nombre, archivo): ¿algún otro archivo nombra esto? Lee recién cuando se pregunta
+//   fieldFiles: archivos con CondicionIVAReceptorId en el código, no en un comentario (el repo ya empezó a migrar);
+//               primero el código que corre, después los WSDL y los tests
 //   staleWsdl:  WSDL de WSFEv1 del repo que no tienen CondicionIVAReceptorId
 //   arcaLibs:   librerías de ARCA del repo con lo que se sabe de si el campo llega a viajar
 //   nearMissTypes: interfaces y types de TypeScript que declaran la clave casi bien escrita (CondicionIvaReceptorId?: number)
 import fs from 'node:fs';
 import path from 'node:path';
 import { parse as babelParse } from '@babel/parser';
-import { findFiles } from './paths.js';
-import { NEAR_HINT, isNearMissKey } from './codemods/arca-rules.js';
+import { findFiles, isTestFile } from './paths.js';
+import { ARCA_HINT, NEAR_HINT, isNearMissKey, stripComments } from './codemods/arca-rules.js';
 
 const readJson = (p) => {
   try {
@@ -64,10 +68,18 @@ export const openRange = (range) => /^\s*(?:>=?|\*|x|latest)/i.test(range || '')
 //   fertandil87/afip.php: actualizó su WSDL (lo incluye) → sí.  eesnaola/afip.php: WSDL de 2021 → igual que 0.x.
 //   ts-afip-ws: fork de afip.js 0.x (frente B, punto 14: los repos de jretondo). Su última versión, la 1.3.2 de 2023,
 //   trae wsfe.wsdl y wsfe-production.wsdl sin el campo (leído en el paquete de npm el 24/10/2026) → sin confirmar.
+//   @arcasdk/core: de la 0.2.0 a la 0.3.2 se publicó vacía en npm (dist.fileCount = 2: README y package.json, sin lib/,
+//   leído el 4/11/2026) → no. La 0.1.0 y desde la 0.3.3 traen y mandan el campo (frente B, punto 30).
 const ARCA_LIBS = {
   npm: {
     '@afipsdk/afip.js': (v) => (major(v) >= 1 ? 'si' : 'sin-confirmar'),
     'ts-afip-ws': () => 'sin-confirmar',
+    '@arcasdk/core': (v, { range } = {}) => {
+      const [M, m, p] = String(v).split('.').map(Number);
+      const empty = M === 0 && (m === 2 || (m === 3 && p <= 2));
+      // Sin lockfile, ^0.3.0 o >=0.2 instalan una versión con código; una exacta o ^0.2.0, no.
+      return empty && !(range && (openRange(range) || /^\s*[\^~]\s*0\.3\b/.test(range))) ? 'no' : 'si';
+    },
   },
   composer: {
     'afipsdk/afip.php': (v) => (major(v) >= 1 ? 'si' : 'no'),
@@ -82,13 +94,17 @@ const FIXES = {
   'ts-afip-ws': 'pasar a @afipsdk/afip.js 1.x o actualizar el WSDL que trae la librería',
   'eesnaola/afip.php': 'pasar a afipsdk/afip.php 1.x o actualizar el WSDL que trae la librería',
 };
+// Cuando el motivo no es el WSDL de 2021.
+const NOTES = {
+  '@arcasdk/core': (v) => `@arcasdk/core ${v} se publicó en npm sin código (solo README y package.json), así que no trae este campo ni el resto de la librería: actualizá a la 0.3.3 o posterior.`,
+};
 
 export function arcaLibraries(versions) {
   const out = [];
   for (const [eco, libs] of Object.entries(ARCA_LIBS)) {
     for (const [name, rule] of Object.entries(libs)) {
       const v = versions[eco]?.[name];
-      if (v) out.push({ ecosystem: eco, name, version: v.version, source: v.source, travels: rule(v.version), ...(FIXES[name] ? { fix: FIXES[name] } : {}) });
+      if (v) out.push({ ecosystem: eco, name, version: v.version, source: v.source, travels: rule(v.version, v), ...(FIXES[name] ? { fix: FIXES[name] } : {}), ...(NOTES[name] ? { note: NOTES[name](v.version) } : {}) });
     }
   }
   return out;
@@ -98,16 +114,29 @@ export function arcaLibraries(versions) {
 export function buildContext(root, files, manifests) {
   const versions = readVersions(root, manifests);
   const fieldFiles = [];
+  let arcaRepo = false;
+  let usesField = false;
   for (const rel of files) {
     try {
-      if (fs.readFileSync(path.join(root, rel), 'utf8').includes('CondicionIVAReceptorId')) fieldFiles.push(rel);
+      const text = fs.readFileSync(path.join(root, rel), 'utf8');
+      if (!arcaRepo && !isTestFile(rel) && ARCA_HINT.test(text)) arcaRepo = true;
+      if (!usesField && !isTestFile(rel) && NEAR_HINT.test(text)) usesField = true;
+      if (text.includes('CondicionIVAReceptorId') && stripComments(text, rel).includes('CondicionIVAReceptorId')) fieldFiles.push(rel);
     } catch { /* archivo ilegible: lo reporta el pack que lo lea */ }
   }
+  // "El repo ya usa el campo en X" tiene que nombrar el código que corre: un test o un WSDL dicen menos.
+  const rank = (f) => (isTestFile(f) ? 2 : /\.wsdl$/i.test(f) ? 1 : 0);
+  fieldFiles.sort((a, b) => rank(a) - rank(b));
   const staleWsdl = findFiles(root, (n) => /\.wsdl$/i.test(n)).filter((rel) => {
     const text = fs.readFileSync(path.join(root, rel), 'utf8');
     return /FECAESolicitar|FECAEDetRequest/.test(text) && !text.includes('CondicionIVAReceptorId');
   });
-  return { versions, fieldFiles, staleWsdl, arcaLibs: arcaLibraries(versions), nearMissTypes: nearMissTypes(root, files) };
+  arcaRepo ||= fieldFiles.some((f) => !isTestFile(f));
+  const mentions = (name, except) => files.some((rel) => {
+    if (rel === except || isTestFile(rel)) return false;
+    try { return fs.readFileSync(path.join(root, rel), 'utf8').includes(name); } catch { return false; }
+  });
+  return { versions, arcaRepo, usesField, mentions, fieldFiles, staleWsdl, arcaLibs: arcaLibraries(versions), nearMissTypes: nearMissTypes(root, files) };
 }
 
 // Frente B, punto 23: si un tipo declara la clave mal escrita, renombrarla solo en el objeto rompe el tipado
@@ -136,4 +165,4 @@ export function nearMissTypes(root, files) {
   return out;
 }
 
-export const emptyContext = () => ({ versions: { npm: {}, composer: {}, pypi: {} }, fieldFiles: [], staleWsdl: [], arcaLibs: [], nearMissTypes: [] });
+export const emptyContext = () => ({ versions: { npm: {}, composer: {}, pypi: {} }, arcaRepo: false, usesField: false, fieldFiles: [], staleWsdl: [], arcaLibs: [], nearMissTypes: [] });

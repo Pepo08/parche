@@ -122,8 +122,8 @@ test('punto 9: pack de IA con fechas oficiales, reemplazos, menciones y Azure', 
   assert.match(call[0].message, /se retira el 2026-11-30\. Reemplazo recomendado: `claude-sonnet-5-5`/);
   assert.match(find("openai.chat.completions.create({ model: 'gpt-3.5-turbo' })")[0].message, /se retira el 2026-10-23/);
   assert.match(find("model: 'dall-e-3',")[0].message, /fue retirado el 2026-05-12: las llamadas ya fallan/);
-  const mention = find("const PRECIOS = { 'gpt-4': 30, 'gpt-4o': 5 };");
-  assert.equal(mention.length, 1, 'gpt-4o no está retirado; gpt-4 sí');
+  const mention = find("const PRECIOS = { 'gpt-4': 30, 'gpt-6-sol': 5 };");
+  assert.equal(mention.length, 1, 'gpt-6-sol no está retirado; gpt-4 sí');
   assert.match(mention[0].message, /fuera de una llamada: si es una lista o un catálogo/);
   assert.match(find("const c = new AzureOpenAI({}); await c.beta.assistants.create({});")[0].message, /En Azure OpenAI sigue su propio calendario/);
   assert.match(find('await openai.beta.assistants.create({});')[0].message, /cerrada el 2026-08-26/);

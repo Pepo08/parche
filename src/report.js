@@ -1,5 +1,6 @@
 // Reporte del scan y cuerpo del PR, en castellano.
 import { apiLabel, noUsesLabel } from './inventory/index.js';
+import { isTestFile } from './paths.js';
 
 const LABEL ={
   auto: '✅ automático',
@@ -102,17 +103,35 @@ export function partialCovers(findings) {
   return [...new Set(findings.filter((f) => f.partial).map((f) => f.partial.covers))];
 }
 
+// En un issue no se aplica nada: un arreglo que solo caería en un test o un mock no se puede listar como "automático"
+// abajo de "no hay un arreglo automático seguro" (frente B, punto 27).
+export const onlyInTests = (f) => isTestFile(f.file) && (f.status === 'auto' || f.status === 'needs-review');
+
+// Si el repo ya manda el campo en otro archivo, el PR lo dice: quien lo recibe puede pensar que Parche no vio su
+// servicio (frente B, punto 28). No cuentan los tests ni los WSDL, y tampoco los archivos que toca este mismo PR.
+function alreadyUsesNote(pack, context, changed) {
+  const field = pack.detect?.field;
+  if (!field) return null;
+  const touched = new Set(changed.map((c) => c.file));
+  const elsewhere = (context?.fieldFiles || []).filter((f) => !touched.has(f) && !isTestFile(f) && !/\.wsdl$/i.test(f));
+  if (!elsewhere.length) return null;
+  const names = elsewhere.slice(0, 3).map((f) => `\`${f}\``).join(', ') + (elsewhere.length > 3 ? ` y ${elsewhere.length - 3} más` : '');
+  return `> **El repo ya usa \`${field}\` en ${names}**, y este PR no toca esos archivos. Cubre lo que todavía no lo lleva: ${changed.map((c) => `\`${c.file}\``).join(', ')}.`;
+}
+
 // `ciApproval`: el PR lo abre GitHub Actions con el GITHUB_TOKEN por defecto. GitHub deja los workflows de ese PR
 // esperando aprobación (docs de GitHub, "GITHUB_TOKEN"): sin avisarlo, el PR parece roto.
-export function prBody({ pack, findings, changed, verification, ciApproval = false }, today = new Date()) {
-  const fs = findings.filter((f) => f.pack === pack.id);
+export function prBody({ pack, findings, changed, verification, ciApproval = false, context = null }, today = new Date()) {
+  // Sin cambios de código el texto se usa como issue: los títulos no pueden hablar de "este PR".
+  const asIssue = !changed.length;
+  const all = findings.filter((f) => f.pack === pack.id);
+  const inTests = asIssue ? all.filter(onlyInTests) : [];
+  const fs = all.filter((f) => !inTests.includes(f));
   const c = counts(fs);
   const out = [];
   out.push(`## ${pack.title}`, '');
   out.push(`> **${pack.provider}** · severidad ${SEVERITY[pack.severity]} · fecha límite: ${deadlineText(pack, today)}`, '');
   out.push('### Qué cambió', '', pack.why_es, '');
-  // Sin cambios de código el texto se usa como issue: los títulos no pueden hablar de "este PR".
-  const asIssue = !changed.length;
   out.push(asIssue ? '### Qué encontró Parche' : '### Qué hace este PR', '');
   const covers = partialCovers(fs);
   if (covers.length && !asIssue) {
@@ -121,8 +140,13 @@ export function prBody({ pack, findings, changed, verification, ciApproval = fal
   const applied = fs.filter((f) => f.status === 'auto' || f.status === 'needs-review');
   out.push(changed.length
     ? `Modifica ${changed.length} archivo(s): ${changed.map((x) => `\`${x.file}\``).join(', ')}.`
-    : 'No hay un arreglo automático seguro: esto es lo que hay que resolver a mano.', '');
+    : !fs.length ? 'Solo aparece en tests o mocks: no hay nada para cambiar en el código que corre.'
+      : fs.every((f) => f.status === 'detect-only') ? 'Parche no encontró comprobantes sin el campo. Esto es lo que conviene revisar.'
+        : 'No hay un arreglo automático seguro: esto es lo que hay que resolver a mano.', '');
+  const note = changed.length ? alreadyUsesNote(pack, context, changed) : null;
+  if (note) out.push(note, '');
   for (const f of applied) out.push(`- ${LABEL[f.status]} \`${f.file}:${f.line}\` — ${f.message}`);
+  if (inTests.length) out.push(`- En tests o mocks (Parche no los toca): ${inTests.map((f) => `\`${f.file}:${f.line}\``).join(', ')}.`);
   // Lo que falta: los hallazgos sin arreglo y, de cada arreglo parcial, la parte que no cubre.
   const pending = [
     ...fs.filter((f) => f.status === 'needs-input' || f.status === 'blocked'),
@@ -134,6 +158,13 @@ export function prBody({ pack, findings, changed, verification, ciApproval = fal
       out.push(`- ${LABEL[f.status]} \`${f.file}:${f.line}\` — ${f.message}`);
       if (f.suggestion) out.push(`  - Agregá: \`${f.suggestion}\``);
     }
+  }
+  // Avisos de solo detección dentro de un pack con arreglo: ni los cubre el PR ni los resuelve Parche (frente B, punto 29).
+  const notices = fs.filter((f) => f.status === 'detect-only');
+  if (notices.length) {
+    out.push('', `### ${pack.notices_title_es || 'Para revisar aparte (Parche no lo cambia)'}`, '');
+    if (pack.notices_intro_es) out.push(pack.notices_intro_es, '');
+    for (const f of notices) out.push(`- ${LABEL[f.status]} \`${f.file}:${f.line}\` — ${f.message}`);
   }
   // Un issue no cambia código: no hay verificación que mostrar (antes decía "Sin verificar").
   if (!asIssue) {

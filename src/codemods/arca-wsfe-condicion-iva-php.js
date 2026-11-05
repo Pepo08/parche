@@ -8,8 +8,10 @@ import { parsePhp, walkPhp, phpLiteral, phpKey } from '../php.js';
 import {
   PACK, decideCondition, validCodesText, missingMessage, appliedMessage, soapDetection, ARCA_HINT, libraryCaveat, alreadyMigratedPrefix,
   canApplyAtRuntime, PARTIAL_COMMENT, partialAppliedMessage, partialPending, partialLeftMessage,
-  NEAR_HINT, isNearMissKey, isVoucherDetail, nearMissMessage, nearMissBothMessage, nearMissUnsureMessage,
+  NEAR_HINT, isNearMissKey, isVoucherDetail, nearMissMessage, nearMissBothMessage, nearMissUnsureMessage, fieldStuckMessage,
 } from './arca-rules.js';
+import { CONDITION_TABLE_HINT, safely } from './arca-condition-rules.js';
+import { conditionFindingsPhp } from './arca-condition-php.js';
 import { emptyContext } from '../context.js';
 import { isTestFile } from '../paths.js';
 
@@ -114,9 +116,10 @@ function resolveData(arg, scope, call, scopes) {
 export default function transform({ source, file, pack, context = emptyContext() }) {
   const findings = [];
   const usages = [];
-  if (!ARCA_HINT.test(source) && !NEAR_HINT.test(source)) return { output: null, findings, usages }; // prefiltro (ver el codemod de JS)
+  if (!ARCA_HINT.test(source) && !NEAR_HINT.test(source) && !CONDITION_TABLE_HINT.test(source)) return { output: null, findings, usages }; // prefiltro (ver el codemod de JS)
   const caveat = libraryCaveat(context, 'composer');
   const migrated = alreadyMigratedPrefix(context);
+  const stuck = fieldStuckMessage(context, 'composer');
   let ast;
   try {
     ast = parsePhp(source, file);
@@ -186,7 +189,10 @@ export default function transform({ source, file, pack, context = emptyContext()
   for (const { node: call, scope, method } of calls) {
     usages.push({ provider: 'arca', op: `ElectronicBilling->${method}`, line: call.loc.start.line });
     const data = resolveData(call.arguments[0], scope, call, scopes);
-    if (data.migrated) continue;
+    if (data.migrated) { // ya está migrado; con una librería que no lo manda, se dice
+      if (stuck) findings.push(finding(PACK, file, call, 'needs-review', stuck));
+      continue;
+    }
     const entries = data.arr ? data.arr.items.filter((it) => it && it.kind === 'entry') : null;
     if (!entries || entries.some((e) => e.unpack || e.byRef)) {
       const msg = data.hint || `No pude leer los datos del comprobante (${data.reason || 'el array usa ...$otro o referencias'}). Agregá ${FIELD} a mano, ${HINT_TAIL}`;
@@ -194,7 +200,11 @@ export default function transform({ source, file, pack, context = emptyContext()
       continue;
     }
     const byKey = (k) => entries.find((e) => phpKey(e) === k);
-    if (byKey(FIELD) || edited.has(data.arr)) continue; // ya está migrado (o ya lo editamos)
+    if (edited.has(data.arr)) continue; // ya lo editamos
+    if (byKey(FIELD)) {
+      if (stuck) findings.push(finding(PACK, file, call, 'needs-review', stuck));
+      continue;
+    }
 
     const d = decideCondition({ docTipo: phpLiteral(byKey('DocTipo')?.value), cbteTipo: phpLiteral(byKey('CbteTipo')?.value) }, pack);
     const suggestion = `'${FIELD}' => <condición del cliente>,  // valores válidos: ${validCodesText(d, pack)}`;
@@ -231,6 +241,8 @@ export default function transform({ source, file, pack, context = emptyContext()
 
   const soap = nearMiss ? null : soapDetection(source, file, context); // ya tiene su aviso (ver el codemod de JS)
   if (soap) { findings.push(soap.finding); usages.push(soap.usage); }
+  // La condición frente al IVA sospechosa (punto 29): solo detección, también con el campo ya puesto.
+  if (!isTestFile(file)) findings.push(...safely(file, source, () => conditionFindingsPhp({ ast, source, file, pack, context })));
 
   return { output: edits.length ? applyEdits(source, edits) : null, findings, usages };
 }
