@@ -12,7 +12,8 @@ import { diasEntre, plural } from './render.js';
 const loc = (f) => `${f.file}${f.line ? `:${f.line}` : ''}`;
 // Los lugares de una fila, por archivo y por línea.
 const locsOf = (findings) => [...new Set([...findings].sort((a, b) => (a.file === b.file ? (a.line || 0) - (b.line || 0) : a.file < b.file ? -1 : 1)).map(loc))];
-const firstSentence = (s) => (String(s).match(/^.*?[.!?](?=\s|$)/)?.[0] || String(s)).trim();
+// La primera oración, sin cortar adentro de un `código` (un ternario tiene un "?" seguido de un espacio).
+const firstSentence = (s) => (String(s).match(/^(?:`[^`]*`|[^`])*?[.!?](?=\s|$)/)?.[0] || String(s)).trim();
 const lowerFirst = (s) => s.charAt(0).toLowerCase() + s.slice(1);
 const shortTitle = (pack) => pack.title_short_es || pack.title;
 const shortProvider = (name) => String(name).split(' (')[0];
@@ -37,12 +38,15 @@ function countsText(findings) {
   return parts.join(' y ');
 }
 
-// Las filas de un pack: en uno con arreglo, una con todo lo que no necesita un dato y una por cada "falta un dato";
+// Las filas de un pack: en uno con arreglo, una con todo lo que no necesita un dato, una por cada "falta un dato" y una
+// por cada aviso de solo detección (la condición sospechosa, sin fecha y sin PR: frente B, punto 29);
 // en uno de solo detección, una por cada cosa que se retira (o por mensaje, si el aviso no dice qué es).
 function groupsOf(pack, findings) {
   if (pack.codemod) {
-    const main = findings.filter((f) => f.status !== 'needs-input');
-    return [...(main.length ? [{ findings: main }] : []), ...findings.filter((f) => f.status === 'needs-input').map((f) => ({ findings: [f], input: true }))];
+    const main = findings.filter((f) => f.status !== 'needs-input' && f.status !== 'detect-only');
+    return [...(main.length ? [{ findings: main }] : []),
+      ...findings.filter((f) => f.status === 'needs-input').map((f) => ({ findings: [f], input: true })),
+      ...findings.filter((f) => f.status === 'detect-only').map((f) => ({ findings: [f], notice: true }))];
   }
   const by = new Map();
   for (const f of findings) {
@@ -54,6 +58,7 @@ function groupsOf(pack, findings) {
 }
 
 function changeOf(pack, f, today) {
+  if (f.change) return f.change;
   if (!f.subject) return shortTitle(pack);
   if (f.dueKind === 'minimum') return `${f.subject}: puede retirarse desde esa fecha`;
   return `${f.subject}: ${f.due && f.due <= today ? 'ya se retiró' : 'se retira'}`;
@@ -85,10 +90,10 @@ export function weeklyData({ scan, ledger = [], previous = null, prs = null, pac
     for (const g of groupsOf(pack, findings)) {
       const f0 = g.findings[0];
       const locs = locsOf(g.findings);
-      const withPr = !!url && !g.input && !!pack.codemod;
+      const withPr = !!url && !g.input && !g.notice && !!pack.codemod;
       const blocked = g.findings.filter((f) => f.status === 'blocked');
       let queHacer;
-      if (g.input || !pack.codemod) queHacer = f0.message;
+      if (g.input || g.notice || !pack.codemod) queHacer = f0.message;
       else if (error) queHacer = `Parche no pudo completar este pack en esta corrida: ${firstSentence(error.message)}`;
       else if (withPr) {
         const kept = pr?.existing === 'kept';
@@ -161,7 +166,9 @@ export function weeklyData({ scan, ledger = [], previous = null, prs = null, pac
     for (const pack of packs) {
       const before = previous.scan.findings.filter((f) => f.pack === pack.id);
       // En un pack con arreglo se cuenta sobre todo el pack ("2 de 3 lugares", como en el diseño); en IA, por modelo.
-      for (const g of pack.codemod ? [{ findings: before }] : groupsOf(pack, before)) {
+      const fixable = before.filter((f) => f.status !== 'detect-only');
+      const notices = before.filter((f) => f.status === 'detect-only').map((f) => ({ findings: [f] }));
+      for (const g of pack.codemod ? [{ findings: fixable }, ...notices] : groupsOf(pack, before)) {
         if (!g.findings.length) continue;
         const gone = g.findings.filter((f) => !nowFps.has(f.fingerprint));
         if (!gone.length) continue;

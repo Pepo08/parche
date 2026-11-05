@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { run } from '../src/engine.js';
 import { loadPacks } from '../src/packs.js';
-import { scanReport, prBody, counts, LABEL, daysUntil, partialCovers } from '../src/report.js';
+import { scanReport, prBody, counts, LABEL, daysUntil, partialCovers, onlyInTests } from '../src/report.js';
 import { verify } from '../src/verify.js';
 import * as git from '../src/git.js';
 import { parseGithubRemote, githubClient } from '../src/github.js';
@@ -285,14 +285,16 @@ async function main() {
         const reportOnly = !changedFiles.length || changedFiles.every(isTestFile);
         // La Action avisa si usa el GITHUB_TOKEN por defecto (PARCHE_DEFAULT_TOKEN): los workflows del PR esperan aprobación.
         const ciApproval = process.env.GITHUB_ACTIONS === 'true' && process.env.PARCHE_DEFAULT_TOKEN === 'true';
-        fs.writeFileSync(bodyPath, prBody({ pack, findings: result.findings, changed: reportOnly ? [] : result.changed, verification: reportOnly ? null : verification, ciApproval }));
+        fs.writeFileSync(bodyPath, prBody({ pack, findings: result.findings, changed: reportOnly ? [] : result.changed, verification: reportOnly ? null : verification, ciApproval, context: result.context }));
         if (reportOnly) {
           const why = changedFiles.length ? 'solo cambiaría tests o mocks: no se abre un PR' : 'sin cambios de código';
           git.discardChanges(root);
           console.log(`  ${summary(result.findings)}`);
           console.log(`  ${why[0].toUpperCase()}${why.slice(1)}; queda como issue o reporte: ${bodyPath}`);
           record(root, { type: 'report-only', pack: pack.id, findings: c, reason: why, fingerprints: result.findings.map((f) => f.fingerprint) });
-          withoutPr.push({ pack, findings: result.findings });
+          // Lo que no se aplica por caer en un test no va al resumen del job ni a las anotaciones: no hay nada para hacer.
+          const shown = result.findings.filter((f) => !onlyInTests(f));
+          if (shown.length) withoutPr.push({ pack, findings: shown });
           continue;
         }
         const draft = !!(c['needs-review'] || c['needs-input'] || c.blocked);
@@ -313,8 +315,11 @@ async function main() {
         opened.push({ title, url: pr.url, draft, status: pr.status });
         record(root, { type: 'pr', pack: pack.id, packVersion: pack.version, branch, sha, url: pr.url, draft, files: changedFiles, findings: c,
           partial: result.findings.filter((f) => f.partial).length, ...(pr.status && pr.status !== 'opened' ? { existing: pr.status } : {}),
-          // Qué avisos cubre el PR (F4): el resumen los marca "en curso" por aviso, no por pack.
-          fingerprints: result.findings.map((f) => f.fingerprint), ...(pr.number ? { number: pr.number } : {}) });
+          // Qué avisos cubre el PR (F4): el resumen los marca "en curso" por aviso, no por pack. Los de solo detección no los cubre.
+          fingerprints: result.findings.filter((f) => f.status !== 'detect-only').map((f) => f.fingerprint), ...(pr.number ? { number: pr.number } : {}) });
+        // Lo que el PR no cubre (la condición sospechosa de otro archivo) también va al resumen del job y a las anotaciones.
+        const notCovered = result.findings.filter((f) => f.status === 'detect-only');
+        if (notCovered.length) withoutPr.push({ pack, findings: notCovered });
       } catch (err) {
         console.error(`  No se pudo con ${pack.id}: ${err.message.split('\n')[0]}`);
         failed.push({ pack, message: err.message });

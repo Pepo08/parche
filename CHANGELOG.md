@@ -26,6 +26,32 @@ El pack de IA al día con las fuentes oficiales, leídas el 4/11/2026 (pack `ai.
 ### Límites
 - `claude-mythos-preview` figura como Deprecated y "To be announced": sin fecha, no se avisa.
 - Los valores que acepta cada modelo en `temperature` y `top_p` se verificaron por última vez el 20/10/2026: la referencia de la API y la guía de Claude Haiku 5.5 ya no los publican desde la API version `2026-10-21`. La página de deprecaciones sigue diciendo que un valor distinto del de por defecto da error 400 con las versiones anteriores.
+## 0.8.2 — 2026-11-04
+
+La condición frente al IVA equivocada. Es el punto 29 del feedback: el error caro no es el rechazo, es un CAE válido con la condición que no es la del cliente. Solo detección: no toca código ni abre un PR por esto, y nunca sugiere un valor.
+
+### Nuevo
+- **Avisos `detect-only` en el pack de ARCA, también cuando el campo ya está** (JS, TS y PHP): un literal fuera de la tabla de ARCA; un enum u objeto con valores fuera de la tabla, o con una clave que dice otra cosa que el código; un valor que solo depende de una regla (`cuit ? 1 : 5`, `let c = 5; if (a) c = 1;`); un valor por defecto fijo (`x || 5`, `x ?? 1`, `$x ?: 5`, `function f(c = 5)`); un código que no vale para la clase del comprobante; un comentario que dice otra condición (`4, // Consumidor Final`), y un valor fijo cuando `DocTipo` puede ser un CUIT. Lee el valor en objetos, asignaciones (`det.Campo = x`, `$det['Campo'] = $x`, `$det->Campo = $x`), templates de XML y armadores (`tag('ar:Campo', x)`).
+- **No avisa cuando el valor sale de un dato o el 5 es correcto:** `cliente.condicion`, `docTipo === 99 ? 5 : x`, `cuit ? x : 5`, `{ DocTipo: 99, Campo: x || 5 }`, una traducción con tres códigos o más según la condición del cliente, y un 5 fijo con `DocTipo` 96 o 99. Tampoco en tests y mocks. Una tabla que solo se llama como una condición frente al IVA se avisa si se usa en algún lado y su nombre dice que es de ARCA o el repo ya trabaja con el campo: un catálogo para imprimir en el PDF, en un repo que todavía no lo manda, no es un hallazgo. Lo que el autor marcó con `@deprecated` no se repite.
+- **Dónde se ve:** en el reporte y en la consola (`🔎 detectado`), en `scan --json` con su `fingerprint` y `rule`, en una sección propia del cuerpo del PR o del issue, en el resumen del job y las anotaciones, y en el resumen de la semana, en una fila aparte, sin fecha y sin "en curso". El registro de un PR no los cuenta entre los avisos que cubre.
+- **La tabla, verificada en la fuente oficial:** los 11 códigos y las clases A, B y C del pack coinciden con el anexo de los dos manuales para el desarrollador de ARCA (v4.7 y v4.8, leídos el 4/11/2026). El pack lo cita (`codes_source_es`).
+
+### Arreglos
+- **El resumen de la semana no corta una oración adentro de un `código`:** un ternario tiene un "?" seguido de un espacio.
+
+## 0.8.1 — 2026-11-04
+
+Menos ruido en ARCA, y los cuerpos de los PRs y los issues ya no hay que corregirlos a mano. Son los puntos 26, 27, 28 y parte del 30 del feedback de los PRs preparados a mano.
+
+### Arreglos
+- **Detección SOAP: se marca donde se arma el pedido.** Ya no cuentan las menciones en comentarios (JS, TS, PHP, Python, C#, Java, Go, VB.NET), los archivos que solo leen la respuesta (`FECAESolicitarResult`, `FeDetResp`, `FECAEDetResponse`), las declaraciones de tipos de TypeScript ni las que solo comparan o leen una clave. La línea del aviso es la del código, no la de un comentario de arriba. Si el repo no menciona el campo en ningún lado, un archivo que llama a `FECAESolicitar` se sigue marcando: ese pedido sale sin el campo, se arme donde se arme. Un archivo con el campo solo en un comentario ya no cuenta como migrado.
+- **Un issue ya no se contradice.** Si no hay PR, lo que caería en un test o un mock no se lista como "✅ automático" abajo de "no hay un arreglo automático seguro": va en una línea aparte, "En tests o mocks (Parche no los toca)". Tampoco suma en el resumen del pie, en el resumen del job ni en las anotaciones.
+- **Tests en otros lenguajes:** cuentan como tests `x_test.go`, `test_x.py`, `x_test.py`, `XTests.cs`, `XTest.java`, una carpeta `proyecto.Tests/` y los helpers con `.test.` o `.spec.` en el nombre (`x.test.helpers.ts`). Lo último cierra la segunda mitad del punto 24.
+
+### Nuevo
+- **El PR dice si el repo ya usa el campo.** Si `CondicionIVAReceptorId` ya está en otro archivo que corre, el cuerpo del PR lo nombra y dice qué cubre este PR, para que quien lo recibe no piense que Parche no vio su servicio. El "ya usa el campo" ya no cuenta los comentarios y nombra primero el código que corre, no un test ni un WSDL.
+- **`@arcasdk/core` sin código.** De la 0.2.0 a la 0.3.2, los paquetes de npm traen solo el README y el `package.json` (`dist.fileCount` 2): no tienen el campo ni el resto de la librería. El arreglo sale como "revisar" y el aviso pide pasar a la 0.3.3 o posterior. La 0.1.0 sí trae el campo. Sin lockfile, un rango como `^0.3.0` no avisa: una instalación nueva trae una versión con código.
+- **El campo está, pero la librería no lo manda.** Con una librería que no manda el campo o sin confirmar (`afip.php` 0.x, `afip.js` 0.x, `ts-afip-ws`, `@arcasdk/core` de la 0.2.0 a la 0.3.2), un comprobante que ya lleva `CondicionIVAReceptorId` ahora da un "revisar" con qué actualizar. Antes no decía nada, y el repo parecía migrado.
 
 ## 0.8.0 — 2026-10-26
 
