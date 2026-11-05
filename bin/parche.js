@@ -315,8 +315,11 @@ async function main() {
         opened.push({ title, url: pr.url, draft, status: pr.status });
         record(root, { type: 'pr', pack: pack.id, packVersion: pack.version, branch, sha, url: pr.url, draft, files: changedFiles, findings: c,
           partial: result.findings.filter((f) => f.partial).length, ...(pr.status && pr.status !== 'opened' ? { existing: pr.status } : {}),
-          // Qué avisos cubre el PR (F4): el resumen los marca "en curso" por aviso, no por pack.
-          fingerprints: result.findings.map((f) => f.fingerprint), ...(pr.number ? { number: pr.number } : {}) });
+          // Qué avisos cubre el PR (F4): el resumen los marca "en curso" por aviso, no por pack. Los de solo detección no los cubre.
+          fingerprints: result.findings.filter((f) => f.status !== 'detect-only').map((f) => f.fingerprint), ...(pr.number ? { number: pr.number } : {}) });
+        // Lo que el PR no cubre (la condición sospechosa de otro archivo) también va al resumen del job y a las anotaciones.
+        const notCovered = result.findings.filter((f) => f.status === 'detect-only');
+        if (notCovered.length) withoutPr.push({ pack, findings: notCovered });
       } catch (err) {
         console.error(`  No se pudo con ${pack.id}: ${err.message.split('\n')[0]}`);
         failed.push({ pack, message: err.message });

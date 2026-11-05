@@ -3,6 +3,9 @@
 //
 //   versions:   versión instalada de cada dependencia (de los lockfiles, de node_modules o del rango declarado;
 //               en Python, solo el rango de requirements.txt). Si sale del rango, `range` trae el texto declarado.
+//   arcaRepo:   el repo factura con ARCA (algún archivo que no es un test nombra ElectronicBilling, FECAESolicitar o el campo)
+//   usesField:  algún archivo que no es un test ya trabaja con el campo, aunque mal escrito (condicionIvaReceptor)
+//   mentions:   mentions(nombre, archivo): ¿algún otro archivo nombra esto? Lee recién cuando se pregunta
 //   fieldFiles: archivos con CondicionIVAReceptorId en el código, no en un comentario (el repo ya empezó a migrar);
 //               primero el código que corre, después los WSDL y los tests
 //   staleWsdl:  WSDL de WSFEv1 del repo que no tienen CondicionIVAReceptorId
@@ -12,7 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parse as babelParse } from '@babel/parser';
 import { findFiles, isTestFile } from './paths.js';
-import { NEAR_HINT, isNearMissKey, stripComments } from './codemods/arca-rules.js';
+import { ARCA_HINT, NEAR_HINT, isNearMissKey, stripComments } from './codemods/arca-rules.js';
 
 const readJson = (p) => {
   try {
@@ -111,9 +114,13 @@ export function arcaLibraries(versions) {
 export function buildContext(root, files, manifests) {
   const versions = readVersions(root, manifests);
   const fieldFiles = [];
+  let arcaRepo = false;
+  let usesField = false;
   for (const rel of files) {
     try {
       const text = fs.readFileSync(path.join(root, rel), 'utf8');
+      if (!arcaRepo && !isTestFile(rel) && ARCA_HINT.test(text)) arcaRepo = true;
+      if (!usesField && !isTestFile(rel) && NEAR_HINT.test(text)) usesField = true;
       if (text.includes('CondicionIVAReceptorId') && stripComments(text, rel).includes('CondicionIVAReceptorId')) fieldFiles.push(rel);
     } catch { /* archivo ilegible: lo reporta el pack que lo lea */ }
   }
@@ -124,7 +131,12 @@ export function buildContext(root, files, manifests) {
     const text = fs.readFileSync(path.join(root, rel), 'utf8');
     return /FECAESolicitar|FECAEDetRequest/.test(text) && !text.includes('CondicionIVAReceptorId');
   });
-  return { versions, fieldFiles, staleWsdl, arcaLibs: arcaLibraries(versions), nearMissTypes: nearMissTypes(root, files) };
+  arcaRepo ||= fieldFiles.some((f) => !isTestFile(f));
+  const mentions = (name, except) => files.some((rel) => {
+    if (rel === except || isTestFile(rel)) return false;
+    try { return fs.readFileSync(path.join(root, rel), 'utf8').includes(name); } catch { return false; }
+  });
+  return { versions, arcaRepo, usesField, mentions, fieldFiles, staleWsdl, arcaLibs: arcaLibraries(versions), nearMissTypes: nearMissTypes(root, files) };
 }
 
 // Frente B, punto 23: si un tipo declara la clave mal escrita, renombrarla solo en el objeto rompe el tipado
@@ -153,4 +165,4 @@ export function nearMissTypes(root, files) {
   return out;
 }
 
-export const emptyContext = () => ({ versions: { npm: {}, composer: {}, pypi: {} }, fieldFiles: [], staleWsdl: [], arcaLibs: [], nearMissTypes: [] });
+export const emptyContext = () => ({ versions: { npm: {}, composer: {}, pypi: {} }, arcaRepo: false, usesField: false, fieldFiles: [], staleWsdl: [], arcaLibs: [], nearMissTypes: [] });

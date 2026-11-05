@@ -140,7 +140,9 @@ export function prBody({ pack, findings, changed, verification, ciApproval = fal
   const applied = fs.filter((f) => f.status === 'auto' || f.status === 'needs-review');
   out.push(changed.length
     ? `Modifica ${changed.length} archivo(s): ${changed.map((x) => `\`${x.file}\``).join(', ')}.`
-    : fs.length ? 'No hay un arreglo automático seguro: esto es lo que hay que resolver a mano.' : 'Solo aparece en tests o mocks: no hay nada para cambiar en el código que corre.', '');
+    : !fs.length ? 'Solo aparece en tests o mocks: no hay nada para cambiar en el código que corre.'
+      : fs.every((f) => f.status === 'detect-only') ? 'Parche no encontró comprobantes sin el campo. Esto es lo que conviene revisar.'
+        : 'No hay un arreglo automático seguro: esto es lo que hay que resolver a mano.', '');
   const note = changed.length ? alreadyUsesNote(pack, context, changed) : null;
   if (note) out.push(note, '');
   for (const f of applied) out.push(`- ${LABEL[f.status]} \`${f.file}:${f.line}\` — ${f.message}`);
@@ -156,6 +158,13 @@ export function prBody({ pack, findings, changed, verification, ciApproval = fal
       out.push(`- ${LABEL[f.status]} \`${f.file}:${f.line}\` — ${f.message}`);
       if (f.suggestion) out.push(`  - Agregá: \`${f.suggestion}\``);
     }
+  }
+  // Avisos de solo detección dentro de un pack con arreglo: ni los cubre el PR ni los resuelve Parche (frente B, punto 29).
+  const notices = fs.filter((f) => f.status === 'detect-only');
+  if (notices.length) {
+    out.push('', `### ${pack.notices_title_es || 'Para revisar aparte (Parche no lo cambia)'}`, '');
+    if (pack.notices_intro_es) out.push(pack.notices_intro_es, '');
+    for (const f of notices) out.push(`- ${LABEL[f.status]} \`${f.file}:${f.line}\` — ${f.message}`);
   }
   // Un issue no cambia código: no hay verificación que mostrar (antes decía "Sin verificar").
   if (!asIssue) {

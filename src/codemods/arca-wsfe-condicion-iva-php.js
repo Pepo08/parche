@@ -10,6 +10,8 @@ import {
   canApplyAtRuntime, PARTIAL_COMMENT, partialAppliedMessage, partialPending, partialLeftMessage,
   NEAR_HINT, isNearMissKey, isVoucherDetail, nearMissMessage, nearMissBothMessage, nearMissUnsureMessage, fieldStuckMessage,
 } from './arca-rules.js';
+import { CONDITION_TABLE_HINT, safely } from './arca-condition-rules.js';
+import { conditionFindingsPhp } from './arca-condition-php.js';
 import { emptyContext } from '../context.js';
 import { isTestFile } from '../paths.js';
 
@@ -114,7 +116,7 @@ function resolveData(arg, scope, call, scopes) {
 export default function transform({ source, file, pack, context = emptyContext() }) {
   const findings = [];
   const usages = [];
-  if (!ARCA_HINT.test(source) && !NEAR_HINT.test(source)) return { output: null, findings, usages }; // prefiltro (ver el codemod de JS)
+  if (!ARCA_HINT.test(source) && !NEAR_HINT.test(source) && !CONDITION_TABLE_HINT.test(source)) return { output: null, findings, usages }; // prefiltro (ver el codemod de JS)
   const caveat = libraryCaveat(context, 'composer');
   const migrated = alreadyMigratedPrefix(context);
   const stuck = fieldStuckMessage(context, 'composer');
@@ -239,6 +241,8 @@ export default function transform({ source, file, pack, context = emptyContext()
 
   const soap = nearMiss ? null : soapDetection(source, file, context); // ya tiene su aviso (ver el codemod de JS)
   if (soap) { findings.push(soap.finding); usages.push(soap.usage); }
+  // La condición frente al IVA sospechosa (punto 29): solo detección, también con el campo ya puesto.
+  if (!isTestFile(file)) findings.push(...safely(file, source, () => conditionFindingsPhp({ ast, source, file, pack, context })));
 
   return { output: edits.length ? applyEdits(source, edits) : null, findings, usages };
 }
