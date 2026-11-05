@@ -137,8 +137,10 @@ test('IA OpenAI: cada entrada del pack tiene fecha y reemplazo (o lo que dice la
     assert.match(v.date, /^\d{4}-\d{2}-\d{2}$/, id);
     assert.ok(v.replacement || v.replacement_es || v.note_es, `${id}: reemplazo o nota`);
   }
-  for (const alias of ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4o-mini-tts']) {
+  // La página de deprecaciones no les pone fecha: los alias se avisan por su snapshot y lo dicen (ia-2026-11-04.test.js).
+  for (const alias of ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-4.1-mini']) {
     assert.ok(!(alias in AI.detect.retired_models), `${alias}: la página no le pone fecha`);
+    assert.ok(AI.detect.model_aliases[alias]?.note_es, `${alias}: el aviso dice que la fecha es la del snapshot`);
   }
   const bases = Object.values(AI.detect.retired_fine_tunes).flatMap((e) => e.bases);
   assert.equal(new Set(bases).size, bases.length, 'una base no puede estar en dos familias');

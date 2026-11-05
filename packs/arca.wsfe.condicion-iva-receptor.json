@@ -1,13 +1,13 @@
 {
   "id": "arca.wsfe.condicion-iva-receptor",
-  "version": "2026.10.24",
+  "version": "2026.11.04",
   "provider": "ARCA (ex AFIP)",
   "title": "Condición frente al IVA del receptor obligatoria en WSFEv1",
   "title_short_es": "`CondicionIVAReceptorId` obligatorio en WSFEv1",
   "kind": "breaking",
   "severity": "critical",
   "deadline": "2026-12-01",
-  "last_verified": "2026-10-24",
+  "last_verified": "2026-11-04",
   "summary_es": "Desde el 1/12/2026 ARCA rechaza automáticamente las solicitudes de CAE que no informen CondicionIVAReceptorId.",
   "why_es": "La RG 5616/2024 hizo obligatorio informar la condición frente al IVA del receptor en cada comprobante electrónico. El manual del desarrollador de WSFEv1 fija el 1 de diciembre de 2026 como fecha desde la cual el campo es obligatorio: si viaja vacío, nulo o no viaja, el pedido de CAE se rechaza y no se puede facturar.",
   "sources": [
@@ -44,6 +44,9 @@
     "C": [1, 4, 5, 6, 7, 8, 9, 10, 13, 15, 16]
   },
   "codes_note_es": "Validá los códigos contra FEParamGetCondicionIvaReceptor en homologación antes de pasar a producción.",
+  "codes_source_es": "Anexo \"Condición Frente al IVA del receptor\" de los dos manuales para el desarrollador de ARCA (v4.7, revisión del 1/9/2026, y v4.8, revisión del 1/12/2026), leídos el 4/11/2026. Clase A incluye ALEY (A con leyenda \"operación sujeta a retención\"). El anexo tiene además la clase 49 (Bienes Usados), que solo admite el 5.",
+  "notices_title_es": "Condición frente al IVA para revisar (Parche no la cambia)",
+  "notices_intro_es": "Acá el campo está, pero el valor parece equivocado. Un rechazo se ve enseguida; un CAE autorizado con la condición que no es la del cliente, no. Parche no sabe cuál es el valor correcto: es un dato de cada cliente. Los códigos válidos están en la [guía](https://github.com/Pepo08/parche/blob/main/docs/guia-condicion-iva-receptor.md).",
   "codemod": "arca-wsfe-condicion-iva",
   "review_checklist_es": [
     "Probar la emisión en homologación (wsfehomo) con cada tipo de comprobante que emitís.",

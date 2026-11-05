@@ -3,17 +3,8 @@ import OpenAI from 'openai';
 
 const openai = new OpenAI();
 
-// Los alias: la sección del 14/10/2026 nombra solo los snapshots de GPT-4o, GPT-4o mini, GPT-4.1 y GPT-4.1 mini.
-export const a = () => openai.responses.create({ model: 'gpt-4o', input: 'hola' });
-export const b = () => openai.responses.create({ model: 'gpt-4o-mini', input: 'hola' });
-export const c = () => openai.responses.create({ model: 'gpt-4.1', input: 'hola' });
-export const d = () => openai.responses.create({ model: 'gpt-4.1-mini', input: 'hola' });
-
 // gpt-4o tiene tres snapshots que se apagan en fechas distintas: un fine-tuned sobre el alias es ambiguo.
 export const e = () => openai.responses.create({ model: 'ft:gpt-4o:acme::Qq7Rr8', input: 'hola' });
-
-// La sección de voz nombra los snapshots de gpt-4o-mini-tts, no el alias.
-export const f = () => openai.audio.speech.create({ model: 'gpt-4o-mini-tts', voice: 'alloy', input: 'hola' });
 
 // Los reemplazos que recomienda OpenAI empiezan igual que modelos retirados, pero son otros.
 export const g = () => openai.responses.create({ model: 'gpt-realtime-2.1', input: 'hola' });

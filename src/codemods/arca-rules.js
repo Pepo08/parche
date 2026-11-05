@@ -131,6 +131,7 @@ export function alreadyMigratedPrefix(context) {
 export function libraryCaveat(context, ecosystem) {
   const lib = (context?.arcaLibs || []).find((l) => l.ecosystem === ecosystem && l.travels !== 'si');
   if (lib) {
+    if (lib.note) return `Ojo: ${lib.note}`;
     return `Ojo: con ${lib.name} ${lib.version} el pedido se arma con un WSDL de 2021 que no tiene este campo`
       + `${lib.travels === 'no' ? '' : ' (en JS falta confirmarlo)'}: para que llegue a ARCA hay que ${lib.fix || 'actualizar la librería a 1.x'}.`;
   }
@@ -139,16 +140,110 @@ export function libraryCaveat(context, ecosystem) {
   return null;
 }
 
+// El comprobante ya lleva el campo, pero la librería no lo manda: el repo parece migrado y no lo está (frente B, punto 30).
+// Solo por la versión de la librería instalada: un WSDL suelto en el repo no dice que estas llamadas lo usen.
+export function fieldStuckMessage(context, ecosystem) {
+  const hasLib = (context?.arcaLibs || []).some((l) => l.ecosystem === ecosystem && l.travels !== 'si');
+  return hasLib ? `Este comprobante ya lleva CondicionIVAReceptorId, pero puede no llegar a ARCA. ${libraryCaveat(context, ecosystem)}` : null;
+}
+
+// El texto de un archivo sin sus comentarios, con las mismas líneas y columnas (los comentarios quedan en blanco).
+// Los strings se conservan: en una integración SOAP el XML del pedido va adentro de un string. No es un parser: un
+// string común termina con la línea, así una comilla suelta (en JSX, en una regex) no se come el resto del archivo.
+export function stripComments(source, file = '') {
+  const ext = (file.match(/\.(\w+)$/)?.[1] || '').toLowerCase();
+  const hash = ext === 'php' || ext === 'py';
+  const slash = ext !== 'py' && ext !== 'vb';
+  const tick = ext === 'vb'; // en VB.NET, la comilla simple abre un comentario
+  const blank = (text) => text.replace(/[^\r\n]/g, ' ');
+  let out = '';
+  let i = 0;
+  let quote = null;
+  while (i < source.length) {
+    const c = source[i];
+    if (quote) {
+      if (c === '\\' && !tick) { out += source.slice(i, i + 2); i += 2; continue; }
+      if (c === quote || (c === '\n' && quote !== '`')) quote = null;
+      out += c;
+      i++;
+      continue;
+    }
+    const two = source.slice(i, i + 2);
+    let end = -1;
+    if (slash && two === '/*') {
+      const close = source.indexOf('*/', i + 2);
+      end = close === -1 ? source.length : close + 2;
+    } else if ((slash && two === '//') || (hash && c === '#' && two !== '#[') || (tick && c === "'")) {
+      const nl = source.indexOf('\n', i);
+      end = nl === -1 ? source.length : nl;
+    }
+    if (end !== -1) {
+      out += blank(source.slice(i, end));
+      i = end;
+      continue;
+    }
+    if (c === '"' || c === '`' || (c === "'" && !tick)) quote = c;
+    out += c;
+    i++;
+  }
+  return out;
+}
+
 // Integraciones SOAP propias (cualquier lenguaje): solo detección.
-// Con menos ruido que la primera versión (frente B, 16/10): no marca tests, mocks, tipos, copias de la librería
-// ni archivos que solo nombran el método (constantes, reexports); solo los que arman el detalle del comprobante.
+// Marca el archivo que arma el pedido, no el que solo lo nombra (frente B, puntos 6 y 26). No cuentan:
+// - los comentarios: pablocla/erpia nombra FECAESolicitar en la documentación de su tabla de comprobantes;
+// - la respuesta: Ubiquiti-App/UCRM-plugins lee FECAESolicitarResult en un archivo y arma el pedido en otro;
+// - tests, mocks, tipos (interface y type de TS), copias de la librería, constantes y reexports.
+const SOAP_MARKER = /FECAESolicitar|FECAEDetRequest/;
+const SOAP_RESPONSE = /\w*(?:FECAESolicitar(?:Result|Response)|FECAEDetResponse|FeDetResp|FeCabResp)\w*/g;
+// La llamada de verdad: `client.FECAESolicitar(`, `__soapCall('FECAESolicitar'`, la SOAPAction o el XML. Una constante no.
+const SOAP_CALL = /[.>:]\s*FECAESolicitar(?:Async)?\s*\(|\(\s*['"`]FECAESolicitar['"`]|['"`][\w:/.-]*\/FECAESolicitar['"`]|<(?:\w+:)?FECAESolicitar\b/;
+
+// La clave escrita, no leída: `K: x`, `K = x`, `'K' => x`, `$d['K'] = x`, `<ar:K>`, `setK(x)`, `tag('ar:K', x)` o `{ K, … }`.
+const writes = (keys) => new RegExp(`\\b(?:${keys})\\s*[:=](?![=>])`
+  + `|['"\`](?:\\w+:)?(?:${keys})['"\`]\\s*(?:=>|:|,|\\]\\s*=(?![=>]))`
+  + `|<(?:\\w+:)?(?:${keys})\\b|\\b[Ss]et_?(?:${keys})\\s*\\(|[{,]\\s*(?:${keys})\\s*[,}]`);
+// Solo el pedido lleva importes y moneda: la respuesta (FECAEDetResponse) repite DocTipo, DocNro, CbteDesde, CbteHasta
+// y CbteFch. Por eso un archivo que además lee la respuesta tiene que escribir alguna de las primeras.
+const WRITES_REQUEST = writes('ImpTotal|ImpNeto|ImpTotConc|ImpOpEx|ImpTrib|ImpIVA|MonId|MonCotiz');
+const WRITES_SHARED = writes('DocTipo|DocNro|CbteDesde|CbteHasta|CbteFch');
+
+// Las declaraciones no arman nada: `import { DocTipo } from`, `export { DocTipo }` y, en TypeScript,
+// `interface X { DocTipo: number }` y `type X = { … }`.
+function blankDeclarations(code, file) {
+  if (!/\.[cm]?[jt]sx?$/.test(file)) return code;
+  let out = code.replace(/\b(?:import|export)\s+(?:type\s+)?\{[^}]*\}/g, (m) => m.replace(/[^\r\n]/g, ' '));
+  if (!/\.[cm]?tsx?$/.test(file)) return out;
+  for (const m of code.matchAll(/\b(?:interface\s+\w+[^{;]*|type\s+\w+[^={;]*=\s*)\{/g)) {
+    let depth = 0;
+    let k = m.index + m[0].length - 1;
+    for (; k < code.length; k++) {
+      if (code[k] === '{') depth++;
+      else if (code[k] === '}' && --depth === 0) break;
+    }
+    out = out.slice(0, m.index) + out.slice(m.index, k + 1).replace(/[^\r\n]/g, ' ') + out.slice(k + 1);
+  }
+  return out;
+}
+
 export function soapDetection(source, file, context) {
-  if (!/FECAESolicitar|FECAEDetRequest/.test(source) || /CondicionIVAReceptorId/.test(source)) return null;
+  if (!SOAP_MARKER.test(source)) return null;
   if (isTestFile(file) || /\.d\.[cm]?ts$/.test(file)) return null;
-  if (/class\s+ElectronicBilling\b/.test(source)) return null; // copia de afip.php/afip.js: la cubren la versión y el WSDL
-  const generated = /(^|\/)Reference\.cs$|Stub\.java$/i.test(file) || /class\s+FECAEDetRequest\b/.test(source);
-  if (!generated && !/\b(DocTipo|CbteDesde|ImpTotal)\b/.test(source)) return null;
-  const line = source.split('\n').findIndex((l) => /FECAESolicitar|FECAEDetRequest/.test(l)) + 1;
+  const inCode = stripComments(source, file);
+  if (inCode.includes(FIELD)) return null;
+  const code = inCode.replace(SOAP_RESPONSE, (m) => ' '.repeat(m.length));
+  if (!SOAP_MARKER.test(code)) return null; // solo lo nombra en un comentario o solo lee la respuesta
+  if (/class\s+ElectronicBilling\b/.test(code)) return null; // copia de afip.php/afip.js: la cubren la versión y el WSDL
+  const generated = /(^|\/)Reference\.cs$|Stub\.java$/i.test(file) || /class\s+FECAEDetRequest\b/.test(code);
+  if (!generated) {
+    if (!/(?:\b|\b[Ss]et_?)(?:DocTipo|CbteDesde|ImpTotal)\b/.test(inCode)) return null; // solo nombra el método
+    const body = blankDeclarations(code, file);
+    const builds = WRITES_REQUEST.test(body) || (code === inCode && WRITES_SHARED.test(body));
+    // Si el repo no menciona el campo en ningún lado, una llamada a FECAESolicitar sale sin él, se arme donde se arme.
+    const sendsWithoutIt = context?.fieldFiles?.length === 0 && SOAP_CALL.test(body);
+    if (!builds && !sendsWithoutIt) return null;
+  }
+  const line = code.split('\n').findIndex((l) => SOAP_MARKER.test(l)) + 1;
   const base = generated
     ? 'Cliente SOAP de WSFEv1 generado sin CondicionIVAReceptorId: hay que regenerarlo con el WSDL vigente (y después completar el campo).'
     : 'Integración SOAP propia con WSFEv1 sin CondicionIVAReceptorId en el FECAEDetRequest. Hay que agregarlo al XML, con la condición frente al IVA del cliente.';

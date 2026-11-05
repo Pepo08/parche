@@ -8,8 +8,10 @@ import {
   PACK, decideCondition, validCodesText, missingMessage, appliedMessage, soapDetection, ARCA_HINT, libraryCaveat, alreadyMigratedPrefix,
   canApplyAtRuntime, PARTIAL_COMMENT, partialAppliedMessage, partialPending, partialLeftMessage,
   NEAR_HINT, isNearMissKey, isVoucherDetail, nearMissMessage, nearMissBothMessage, nearMissUnsureMessage, nearMissTypedMessage,
-  LOOSE_EOL, looseEolMessage,
+  LOOSE_EOL, looseEolMessage, fieldStuckMessage,
 } from './arca-rules.js';
+import { CONDITION_TABLE_HINT, safely } from './arca-condition-rules.js';
+import { conditionFindings } from './arca-condition-js.js';
 import { emptyContext } from '../context.js';
 import { isTestFile } from '../paths.js';
 
@@ -133,9 +135,10 @@ export default function transform({ source, file, pack, context = emptyContext()
   const findings = [];
   const usages = [];
   const arcaFile = ARCA_HINT.test(source);
-  if (!arcaFile && !NEAR_HINT.test(source)) return { output: null, findings, usages };
+  if (!arcaFile && !NEAR_HINT.test(source) && !CONDITION_TABLE_HINT.test(source)) return { output: null, findings, usages };
   const caveat = libraryCaveat(context, 'npm');
   const migrated = alreadyMigratedPrefix(context);
+  const stuck = fieldStuckMessage(context, 'npm');
   const j = jFor(file);
   let root;
   try {
@@ -242,10 +245,13 @@ export default function transform({ source, file, pack, context = emptyContext()
         (migrated || '') + unreadableMessage(j, root, p, arg, obj) + (caveat ? ` ${caveat}` : '')));
       return;
     }
-    if (getProp(obj, 'CondicionIVAReceptorId') || edited.has(obj)) return; // ya está migrado (o ya lo editamos)
-    if (binding && fieldAssignedLater(j, root, binding, arg.name)) return; // lo completa después: también migrado
+    if (edited.has(obj)) return; // ya lo editamos
     const spreads = obj.properties.map(conditionSpread);
-    if (spreads.includes('full')) return;
+    // Ya está migrado (también si lo completa después); con una librería que no lo manda, se dice.
+    if (getProp(obj, 'CondicionIVAReceptorId') || (binding && fieldAssignedLater(j, root, binding, arg.name)) || spreads.includes('full')) {
+      if (stuck) findings.push(finding(PACK, file, call, 'needs-review', stuck));
+      return;
+    }
 
     const d = decide(obj, pack);
     const props = obj.properties.filter(isPlainProp);
@@ -288,11 +294,15 @@ export default function transform({ source, file, pack, context = emptyContext()
 
   // Punto 22: con \r sueltos (\r\r\n) las líneas del parser no son las del archivo: se informan las de git.
   const looseEol = LOOSE_EOL.test(source);
-  if (looseEol) for (const x of [...findings, ...usages]) if (x.line) x.line = fileLine(source, x.line);
+  // La condición frente al IVA sospechosa (punto 29): solo detección, también con el campo ya puesto. Va al final, para no
+  // correr el fingerprint de los avisos de siempre.
+  const condition = isTestFile(file) ? [] : safely(file, source, () => conditionFindings({ j, root, source, file, pack, context }));
+  if (looseEol) for (const x of [...findings, ...usages, ...condition]) if (x.line) x.line = fileLine(source, x.line);
 
   // Con la clave renombrada (o avisada) el archivo ya tiene su aviso: el de SOAP sin CondicionIVAReceptorId sobra.
   const soap = nearMiss ? null : soapDetection(source, file, context);
   if (soap) { findings.push(soap.finding); usages.push(soap.usage); }
+  findings.push(...condition);
 
   // Y la edición caía en otro lado (una vez, dentro de un comentario y con "Sintaxis OK"). No se edita: cada cambio
   // pasa a "revisar" con lo que hay que hacer a mano.
