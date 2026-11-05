@@ -2,6 +2,15 @@
 
 Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1, de la 0.6.0 a la 0.7.0, la 0.7.2, la 0.7.3 y de la 0.7.5 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La 0.7.1 y la 0.7.4 tampoco: salieron junto con la 0.7.2 y la 0.7.5. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
 
+## 0.8.4 — 2026-11-04
+
+Mercado Pago: el checklist del PR deja de pedir un mail de prueba que la documentación oficial no pide. La detección y el arreglo no cambian.
+
+### Corregido
+- **El checklist ya no dice que el email del pagador en sandbox tiene que ser `test@testuser.com`.** La línea venía del pack original (15/10) y hoy no aparece en la documentación de Checkout API con Orders: las páginas de compra de prueba con tarjetas y con otros medios de pago piden cualquier dirección de correo válida.
+
+### Packs
+- `mercadopago.payments-to-orders` 2026.11.04, `last_verified` 2026-11-04: la guía de migración sigue igual (Payments API sin fecha de cierre, mapeo de estados, captura total en 5 días, `application_fee` bloqueado, webhooks en paralelo).
 ## 0.8.3 — 2026-11-04
 
 El pack de IA al día con las fuentes oficiales, leídas el 4/11/2026 (pack `ai.model-retirements` 2026.11.04). Ninguna fecha cambió: lo que hay es lo que faltaba. También se volvió a verificar el pack de ARCA: el manual sigue diciendo lo mismo.
