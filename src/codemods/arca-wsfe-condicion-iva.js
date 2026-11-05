@@ -8,7 +8,7 @@ import {
   PACK, decideCondition, validCodesText, missingMessage, appliedMessage, soapDetection, ARCA_HINT, libraryCaveat, alreadyMigratedPrefix,
   canApplyAtRuntime, PARTIAL_COMMENT, partialAppliedMessage, partialPending, partialLeftMessage,
   NEAR_HINT, isNearMissKey, isVoucherDetail, nearMissMessage, nearMissBothMessage, nearMissUnsureMessage, nearMissTypedMessage,
-  LOOSE_EOL, looseEolMessage,
+  LOOSE_EOL, looseEolMessage, fieldStuckMessage,
 } from './arca-rules.js';
 import { emptyContext } from '../context.js';
 import { isTestFile } from '../paths.js';
@@ -136,6 +136,7 @@ export default function transform({ source, file, pack, context = emptyContext()
   if (!arcaFile && !NEAR_HINT.test(source)) return { output: null, findings, usages };
   const caveat = libraryCaveat(context, 'npm');
   const migrated = alreadyMigratedPrefix(context);
+  const stuck = fieldStuckMessage(context, 'npm');
   const j = jFor(file);
   let root;
   try {
@@ -242,10 +243,13 @@ export default function transform({ source, file, pack, context = emptyContext()
         (migrated || '') + unreadableMessage(j, root, p, arg, obj) + (caveat ? ` ${caveat}` : '')));
       return;
     }
-    if (getProp(obj, 'CondicionIVAReceptorId') || edited.has(obj)) return; // ya está migrado (o ya lo editamos)
-    if (binding && fieldAssignedLater(j, root, binding, arg.name)) return; // lo completa después: también migrado
+    if (edited.has(obj)) return; // ya lo editamos
     const spreads = obj.properties.map(conditionSpread);
-    if (spreads.includes('full')) return;
+    // Ya está migrado (también si lo completa después); con una librería que no lo manda, se dice.
+    if (getProp(obj, 'CondicionIVAReceptorId') || (binding && fieldAssignedLater(j, root, binding, arg.name)) || spreads.includes('full')) {
+      if (stuck) findings.push(finding(PACK, file, call, 'needs-review', stuck));
+      return;
+    }
 
     const d = decide(obj, pack);
     const props = obj.properties.filter(isPlainProp);

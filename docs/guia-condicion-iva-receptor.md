@@ -88,7 +88,7 @@ Si tu sistema guarda la condición con una numeración propia (por ejemplo, un e
 ## 4. Tres errores que vimos en repos reales
 
 - **El nombre casi bien escrito.** `CondicionIVAReceptor` (sin `Id`), `CondicionIvaReceptorId` o `condicionIVAReceptorId` no existen en el web service: el dato no llega y el código parece migrado. Tiene que ser exactamente `CondicionIVAReceptorId`.
-- **La librería vieja.** Con afip.php 0.x el pedido se arma con un WSDL de 2021 que no tiene el campo: aunque lo agregues al código, no viaja. Con afip.js 0.x y con `ts-afip-ws` (un fork de afip.js 0.x), el WSDL que traen tampoco lo tiene: tratalo como si no viajara. Pasá a la 1.x de afip.js o de afip.php (con `ts-afip-ws`, a `@afipsdk/afip.js` 1.x), o actualizá el WSDL que trae la librería.
+- **La librería vieja.** Con afip.php 0.x el pedido se arma con un WSDL de 2021 que no tiene el campo: aunque lo agregues al código, no viaja. Con afip.js 0.x y con `ts-afip-ws` (un fork de afip.js 0.x), el WSDL que traen tampoco lo tiene: tratalo como si no viajara. Pasá a la 1.x de afip.js o de afip.php (con `ts-afip-ws`, a `@afipsdk/afip.js` 1.x), o actualizá el WSDL que trae la librería. De `@arcasdk/core`, las versiones de la 0.2.0 a la 0.3.2 se publicaron en npm sin código: usá la 0.3.3 o posterior.
 - **Solo la factura principal.** Las notas de crédito y débito, los procesos en lote y los reintentos también piden CAE: cada uno necesita el campo.
 
 ## 5. Probalo en homologación
