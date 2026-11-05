@@ -14,5 +14,5 @@ export const d = () => openai.responses.create({ model: 'ft:gpt-4.1-2025-04-14:a
 export const ETIQUETAS = { 'ft-gpt-4': 'nombre de la tabla', 'ft:gpt-4': 'incompleto' };
 
 // Un modelo vigente y un nombre propio que contiene un ID retirado, pero no es ese ID.
-export const e = () => openai.chat.completions.create({ model: 'gpt-4o', messages: [] });
+export const e = () => openai.chat.completions.create({ model: 'gpt-6-sol', messages: [] });
 export const f = () => openai.chat.completions.create({ model: 'gpt-4.1-nano-completions-proxy', messages: [] });

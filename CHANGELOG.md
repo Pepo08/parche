@@ -2,6 +2,30 @@
 
 Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1, de la 0.6.0 a la 0.7.0, la 0.7.2, la 0.7.3 y de la 0.7.5 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La 0.7.1 y la 0.7.4 tampoco: salieron junto con la 0.7.2 y la 0.7.5. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
 
+## 0.8.3 — 2026-11-04
+
+El pack de IA al día con las fuentes oficiales, leídas el 4/11/2026 (pack `ai.model-retirements` 2026.11.04). Ninguna fecha cambió: lo que hay es lo que faltaba. También se volvió a verificar el pack de ARCA: el manual sigue diciendo lo mismo.
+
+### Nuevo
+- **Los alias de OpenAI con fecha.** La página de deprecaciones nombra `gpt-5`, `gpt-5-mini`, `gpt-5-nano`, `gpt-5-pro`, `o3` y `o3-pro` (11/12/2026) y `gpt-4o-mini-tts` (6/1/2027) junto a su snapshot, y Parche solo avisaba el snapshot. También los snapshots que faltaban (`gpt-5.1-2025-11-13`, `gpt-5.4-nano-2026-03-17`, `gpt-4o-mini-transcribe-2025-12-15`, `gpt-image-1.5-2025-12-16`) y `gpt-4o-audio`, `gpt-4o-realtime`, `gpt-4o-mini-realtime` y `gpt-4o-mini-audio` (20/1/2027).
+- **`gpt-4o`, `gpt-4o-mini`, `gpt-4.1` y `gpt-4.1-mini` se avisan con el 14/1/2027.** La página de deprecaciones nombra solo sus snapshots, pero la de cada modelo marca el alias como Deprecated y todos sus snapshots se apagan ese día. El aviso dice que la fecha es la del snapshot y que OpenAI no publicó una aparte para el alias. En Azure OpenAI no se avisan: tiene su propio calendario.
+- **Lo que OpenAI apagó antes de 2026:** `o1-preview`, `o1-mini`, `gpt-4.5-preview`, `gpt-4-32k`, `gpt-4-vision-preview`, `text-moderation-*`, `text-davinci-003` y los demás modelos de texto, código y embeddings de primera generación, con los endpoints `/v1/edits`, `/v1/engines`, `/v1/fine-tunes`, `/v1/search`, `/v1/classifications` y `/v1/answers` (con el host de OpenAI) y el header `assistants=v1`. `ada`, `babbage`, `curie` y `davinci` no entran: son palabras comunes.
+- **Crear trabajos de fine-tuning se termina el 6/1/2027:** `fineTuning.jobs.create` y `fine_tuning.jobs.create`. Los modelos ya creados siguen respondiendo hasta que se retire su modelo base.
+- **`api.openai.com/v1/audio/translations`** (26/2/2027), con el host escrito: la misma ruta en otras APIs no se avisa.
+- **Los alias de Claude ya retirados:** `claude-3-5-sonnet-latest`, `claude-3-7-sonnet-latest`, `claude-3-5-haiku-latest`, `claude-3-opus-latest`, `claude-sonnet-4-0`, `claude-opus-4-0`, `claude-opus-4-1`, `claude-4-sonnet-20250514` y `claude-4-opus-20250514`, con la fecha de su snapshot. Los nombran los tipos del SDK oficial de TypeScript, y la guía de Claude Haiku 5.5 nombra `claude-3-5-haiku-latest`.
+- **Los otros dos cambios de la API version `2026-10-21` de Anthropic:** un bloque `document` directo en un mensaje de `assistant` y `citations` con contenido en un bloque `text` de un mensaje de `user`, también dentro de un `search_result`, dan error 400. Con los mismos tres estados que `temperature`: ya falla, falla en una instalación nueva o va a fallar con la suba. Un documento anidado, `citations` en `assistant` y `citations: { enabled: true }` siguen valiendo y no se avisan.
+- **Fast mode de Anthropic:** `speed: "fast"` en Claude Opus 4.8 se retira el 30/11/2026 (después, error); en Opus 4.7 da error desde el 24/7/2026; en Opus 4.6, desde el 29/6/2026 corre a velocidad estándar sin avisar. Reemplazo: `claude-opus-5-5`.
+- **Las herramientas experimentales de prompts de Anthropic** (`/v1/experimental/generate_prompt`, `improve_prompt` y `templatize_prompt`), cerradas el 17/8/2026.
+
+### Cambios
+- **Un reemplazo que también tiene fecha se dice.** La página recomienda a veces un modelo que después se apagó (`o1-mini` → `o4-mini`, apagado el 23/10/2026). El aviso sigue copiando la página y agrega: "Ojo: `o4-mini` también fue retirado el 2026-10-23; su reemplazo es `gpt-5.6-terra`".
+- **`o1` y `o3` piden contexto:** escritos sueltos en una lista, y sin el SDK de OpenAI en el archivo, ya no se avisan (`'o3'` puede ser el ozono en una app de calidad del aire). En una llamada (`model: 'o3'`) sí.
+- **El aviso de un endpoint dice de qué proveedor es**, porque ahora también hay de Anthropic.
+- **Más rápido en repos grandes:** el detector comparaba cada línea con cada ID. Con los IDs nuevos habría tardado más del doble; con una sola regex que descarta las líneas sin ningún ID, tarda 11 veces menos que antes (142 ms contra 1.613 ms en un repo de 49.580 líneas). Avisa exactamente lo mismo.
+
+### Límites
+- `claude-mythos-preview` figura como Deprecated y "To be announced": sin fecha, no se avisa.
+- Los valores que acepta cada modelo en `temperature` y `top_p` se verificaron por última vez el 20/10/2026: la referencia de la API y la guía de Claude Haiku 5.5 ya no los publican desde la API version `2026-10-21`. La página de deprecaciones sigue diciendo que un valor distinto del de por defecto da error 400 con las versiones anteriores.
 ## 0.8.2 — 2026-11-04
 
 La condición frente al IVA equivocada. Es el punto 29 del feedback: el error caro no es el rechazo, es un CAE válido con la condición que no es la del cliente. Solo detección: no toca código ni abre un PR por esto, y nunca sugiere un valor.

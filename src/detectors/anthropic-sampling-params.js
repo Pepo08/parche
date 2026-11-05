@@ -24,6 +24,13 @@
 // si ya falla (header, SDK instalado o, en Python, `TypeError` desde la 1.0), si falla en una instalación nueva (rango
 // sin tope) o si va a fallar cuando suban el SDK. Lo que ya avisó la regla de Claude 4.7 no se repite. Por HTTP sin el
 // header nuevo no se avisa: la versión la elige el archivo y no cambia sola.
+//
+// Sobre los mismos pedidos (0.8.3):
+//   - Los otros dos cambios de esa versión: un bloque `document` directo en un mensaje de `assistant`, y `citations` con
+//     contenido en un bloque `text` de un mensaje de `user`, también dentro de un `search_result` ("Migrating to API version
+//     2026-10-21", "Breaking changes"). Solo los literales: `messages` escrito en el pedido o en una constante del archivo.
+//     Un documento anidado en otro bloque, `citations` en `assistant` y `citations: { enabled: true }` siguen valiendo.
+//   - Fast mode (`speed: "fast"`), que Anthropic retira modelo por modelo con fecha (página "Fast mode" y release notes).
 import { openRange } from '../context.js';
 
 const PACK = 'ai.model-retirements';
@@ -140,15 +147,19 @@ function separator(code, a, b, sep) {
   return -1;
 }
 
-export default function detectSamplingParams({ source, file, pack, context }) {
+export default function detectSamplingParams({ source, file, pack, context, today = new Date().toISOString().slice(0, 10) }) {
   const rules = pack.detect.sampling_params;
   const python = PY.test(file);
   if (!rules || (!python && !JS.test(file))) return { findings: [], usages: [] };
   // La mayoría de los archivos no tiene el parámetro, ni un modelo afectado ni nada de Anthropic: no hace falta
   // tokenizarlos.
   const api = rules.api_version;
+  const fast = pack.detect.fast_mode;
   const anthropic = Boolean(api) && (ANTHROPIC.test(source) || (/api\.anthropic\.com/.test(source) && /v1\/messages/.test(source)));
-  if (!PARAMS.some((p) => source.includes(p)) || (!anthropic && !rules.models.some((m) => source.includes(m)))) return { findings: [], usages: [] };
+  const sampling = PARAMS.some((p) => source.includes(p)) && (anthropic || rules.models.some((m) => source.includes(m)));
+  const contentFields = anthropic && Boolean(api.content_rules) && (/\bcitations\b/.test(source) || /["'`]document["'`]/.test(source));
+  const fastField = Boolean(fast) && /\bspeed\b/.test(source) && Object.keys(fast.models).some((m) => source.includes(m));
+  if (!sampling && !contentFields && !fastField) return { findings: [], usages: [] };
 
   const { code, strings } = tokenize(source, python);
   const { nodes, depth } = brackets(code);
@@ -303,8 +314,8 @@ export default function detectSamplingParams({ source, file, pack, context }) {
 
   const findings = [];
   const usages = [];
-  const report = (at, message, op) => {
-    findings.push({ pack: PACK, file, line: lineOf(at), status: 'detect-only', message });
+  const report = (at, message, op, extra = {}) => {
+    findings.push({ pack: PACK, file, line: lineOf(at), status: 'detect-only', message, ...extra });
     usages.push({ provider: 'ia', op, line: lineOf(at) });
   };
   const shownOf = (param, e) => (e.sep === '=' ? `${param}=${e.value.text}` : e.sep ? `${param}: ${e.value.text}` : param);
@@ -319,9 +330,24 @@ export default function detectSamplingParams({ source, file, pack, context }) {
   const installed = sdk ? context?.versions?.[python ? 'pypi' : 'npm']?.[sdk.package] || null : null;
   const whereOf = (v) => (v.source === 'declarada' ? `declarado como \`${v.range}\`` : v.source === 'node_modules' ? 'instalado en node_modules' : `según ${v.source}`);
   const cap = (s) => s[0].toUpperCase() + s.slice(1);
+  const pkg = sdk ? `\`${sdk.package}\`` : '';
+  // Lo que cambia con la API version `2026-10-21`, según lo que se sepa del repo: ya falla (header o SDK instalado), falla en
+  // una instalación nueva (rango sin tope) o va a fallar cuando suban el SDK.
+  const versionMessage = ({ shown, target, reason, removed, rec, afterInstalled = '', alsoExtra = '' }) => {
+    if (header === 'new') return `${shown} ya no funciona: el archivo manda \`anthropic-version: ${api.version}\`, y ${removed}. ${cap(rec)}.`;
+    if (installed && atLeast(installed.version, target)) return `${shown} ya no funciona con ${pkg} ${installed.version} (${whereOf(installed)}): ${reason}.${afterInstalled} ${cap(rec)}.`;
+    if (installed?.source === 'declarada' && openRange(installed.range)) return `${shown} falla en una instalación nueva: ${pkg} está declarado como \`${installed.range}\`, que ya deja instalar la ${sdk.first} (del ${api.released_es}). ${cap(reason)}. ${cap(rec)}, o fijá el SDK debajo de la ${target}.`;
+    const when = `${target}${target === sdk.first ? ` (del ${api.released_es})` : ''}`;
+    // Sin la versión no se puede decir que hoy funciona: puede que ya falle.
+    return installed
+      ? `${shown} funciona con ${pkg} ${installed.version} (${whereOf(installed)}), pero va a fallar cuando lo subas a la ${when}: ${reason}.${alsoExtra} Antes de aceptar esa suba, ${rec}.`
+      : `${shown} falla con ${pkg} ${target} o posterior: ${reason}.${alsoExtra} Parche no encontró qué versión del SDK usa este repo: si ya es la ${target} o una posterior, el pedido ya falla. ${cap(rec)}.`;
+  };
+  // Un `messages` que no es de una versión elegida por el archivo: un archivo que fija `2023-06-01` eligió quedarse; por
+  // HTTP, la versión la elige el archivo.
+  const versionApplies = (via) => anthropic && header !== 'old' && (via !== 'http' || header === 'new');
   const apiVersion = (via, byKey, model, flagged) => {
-    // Un archivo que fija `2023-06-01` eligió quedarse; por HTTP, la versión la elige el archivo.
-    if (!anthropic || header === 'old' || (via === 'http' && header !== 'new')) return;
+    if (!versionApplies(via)) return;
     const usable = (e) => !EMPTY.test(e.value.text);
     const candidates = PARAMS.filter((p) => byKey.has(p) && !flagged.has(p) && usable(byKey.get(p))).map((param) => ({ param, e: byKey.get(param), extra: false }));
     // Python: lo que va en `extra_body={...}` llega a la API sin pasar por la firma del método.
@@ -329,7 +355,6 @@ export default function detectSamplingParams({ source, file, pack, context }) {
     const xn = xb && code[xb.value.at] === '{' ? nodeAt(xb.value.at) : null;
     if (xn) for (const e of entriesOf(xn)) if (PARAMS.includes(e.key) && !flagged.has(e.key) && usable(e)) candidates.push({ param: e.key, e, extra: true });
     const older = model && api.older_models.some((m) => model.id.startsWith(m)) ? model.id : null;
-    const pkg = `\`${sdk.package}\``;
     for (const { param, e, extra } of candidates) {
       // En Python, un parámetro directo falla antes de llegar a la API: el SDK 1.0 lo sacó de la firma.
       const direct = python && !extra && via === 'sdk';
@@ -339,23 +364,11 @@ export default function detectSamplingParams({ source, file, pack, context }) {
         : `desde la ${sdk.first}, el SDK usa la API version \`${api.version}\`, y ${api.removed_es}`;
       const rec = api.recommendation_es.replace('{param}', `\`${param}\``);
       const shown = `\`${shownOf(param, e)}\`${extra ? ' (en `extra_body`)' : ''}`;
-      let message;
-      if (header === 'new') {
-        message = `${shown} ya no funciona: el archivo manda \`anthropic-version: ${api.version}\`, y ${api.removed_es}. ${cap(rec)}.`;
-      } else if (installed && atLeast(installed.version, target)) {
-        message = `${shown} ya no funciona con ${pkg} ${installed.version} (${whereOf(installed)}): ${reason}.`
-          + (direct && !atLeast(installed.version, sdk.first) ? ` Tampoco sirve pasarlo por \`extra_body\`: con la ${sdk.first} (del ${api.released_es}) devuelve un error 400.` : '')
-          + ` ${cap(rec)}.`;
-      } else if (installed?.source === 'declarada' && openRange(installed.range)) {
-        message = `${shown} falla en una instalación nueva: ${pkg} está declarado como \`${installed.range}\`, que ya deja instalar la ${sdk.first} (del ${api.released_es}). ${cap(reason)}. ${cap(rec)}, o fijá el SDK debajo de la ${target}.`;
-      } else {
-        const when = `${target}${target === sdk.first ? ` (del ${api.released_es})` : ''}`;
-        const alsoExtra = direct ? ` Y desde la ${sdk.first} (del ${api.released_es}) tampoco sirve pasarlo por \`extra_body\`: la API version \`${api.version}\` lo rechaza.` : '';
-        // Sin la versión no se puede decir que hoy funciona: puede que ya falle.
-        message = installed
-          ? `${shown} funciona con ${pkg} ${installed.version} (${whereOf(installed)}), pero va a fallar cuando lo subas a la ${when}: ${reason}.${alsoExtra} Antes de aceptar esa suba, ${rec}.`
-          : `${shown} falla con ${pkg} ${target} o posterior: ${reason}.${alsoExtra} Parche no encontró qué versión del SDK usa este repo: si ya es la ${target} o una posterior, el pedido ya falla. ${cap(rec)}.`;
-      }
+      let message = versionMessage({
+        shown, target, reason, removed: api.removed_es, rec,
+        afterInstalled: direct && installed && !atLeast(installed.version, sdk.first) ? ` Tampoco sirve pasarlo por \`extra_body\`: con la ${sdk.first} (del ${api.released_es}) devuelve un error 400.` : '',
+        alsoExtra: direct ? ` Y desde la ${sdk.first} (del ${api.released_es}) tampoco sirve pasarlo por \`extra_body\`: la API version \`${api.version}\` lo rechaza.` : '',
+      });
       if (!python && via === 'sdk' && header !== 'new' && TS.test(file)) message += ` ${api.typescript_es}`;
       if (param === 'temperature' && NUMBER.test(e.value.text) && Number(e.value.text) === 0) message += ` ${rules.temperature_zero_es}`;
       if (older) message += ` ${api.older_model_es.replace('{model}', `\`${older}\``)}`;
@@ -371,10 +384,75 @@ export default function detectSamplingParams({ source, file, pack, context }) {
     const flagged = new Set(); // lo que ya avisó la regla de Claude 4.7: no se repite
     if (model && rules.models.includes(model.id)) claude47(byKey, via, model, flagged);
     apiVersion(via, byKey, model, flagged);
+    contentRules(via, byKey);
+    fastMode(byKey, model);
   }
   // Los pedidos salen en el orden del árbol (de afuera hacia adentro); el reporte va en el orden del archivo.
   const byLine = (a, b) => a.line - b.line;
   return { findings: findings.sort(byLine), usages: usages.sort(byLine) };
+
+  // Una lista literal, o la constante del archivo que la tiene.
+  function arrayOf(v, nested = false) {
+    if (!v) return null;
+    if (code[v.at] === '[') return nodeAt(v.at);
+    if (nested || !IDENT.test(v.text)) return null;
+    const c = constant(v.text);
+    return c ? arrayOf(c, true) : null;
+  }
+  function objectsIn(list) { return nodes.filter((x) => x.parent === list && x.open === '{'); }
+  function keyed(obj) { return new Map(entriesOf(obj).map((e) => [e.key, e])); }
+
+  // API version `2026-10-21`, los otros dos cambios: `document` directo en `assistant` y `citations` con contenido en `user`.
+  function contentRules(via, byKey) {
+    if (!api?.content_rules || !versionApplies(via)) return;
+    const list = arrayOf(byKey.get('messages')?.value);
+    if (!list) return;
+    const warn = (rule, at, shown) => report(at, versionMessage({
+      shown, target: sdk.first, removed: rule.removed_es, rec: rule.recommendation_es,
+      reason: `desde la ${sdk.first}, el SDK usa la API version \`${api.version}\`, y ${rule.removed_es}`,
+    }), `Anthropic ${rule.op} (API version ${api.version})`);
+    const { document_assistant: documentRule, citations_user: citationsRule } = api.content_rules;
+    // `citations: []` no cuenta, ni `citations: { enabled: true }` (la configuración de un documento o un `search_result`), ni
+    // una variable: no se puede saber qué tiene. Se baja por `content` para llegar a un `search_result` o a un `tool_result`.
+    const walkUser = (blocks) => {
+      for (const block of objectsIn(blocks)) {
+        const b = keyed(block);
+        const cites = b.get('citations');
+        if (cites && literal(b.get('type')?.value ?? { at: -1 }) === 'text' && code[cites.value.at] === '[') {
+          const n = nodeAt(cites.value.at);
+          if (n && code.slice(n.start + 1, n.end).trim()) warn(citationsRule, cites.keyAt, '`citations` en un mensaje de `user`');
+        }
+        const inner = arrayOf(b.get('content')?.value, true);
+        if (inner) walkUser(inner);
+      }
+    };
+    for (const message of objectsIn(list)) {
+      const m = keyed(message);
+      const role = m.get('role') ? literal(m.get('role').value) : null;
+      const content = arrayOf(m.get('content')?.value);
+      if (!content) continue;
+      if (role === 'user') walkUser(content);
+      if (role === 'assistant') {
+        for (const block of objectsIn(content)) {
+          const type = keyed(block).get('type');
+          if (type && literal(type.value) === 'document') warn(documentRule, type.keyAt, `\`${shownOf('type', type)}\` en un mensaje de \`assistant\``);
+        }
+      }
+    }
+  }
+
+  // Fast mode: `speed: "fast"` en un modelo al que Anthropic ya le puso fecha.
+  function fastMode(byKey, model) {
+    const rule = model && fast?.models[model.id];
+    const speed = byKey.get('speed');
+    if (!rule || !speed || literal(speed.value) !== 'fast') return;
+    const modelText = `\`${model.id}\`${model.from ? ` (el valor por defecto de ${model.from})` : ''}`;
+    const when = rule.date <= today
+      ? `Anthropic retiró fast mode de ese modelo el ${rule.date}: ${rule.past_es}`
+      : `Anthropic retira fast mode de ese modelo el ${rule.date}: después de esa fecha, ${rule.future_es}`;
+    report(speed.keyAt, `\`${shownOf('speed', speed)}\` con ${modelText}: ${when}. Para seguir con fast mode, ${fast.recommendation_es}.`,
+      `Anthropic fast mode (${model.id})`, { due: rule.date, dueKind: 'retirement', subject: `fast mode en \`${model.id}\``, provider: 'Anthropic' });
+  }
 
   // Claude 4.7 y posteriores: el parámetro con un valor fuera de lo aceptado (y, en Haiku 5.5, los dos juntos).
   function claude47(byKey, via, model, flagged) {

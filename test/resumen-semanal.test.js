@@ -50,7 +50,7 @@ test('primera foto de un repo: los avisos por fecha, el próximo vencimiento, y 
   const filas = datos.clientes[0].para_hacer;
   // Lo vencido primero, después por fecha, y Mercado Pago (sin fecha) al final. ARCA: una fila con el PR y otra con el dato.
   assert.deepEqual(filas.map((r) => `${r.vence || '-'} ${r.proveedor}`), [
-    '2026-02-19 Anthropic', '2026-08-26 OpenAI', '2026-12-01 ARCA', '2026-12-01 ARCA', '- Mercado Pago']);
+    '2026-02-19 Anthropic', '2026-08-26 OpenAI', '2026-12-01 ARCA', '2026-12-01 ARCA', '2027-01-14 OpenAI', '- Mercado Pago']);
   assert.equal(filas[3].falta_dato, true);
   assert.match(filas[3].que_hacer, /comprobante clase A/);
   assert.ok(filas.every((r) => !('seguimiento' in r)), 'sin la foto anterior, el seguimiento no se inventa');
@@ -58,7 +58,7 @@ test('primera foto de un repo: los avisos por fecha, el próximo vencimiento, y 
   assert.equal(datos.proxima.vence, '2026-12-01');
   assert.equal(datos.proxima.repos, `${path.basename(dir)}: quedan 3 lugares, y falta un dato`);
   const mail = mailOf(datos);
-  assert.match(mail.asunto, /: 5 para hacer$/);
+  assert.match(mail.asunto, /: 6 para hacer$/);
   assert.doesNotMatch(mail.asunto, /nada nuevo/);
   assert.match(mail.txt, /Es la primera foto de este repo: lo nuevo se ve desde la próxima corrida\./);
   assert.match(mail.txt, /Es la primera foto de este repo: lo resuelto se ve desde la próxima corrida\./);
@@ -83,7 +83,7 @@ test('la semana siguiente, después del arreglo de ARCA: 2 de 3 lugares resuelto
   assert.equal(c.resueltos[0].como, 'Ya no aparece en el código.');
   assert.deepEqual(c.nuevos, []);
   const mail = mailOf(datos);
-  assert.match(mail.asunto, /: 4 para hacer, nada nuevo$/);
+  assert.match(mail.asunto, /: 5 para hacer, nada nuevo$/);
   assert.match(mail.txt, /Nada nuevo esta semana\./);
   assert.match(mail.txt, /6 APIs en 1 repo\. Sin cambios desde la semana pasada\./);
   fs.rmSync(dir, { recursive: true, force: true });
@@ -241,7 +241,7 @@ test('parche summary: deja resumen.html, .txt y .json en la foto; sin scan.json 
   fs.writeFileSync(path.join(foto, 'scan.json'), JSON.stringify(snap()));
   const r = spawnSync('node', [BIN, 'summary', '--snapshot', foto, '--date', '2026-11-02'], { encoding: 'utf8', env: { ...process.env, GITHUB_ACTIONS: '' } });
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /^Parche · .* · semana del 2\/11: 5 para hacer/);
+  assert.match(r.stdout, /^Parche · .* · semana del 2\/11: 6 para hacer/);
   for (const f of ['resumen.html', 'resumen.txt', 'resumen.json']) assert.ok(fs.existsSync(path.join(foto, f)), f);
   assert.ok(fs.statSync(path.join(foto, 'resumen.html')).size < 102 * 1024);
   const vacio = spawnSync('node', [BIN, 'summary', '--snapshot', dir], { encoding: 'utf8' });
