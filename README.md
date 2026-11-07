@@ -82,7 +82,7 @@ npx parche-cli feedback . --pack <id> --outcome merged|edited|rejected
 `parche pr` abre el PR por la API de GitHub si hay `GITHUB_TOKEN` y un remote `origin` en github.com; si no (o con `--dry-run`), deja la rama, el commit y el cuerpo del PR en `.parche/pr-<pack>.md`. Si hay ítems para revisar, el PR se abre como borrador.
 
 - **Desde un fork:** `parche pr . --push-remote fork` pushea la rama al remote `fork` (tu fork, con tus credenciales de git) y abre el PR contra `origin`.
-- **Nunca deja el repo sucio:** si la verificación falla, descarta lo que escribió y borra su rama. Si no hay cambios de código, o solo cambiarían tests o mocks, no abre PR: deja el texto como issue en `.parche/`.
+- **Nunca deja el repo sucio:** si la verificación falla, descarta lo que escribió y borra su rama. Si no hay cambios de código, o solo cambiarían tests, mocks o scripts para probar a mano (como `probar-arca.js`), no abre PR: deja el texto como issue en `.parche/`.
 - **`.parche/` no va en git:** es lo que Parche escribe en cada corrida (el reporte, el inventario, el registro y los cuerpos de los PRs), y lo agrega a `.git/info/exclude`. Si ya lo commiteaste (por ejemplo, copiando una carpeta escaneada a un repo nuevo), Parche funciona igual: no lo cuenta como un cambio sin commitear, nunca lo incluye en sus PRs y te avisa. Para dejar de versionarlo: `git rm -r --cached .parche` y sumá `.parche/` al `.gitignore`.
 
 ### Qué cambia en las versiones nuevas de tus SDKs

@@ -140,13 +140,13 @@ export function prBody({ pack, findings, changed, verification, ciApproval = fal
   const applied = fs.filter((f) => f.status === 'auto' || f.status === 'needs-review');
   out.push(changed.length
     ? `Modifica ${changed.length} archivo(s): ${changed.map((x) => `\`${x.file}\``).join(', ')}.`
-    : !fs.length ? 'Solo aparece en tests o mocks: no hay nada para cambiar en el código que corre.'
+    : !fs.length ? 'Solo aparece en tests, mocks o scripts de prueba: no hay nada para cambiar en el código que corre.'
       : fs.every((f) => f.status === 'detect-only') ? 'Parche no encontró comprobantes sin el campo. Esto es lo que conviene revisar.'
         : 'No hay un arreglo automático seguro: esto es lo que hay que resolver a mano.', '');
   const note = changed.length ? alreadyUsesNote(pack, context, changed) : null;
   if (note) out.push(note, '');
   for (const f of applied) out.push(`- ${LABEL[f.status]} \`${f.file}:${f.line}\` — ${f.message}`);
-  if (inTests.length) out.push(`- En tests o mocks (Parche no los toca): ${inTests.map((f) => `\`${f.file}:${f.line}\``).join(', ')}.`);
+  if (inTests.length) out.push(`- En tests, mocks o scripts de prueba (Parche no los toca): ${inTests.map((f) => `\`${f.file}:${f.line}\``).join(', ')}.`);
   // Lo que falta: los hallazgos sin arreglo y, de cada arreglo parcial, la parte que no cubre.
   const pending = [
     ...fs.filter((f) => f.status === 'needs-input' || f.status === 'blocked'),

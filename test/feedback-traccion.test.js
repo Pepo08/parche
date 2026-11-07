@@ -49,7 +49,7 @@ test('punto 3: si la verificación falla, el repo queda limpio y sin la rama de 
 test('punto 11: si solo cambiarían tests o mocks, no se abre PR ni queda rama', () => {
   const { root, g } = repo({ 'test/mock-afip.test.js': VOUCHER });
   const out = execFileSync('node', [BIN, 'pr', root, '--pack', ARCA.id, '--dry-run'], { encoding: 'utf8' });
-  assert.match(out, /Solo cambiaría tests o mocks: no se abre un PR/);
+  assert.match(out, /Solo cambiaría tests, mocks o scripts de prueba: no se abre un PR/);
   assert.equal(g('branch', '--list', 'parche/*').trim(), '');
   assert.equal(g('status', '--porcelain').trim(), '');
   for (const f of ['test/x.js', 'src/__mocks__/afip.js', 'a.spec.ts', 'lib/mock-client.test.ts', 'tests/FacturaTest.php', 'examples/demo.js']) assert.ok(isTestFile(f), f);
