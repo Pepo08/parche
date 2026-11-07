@@ -299,13 +299,14 @@ async function main() {
           git.discardChanges(root);
           throw new Error(`La verificación falló para ${pack.id}; no se abre el PR y el repo queda como estaba.\n${JSON.stringify(verification, null, 2)}`);
         }
-        // Si solo cambiarían tests o mocks no hay PR: el texto queda como issue, sin "Modifica 1 archivo" (frente B, punto 20).
+        // Si solo cambiarían tests, mocks o scripts de prueba no hay PR: el texto queda como issue, sin "Modifica 1 archivo"
+        // (frente B, puntos 20 y 34).
         const reportOnly = !changedFiles.length || changedFiles.every(isTestFile);
         // La Action avisa si usa el GITHUB_TOKEN por defecto (PARCHE_DEFAULT_TOKEN): los workflows del PR esperan aprobación.
         const ciApproval = process.env.GITHUB_ACTIONS === 'true' && process.env.PARCHE_DEFAULT_TOKEN === 'true';
         fs.writeFileSync(bodyPath, prBody({ pack, findings: result.findings, changed: reportOnly ? [] : result.changed, verification: reportOnly ? null : verification, ciApproval, context: result.context }));
         if (reportOnly) {
-          const why = changedFiles.length ? 'solo cambiaría tests o mocks: no se abre un PR' : 'sin cambios de código';
+          const why = changedFiles.length ? 'solo cambiaría tests, mocks o scripts de prueba: no se abre un PR' : 'sin cambios de código';
           git.discardChanges(root);
           console.log(`  ${summary(result.findings)}`);
           console.log(`  ${why[0].toUpperCase()}${why.slice(1)}; queda como issue o reporte: ${bodyPath}`);

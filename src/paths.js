@@ -9,15 +9,27 @@ export const SKIP_DIRS = new Set(['node_modules', 'vendor', '.git', 'dist', 'bui
 // Rutas siempre con "/": van al reporte, al cuerpo del PR y al inventario.
 export const toPosix = (p) => p.split(path.sep).join('/');
 
-// Tests, mocks, fixtures y ejemplos: un PR que solo toca eso no le sirve al mantenedor, y la detección
-// por texto en esos archivos es ruido (frente B, 16/10). También en los lenguajes de solo detección
+// Scripts sueltos para probar a mano (probar-arca.js, prueba.php, test-afip.js, ejemplo-factura.js): no son el
+// código que corre. Un PR que solo toca eso se lee como ruido aunque el cuerpo lo diga (Elitali1/proyectoPaginaWeb,
+// PR #16, cerrado por el mantenedor el 5/11: "El sistema ya informa CondicionIVAReceptorId según el receptor").
+// Va por el nombre del archivo, sin la extensión: "probar", "probando", "prueba(s)", "testear" y "ejemplo(s)", solos o
+// seguidos de - _ o .; "test", "demo", "scratch" y "playground", solo con guion. Así "test_data.js", "testimonios.js",
+// "contest.js" y "demo.js" siguen siendo código.
+const PROBE_STEM = /^(probar|probando|prueba|pruebas|testear|ejemplo|ejemplos)([-_.].*)?$|^(test|demo|scratch|playground)-.+$/i;
+export function isProbeScript(file) {
+  return PROBE_STEM.test(file.split('/').pop().replace(/\.[^.]+$/, ''));
+}
+
+// Tests, mocks, fixtures, ejemplos y scripts de prueba: un PR que solo toca eso no le sirve al mantenedor, y la
+// detección por texto en esos archivos es ruido (frente B, 16/10). También en los lenguajes de solo detección
 // (x_test.go, test_x.py, XTests.cs, proyecto.Tests/) y los helpers de tests (x.test.helpers.ts, frente B, punto 24).
 export function isTestFile(file) {
   return /(^|\/)(__tests__|__mocks__|tests?|specs?|mocks?|fixtures?|examples?)\//i.test(file)
     || /(^|\/)[^/]*\.tests?\//i.test(file)
     || /\.(test|spec|mock)(\.[\w-]+)*\.[cm]?[jt]sx?$/i.test(file)
     || /Tests?\.(php|cs|java|vb)$/.test(file)
-    || /_test\.(go|py)$/.test(file) || /(^|\/)test_[^/]*\.py$/.test(file);
+    || /_test\.(go|py)$/.test(file) || /(^|\/)test_[^/]*\.py$/.test(file)
+    || isProbeScript(file);
 }
 
 // Copias de respaldo: no es el código que corre. Un PR sobre BAK/ o sobre "factura copy.php" no le sirve al

@@ -2,6 +2,13 @@
 
 Los cambios de cada versión de `parche-cli` y de la Action `Pepo08/parche@v0`. En npm están la 0.1.1, la 0.5.1, de la 0.6.0 a la 0.7.0, la 0.7.2, la 0.7.3, de la 0.7.5 a la 0.8.0 y de la 0.8.5 en adelante. La 0.1.0 y de la 0.2.0 a la 0.5.0 no se publicaron en npm; lo que traían está incluido en la 0.5.1. La 0.7.1 y la 0.7.4 tampoco: salieron junto con la 0.7.2 y la 0.7.5. De la 0.8.1 a la 0.8.4, tampoco: salieron juntas con la 0.8.5. La fecha de cada versión es la del cambio; la de publicación figura en npm y en los [Releases](https://github.com/Pepo08/parche/releases).
 
+## 0.8.6 — 2026-11-07
+
+Un script para probar a mano ya no genera un PR: cuenta como un test.
+
+### Corregido
+- **`pr` ya no abre un PR que solo toca un script de prueba.** Un archivo como `probar-arca.js`, `prueba.php`, `test-afip.js` o `ejemplo-factura.js` se usa para probar a mano y no es el código que corre. Un PR que cambiaba solo eso se leía como ruido aunque el cuerpo dijera que el servicio ya mandaba el campo: un mantenedor lo cerró así ("El sistema ya informa CondicionIVAReceptorId según el receptor"). Ahora estos archivos se tratan como los tests: el hallazgo sigue en el scan, y si no hay otro cambio, el texto queda como issue en `.parche/`. Se reconocen por el nombre: "probar", "probando", "prueba(s)", "testear" y "ejemplo(s)", solos o con algo después de `-`, `_` o `.`, y "test-", "demo-", "scratch-" y "playground-". `test_data.js`, `testimonios.js`, `contest.js` y `demo.js` siguen siendo código.
+
 ## 0.8.5 — 2026-11-04
 
 `fix` y `pr` frenan con un flag que no conocen, antes de tocar nada. En npm, esta versión trae también todo lo de la 0.8.1 a la 0.8.4.

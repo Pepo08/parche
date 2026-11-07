@@ -132,7 +132,7 @@ test('punto 20: rutas largas en Windows, --author y el aviso de email público',
 test('punto 20 (pendiente de 0.5.0): si solo cambiarían tests, el texto queda como issue, sin "Modifica 1 archivo"', () => {
   const { root, env, cleanup } = repo({ 'test/mock-client.test.ts': PARTIAL.replace('docTipo', '99').replace('(afip, 99)', '(afip, docTipo)') });
   const out = execFileSync('node', [BIN, 'pr', root, '--pack', pack.id, '--dry-run'], { encoding: 'utf8', env });
-  assert.match(out, /Solo cambiaría tests o mocks/);
+  assert.match(out, /Solo cambiaría tests, mocks o scripts de prueba/);
   const body = fs.readFileSync(path.join(root, '.parche', `pr-${pack.id}.md`), 'utf8');
   assert.match(body, /### Qué encontró Parche/);
   assert.doesNotMatch(body, /Modifica \d+ archivo|### Qué hace este PR|### Verificación/);

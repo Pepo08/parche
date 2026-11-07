@@ -135,13 +135,13 @@ test('punto 27: un issue no lista como automático lo que caería en un test', (
   const body = prBody({ pack, findings: [NEEDS, AUTO_TEST], changed: [], verification: null });
   assert.match(body, /No hay un arreglo automático seguro/);
   assert.doesNotMatch(body, /✅ automático/, 'ni en la lista ni en el resumen del pie');
-  assert.match(body, /En tests o mocks \(Parche no los toca\): `src\/lib\/mock-client\.test\.ts:60`\./);
+  assert.match(body, /En tests, mocks o scripts de prueba \(Parche no los toca\): `src\/lib\/mock-client\.test\.ts:60`\./);
   assert.match(body, /`src\/factura\.js:8`/);
 });
 
 test('punto 27: si solo aparece en un test, el issue lo dice y no pide nada', () => {
   const body = prBody({ pack, findings: [AUTO_TEST], changed: [], verification: null });
-  assert.match(body, /Solo aparece en tests o mocks/);
+  assert.match(body, /Solo aparece en tests, mocks o scripts de prueba/);
   assert.doesNotMatch(body, /No hay un arreglo automático seguro/);
   assert.doesNotMatch(body, /✅ automático/);
 });
@@ -180,14 +180,16 @@ test('punto 28: un PR en un repo que ya usa el campo dice dónde y qué cubre', 
 });
 
 test('punto 28: de punta a punta, con `pr --dry-run`', () => {
+  // El archivo sin el campo es código (src/caja.js). Si fuera un script de prueba (probar.js), no habría PR: punto 34,
+  // en scripts-de-prueba.test.js.
   const { root, env, cleanup } = gitRepo({
     'src/services/arca.js': 'export const a = (x, n) => x.electronicBillingService.createVoucher({ DocTipo: 80, DocNro: n, CondicionIVAReceptorId: 1 });\n',
-    'probar.js': 'export const b = (x) => x.electronicBillingService.createVoucher({ CbteTipo: 6, DocTipo: 99, DocNro: 0 });\n',
+    'src/caja.js': 'export const b = (x) => x.electronicBillingService.createVoucher({ CbteTipo: 6, DocTipo: 99, DocNro: 0 });\n',
   });
   execFileSync('node', [BIN, 'pr', root, '--dry-run', '--pack', pack.id], { encoding: 'utf8', env });
   const body = fs.readFileSync(path.join(root, '.parche', `pr-${pack.id}.md`), 'utf8');
   assert.match(body, /El repo ya usa `CondicionIVAReceptorId` en `src\/services\/arca\.js`/);
-  assert.match(body, /Cubre lo que todavía no lo lleva: `probar\.js`/);
+  assert.match(body, /Cubre lo que todavía no lo lleva: `src\/caja\.js`/);
   cleanup();
 });
 

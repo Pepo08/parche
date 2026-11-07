@@ -406,12 +406,13 @@ test('sin nada para arreglar no se abre un PR: queda como issue, y la Action lo 
 });
 
 test('al lado de un arreglo: el PR lo cuenta aparte, no pasa a borrador y no lo marca como cubierto', () => {
-  const { root, env, cleanup } = gitRepo({ 'src/s.js': SERVICE, 'probar.js': SCRIPT });
+  // El archivo sin el campo es código (src/caja.js): un script de prueba no abre PR (punto 34).
+  const { root, env, cleanup } = gitRepo({ 'src/s.js': SERVICE, 'src/caja.js': SCRIPT });
   const summaryFile = path.join(root, '..', `${path.basename(root)}.md`);
   const out = execFileSync('node', [BIN, 'pr', root, '--dry-run', '--pack', pack.id], { encoding: 'utf8', env: { ...env, GITHUB_ACTIONS: 'true', GITHUB_STEP_SUMMARY: summaryFile } });
   assert.doesNotMatch(out, /iría como borrador/);
   const body = fs.readFileSync(path.join(root, '.parche', `pr-${pack.id}.md`), 'utf8');
-  assert.match(body, /Modifica 1 archivo\(s\): `probar\.js`/);
+  assert.match(body, /Modifica 1 archivo\(s\): `src\/caja\.js`/);
   assert.match(body, /El repo ya usa `CondicionIVAReceptorId` en `src\/s\.js`/);
   assert.match(body, /### Condición frente al IVA para revisar/);
   assert.match(body, /🔎 detectado `src\/s\.js:3`/);
