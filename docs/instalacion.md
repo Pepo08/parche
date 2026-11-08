@@ -35,7 +35,7 @@ Qué hace cada parte:
 | "Instalar dependencias de Node" y "de PHP" | `npm ci` si hay `package-lock.json` y `composer install` si hay `composer.json`, para que corran tus tests antes de cada PR | Si tu proyecto necesita otros pasos para instalarse (un registro privado, otra versión de PHP), agregalos acá, igual que en tu CI |
 | `uses: Pepo08/parche@v0` | Corre Parche. `@v0` toma solo cada versión 0.x nueva, con los packs nuevos | Para fijar una versión, usá el commit de ese release: `Pepo08/parche@<sha> # v0.7.6` ([Releases](https://github.com/Pepo08/parche/releases)) |
 
-Las opciones de la Action (`verify`, `pack`, `dry-run`, `token`, `snapshot` y `snapshot-name`) están en la [tabla del README](../README.md#github-action-quick-start).
+Las opciones de la Action (`verify`, `pack`, `dry-run`, `token`, `snapshot`, `snapshot-name` y `summary`) están en la [tabla del README](../README.md#github-action-quick-start).
 
 ## 4. Los permisos
 
